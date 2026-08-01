@@ -16,7 +16,19 @@
       "Bash(curl -sL https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css -o vendor/MarkerCluster.Default.css)",
       "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"chore: esbuild build, vitest, self-hosted leaflet\")",
       "Bash(npm test *)",
-      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: pure lib modules \\(deep links, species inference, habitat proxy, resilient fetch, discovery, terrain, scoring\\); warmwater species; footer copy\")"
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: pure lib modules \\(deep links, species inference, habitat proxy, resilient fetch, discovery, terrain, scoring\\); warmwater species; footer copy\")",
+      "Bash(grep -n 'const \\\\[newsUrl,setNewsUrl\\\\]\\\\|const \\\\[sortBy,setSortBy\\\\]\\\\|const requestLocation=useCallback\\\\|const ranked=useMemo\\\\|{locStatus===\"locating\"?\\\\|Nearest water:' source-app.jsx)",
+      "Bash(node /tmp/claude-501/-Users-faheemafridi-river-intel-pwa/0045a1e0-2e4b-4a69-837a-ed503c9e9c35/scratchpad/smoke.mjs)",
+      "Read(//private/tmp/**)",
+      "Bash(curl -s -o q1.json -w 'HTTP %{http_code}\\\\n' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode data=__TRACKED_VAR__ https://overpass-api.de/api/interpreter)",
+      "Bash(npx vitest *)",
+      "Bash(node /tmp/claude-501/-Users-faheemafridi-river-intel-pwa/0045a1e0-2e4b-4a69-837a-ed503c9e9c35/scratchpad/smoke2.mjs)",
+      "Bash(node -e 'import\\(\"/Users/faheemafridi/river-intel-pwa/lib/discovery.js\"\\).then\\(m=>console.log\\(m.buildOverpassQuery\\(43.78,-80.00,12000\\)\\)\\)')",
+      "Bash(curl -s -o qs.json -w 'HTTP %{http_code}\\\\n' -X POST -H 'Content-Type: application/x-www-form-urlencoded' --data-urlencode data=__TRACKED_VAR__ https://overpass-api.de/api/interpreter)",
+      "Bash(curl -s -o qf.json -w \"HTTP %{http_code}\\\\n\" -X POST -H \"Content-Type: application/x-www-form-urlencoded\" --data-urlencode \"data=$\\(cat qgen.txt\\)\" \"https://overpass-api.de/api/interpreter\")",
+      "Bash(cp /tmp/qf.json /tmp/qf.json)",
+      "Bash(node /tmp/claude-501/-Users-faheemafridi-river-intel-pwa/0045a1e0-2e4b-4a69-837a-ed503c9e9c35/scratchpad/smoke3.mjs)",
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: discover, score, weather-enrich and merge nearby spots into ranked list + map\")"
     ]
   }
 }

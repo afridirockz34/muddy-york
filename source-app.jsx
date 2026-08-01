@@ -1,5 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
+import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm } from "./lib/discovery.js";
+import { elevations } from "./lib/terrain.js";
+import { inferSpecies } from "./lib/species-inference.js";
+import { deriveHabitat } from "./lib/habitat-proxy.js";
+import { fetchWithFallback } from "./lib/http.js";
+import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
 
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
@@ -331,6 +337,45 @@ async function fetchDriveRoute(from,to){
     const rt=d.routes&&d.routes[0]; if(!rt) return null;
     return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(1), durMin:Math.round(rt.duration/60) };
   }catch(e){ return null; }
+}
+
+/* --------- dynamic spot discovery: OSM water -> curated-shaped secs -------- */
+const OVERPASS_HOSTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
+function sectionLabel(s){ return s.kind==="slipway"?"Boat launch":s.kind==="access"?"Fishing access":s.isTailwater?"Tailwater reach":"River reach"; }
+function waterLabel(s){ return s.waterType==="lake"?"Lake / launch":s.waterType==="stream"?"Named stream":"Named river"; }
+function discoveredNote(s, t){ return `Auto-discovered from OpenStreetMap${t.isTailwater?" below a dam (likely cold tailwater)":""}. Habitat and species are estimated from terrain — confirm access, regulations and seasons before fishing.`; }
+
+async function discoverSecs(loc, radiusM){
+  const key=`disco:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`;
+  try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return {list:c.list, wxUrl:c.wxUrl||null}; }catch(e){}
+  const body="data="+encodeURIComponent(buildOverpassQuery(loc.lat,loc.lon,radiusM));
+  let json;
+  try{
+    const res=await fetchWithFallback(OVERPASS_HOSTS,
+      {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body},
+      {retries:1});
+    json=await res.json();
+  }catch(e){ return null; }
+  const spots=parseOverpassSpots(json,loc);
+  const elev=await elevations(spots.map(s=>({lat:s.lat,lon:s.lon})));
+  const list=spots.map((s,i)=>{
+    const traits={waterType:s.waterType, elevationM:elev[i],
+      nearGreatLakeKm:nearGreatLakeKm(s.lat,s.lon), isTailwater:s.isTailwater};
+    const species=inferSpecies(traits);
+    const h=deriveHabitat(traits);
+    return { id:"auto-"+s.id, river:s.name, section:sectionLabel(s), region:"Discovered",
+      zone:"Check regs", water:waterLabel(s), species, lat:s.lat, lon:s.lon, h,
+      history:55, report:0, reportAge:24, conf:60, note:discoveredNote(s,traits), source:"auto" };
+  });
+  const wxUrl="https://api.open-meteo.com/v1/forecast?latitude="+
+    list.map(s=>s.lat).join(",")+"&longitude="+list.map(s=>s.lon).join(",")+
+    "&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl,cloud_cover"+
+    "&hourly=pressure_msl&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset&past_days=5&forecast_days=3&timezone=America%2FToronto";
+  try{ await dbSet(key,{ts:Date.now(),list,wxUrl}); }catch(e){}
+  return { list, wxUrl };
 }
 
 /* ============================== UI HELPERS ================================= */
@@ -790,6 +835,9 @@ export default function App(){
   const [visits,setVisits]=useState([]); // logbook entries
   const [newsUrl,setNewsUrl]=useState("");
   const [sortBy,setSortBy]=useState("overall");     // overall|distance
+  const [discovered,setDiscovered]=useState([]);    // sec-shaped auto spots
+  const [discoStatus,setDiscoStatus]=useState("idle"); // idle|loading|done|error
+  const [radiusM,setRadiusM]=useState(30000);
   const liveRef=useRef();
 
   const maybeLog=useCallback(async(map)=>{
@@ -841,6 +889,22 @@ export default function App(){
       {enableHighAccuracy:false,timeout:10000,maximumAge:600000});
   },[fetchUserWx]);
 
+  const discoverNearby=useCallback(async(r)=>{
+    if(!userLoc){ requestLocation(); return; }
+    setDiscoStatus("loading");
+    const out=await discoverSecs(userLoc, r||radiusM);
+    if(out==null){ setDiscoStatus("error"); return; }
+    setDiscovered(out.list);
+    if(out.wxUrl){
+      try{ const res=await fetch(out.wxUrl); if(res.ok){ const data=await res.json();
+        const arr=Array.isArray(data)?data:[data]; const add={};
+        out.list.forEach((s,i)=>{ const p=arr[i]?parseStation(arr[i]):null; if(p) add[s.id]=p; });
+        setWx(prev=>({...prev,...add}));
+      } }catch(e){}
+    }
+    setDiscoStatus("done");
+  },[userLoc,radiusM,requestLocation]);
+
   useEffect(()=>{
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
     (async()=>{
@@ -891,8 +955,12 @@ export default function App(){
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
     return best; },[userLoc]);
 
-  const ranked=useMemo(()=>RIVERS.map(s=>evaluate(s,month,condFor(s),now)).sort((a,b)=>b.opportunity-a.opportunity),
-    [month,now,condFor]);
+  const ranked=useMemo(()=>{
+    const curated=RIVERS.map(s=>({...evaluate(s,month,condFor(s),now),source:"verified"}));
+    const auto=discovered.map(s=>{ const ev=evaluate(s,month,condFor(s),now);
+      return {...ev,source:"auto",confidence:applySourcePenalty(ev.confidence,"auto")}; });
+    return [...curated,...auto].sort((a,b)=>b.opportunity-a.opportunity);
+  },[month,now,condFor,discovered]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   const top3=ranked.slice(0,3), honourable=ranked.slice(3,6);
   const warmAny=ranked.some(r=>r.warmStress);
@@ -976,7 +1044,11 @@ export default function App(){
           {!manual && (
             <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <button onClick={requestLocation} style={{...btn,borderColor:userLoc?C.cyan:C.line,color:userLoc?C.cyan:C.textDim}}>
-                {locStatus==="locating"?"Casting about…":userLoc?"◉ Located":"Find water near me"}</button>
+                {locStatus==="locating"?"Casting about…":userLoc?"◉ Located":"Use my location"}</button>
+              {userLoc && <button onClick={()=>discoverNearby(radiusM)} style={{...btn,borderColor:C.brass,color:C.pine}}>
+                {discoStatus==="loading"?"Scouting…":discovered.length?`◎ ${discovered.length} spots found`:"Find water near me"}</button>}
+              {userLoc && discovered.length>0 && <button onClick={()=>{const nr=Math.min(radiusM+40000,150000);setRadiusM(nr);discoverNearby(nr);}} style={{...btn,borderColor:C.line,color:C.textDim}}>Widen search</button>}
+              {discoStatus==="error" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Couldn't scout new water just now — try again shortly.</span>}
               {userLoc && userWx && <span style={{fontFamily:mono,fontSize:11,color:C.textDim}}>
                 At your spot: <b style={{color:C.text}}>{Math.round(userWx.air)}°C</b>{WX_CODE(userWx.code)?` · ${WX_CODE(userWx.code)}`:""}{userWx.precip>0?" · rain now":""}</span>}
               {locStatus==="denied" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Our line got snagged — location is blocked. Turn it on in Settings ▸ Safari ▸ Location.</span>}
@@ -1198,6 +1270,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave}){
           <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</span>
         </div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
+        <div style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:ev.source==="auto"?C.textDim:C.pine,marginTop:4}}>{sourceBadge(ev.source)}</div>
         <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
           <Pill k={ev.target}/>{sec.species.filter(k=>k!==ev.target).slice(0,2).map(k=><Pill key={k} k={k} dim/>)}
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
