@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Muddy York Angling Co.</title>
+  <meta name="description" content="Heritage trout & salmon river report for Southern Ontario — Muddy York Angling Co." />
+
+  <meta name="theme-color" content="#2C4C3B" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Muddy York" />
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+
+  <!-- Interactive map (online feature) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <style>
+    html,body{margin:0;padding:0;background:#F4EFE6;}
+    #root{min-height:100vh;}
+    .boot{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#2C4C3B;
+      color:#EFE9DB;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:16px;padding:24px;text-align:center;}
+    noscript{display:block;padding:40px;color:#2A2A2A;font-family:Helvetica,Arial,sans-serif;text-align:center;}
+  </style>
+</head>
+<body>
+  <div id="root"><div class="boot">Sorting the tackle box…</div></div>
+  <noscript>This app needs JavaScript enabled.</noscript>
+  <script src="./app.js" defer></script>
+</body>
+</html>

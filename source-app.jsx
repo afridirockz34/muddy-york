@@ -1,0 +1,1296 @@
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { createRoot } from "react-dom/client";
+
+/* =============================================================================
+   ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
+   Coverage: rivers within ~2 hrs driving of Jarvis St & College St, Toronto
+
+   DATA  /  ENGINE  /  LIVE LAYER  /  UI  are kept separate.
+
+   LIVE LAYER (what's actually fetched vs modeled):
+     • Air temp + rainfall : LIVE per-river from Open-Meteo (free, keyless, CORS-ok)
+     • Current time/season  : LIVE from device, recomputed on a timer
+     • Water temperature    : MODELED from live multi-day air temp damped by each
+                              section's cold-water retention (no public real-time
+                              temp gauge exists for these reaches)
+     • Flow / clarity       : ESTIMATED from recent live rainfall (true Water
+                              Survey of Canada gauge data needs a backend proxy —
+                              browsers block it via CORS)
+   Auto-refreshes weather every 30 min and the clock every minute. Falls back to
+   a seasonal climate model if the network is unavailable.
+   ============================================================================= */
+
+/* ------------------------------- PALETTE ---------------------------------- */
+/* ------- PALETTE — Muddy York Angling Co. (heritage / Canvas Bone) -------- */
+const C = {
+  ink:"#F4EFE6",   ink2:"#2C4C3B",  panel:"#FBF8F0", panelHi:"#F1E8D6",
+  line:"#D8CBB3",  lineSoft:"#E5DAC4", text:"#2A2A2A", textDim:"#6E6253",
+  textFaint:"#9C8E78",
+  // signal tokens keep their roles: good=Pine, medium=Brass, low=Brick
+  cyan:"#2C4C3B",  cyanDeep:"#1F3A2C", amber:"#D4AF37", amberDeep:"#A8862A",
+  red:"#8B3A3A",   white:"#22311F",
+  // explicit brand tokens
+  pine:"#2C4C3B",  brick:"#8B3A3A", brass:"#D4AF37", bone:"#F4EFE6", iron:"#2A2A2A",
+  brickDeep:"#6F2E2E", headText:"#EFE9DB", headDim:"#AEBCA8", headFaint:"#7C8E78",
+};
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const CLIMO  = [-5,-4,1,8,15,20,23,22,17,10,4,-2]; // S. Ontario monthly mean air °C (fallback)
+
+/* --------------------------- ON-DEVICE STORAGE ---------------------------- */
+/* Stores the seed database, last weather pull, saved location and an analysis
+   log in the device's own IndexedDB. Everything stays local to the phone. */
+const DB_NAME="river-intel-db", STORE="kv";
+function openDB(){ return new Promise((res,rej)=>{ try{ const r=indexedDB.open(DB_NAME,1);
+  r.onupgradeneeded=()=>r.result.createObjectStore(STORE);
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); } }); }
+async function dbGet(k){ try{ const db=await openDB(); return await new Promise((res,rej)=>{
+  const q=db.transaction(STORE,"readonly").objectStore(STORE).get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }catch(e){ return undefined; } }
+async function dbSet(k,v){ try{ const db=await openDB(); return await new Promise((res,rej)=>{
+  const q=db.transaction(STORE,"readwrite").objectStore(STORE).put(v,k); q.onsuccess=()=>res(true); q.onerror=()=>rej(q.error); }); }catch(e){ return false; } }
+function haversineKm(a,b,c,d){ const R=6371,toR=x=>x*Math.PI/180; const dLa=toR(c-a),dLo=toR(d-b);
+  const s=Math.sin(dLa/2)**2+Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLo/2)**2;
+  return Math.round(R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s))); }
+
+/* ------------------------------- SPECIES ---------------------------------- */
+const SPECIES = {
+  STL:{name:"Steelhead",short:"STL",mode:"run",color:C.cyan,
+    a:[0.50,0.55,0.85,1.00,0.55,0.10,0.05,0.05,0.35,0.70,0.85,0.60]},
+  CHN:{name:"Chinook salmon",short:"CHN",mode:"run",color:C.amber,
+    a:[0.00,0.00,0.00,0.00,0.00,0.00,0.05,0.55,1.00,0.70,0.15,0.00]},
+  COH:{name:"Coho salmon",short:"COH",mode:"run",color:C.amber,
+    a:[0.00,0.00,0.00,0.00,0.00,0.00,0.00,0.10,0.30,0.90,0.70,0.10]},
+  BNTr:{name:"Brown trout (lake-run)",short:"BNT-run",mode:"run",color:C.amber,
+    a:[0.15,0.15,0.20,0.25,0.15,0.05,0.05,0.10,0.40,0.90,0.80,0.30]},
+  BNT:{name:"Brown trout (resident)",short:"BNT",mode:"resident",color:C.amber,
+    a:[0.40,0.40,0.60,0.80,0.90,0.85,0.70,0.65,0.85,0.90,0.60,0.45]},
+  RBT:{name:"Rainbow trout (resident)",short:"RBT",mode:"resident",color:C.cyan,
+    a:[0.30,0.30,0.55,0.80,0.85,0.75,0.60,0.55,0.80,0.85,0.55,0.35]},
+  BKT:{name:"Brook trout",short:"BKT",mode:"resident",color:C.cyan,
+    a:[0.10,0.10,0.10,0.70,0.95,0.90,0.75,0.70,0.85,0.15,0.10,0.10]},
+  ATS:{name:"Atlantic salmon (restoration)",short:"ATS",mode:"run",color:C.cyan,
+    a:[0.05,0.05,0.05,0.05,0.20,0.40,0.50,0.55,0.60,0.40,0.10,0.05]},
+  LAT:{name:"Lake trout",short:"LAT",mode:"resident",color:C.cyan,
+    a:[0.70,0.65,0.70,0.60,0.30,0.15,0.10,0.10,0.25,0.55,0.75,0.75]},
+};
+
+/* ------------------------------ DATA LAYER -------------------------------- */
+/* lat/lon = representative point used for the live weather query             */
+const RIVERS = [
+  { id:"grand-tw", river:"Grand River", section:"Tailwater — Shand Dam to West Montrose",
+    region:"Grand / inland tailwater", zone:"FMZ 16", water:"Bottom-draw tailwater",
+    species:["BNT","RBT"], lat:43.71, lon:-80.37,
+    h:{hold:88,struct:80,spawn:70,cold:95,ox:86,gw:60}, history:90, report:80, reportAge:2, conf:88,
+    note:"Cold bottom-draw release from Belwood keeps this reach trout-cold through summer. Ontario's premier resident brown-trout water and effectively a year-round fishery." },
+  { id:"grand-lower", river:"Grand River", section:"Lower — Caledonia to Lake Erie (Dunnville)",
+    region:"Lake Erie tributary", zone:"FMZ 16", water:"Large warm-tempered river",
+    species:["STL","BNTr"], lat:43.00, lon:-79.95,
+    h:{hold:80,struct:74,spawn:66,cold:40,ox:74,gw:35}, history:78, report:70, reportAge:3, conf:78,
+    note:"Lake Erie steelhead push in fall and again early spring. Warms hard in summer — a cold-season fishery only." },
+  { id:"credit-lower", river:"Credit River", section:"Lower — mouth to Streetsville",
+    region:"Lake Ontario tributary", zone:"FMZ 16", water:"Mid-size tributary",
+    species:["STL","CHN","BNTr","ATS"], lat:43.58, lon:-79.71,
+    h:{hold:76,struct:72,spawn:72,cold:46,ox:76,gw:45}, history:84, report:82, reportAge:1, conf:84,
+    note:"Heavy chinook run late Aug–Sep, strong spring steelhead, and an active Atlantic-salmon restoration. Lower reach warms and thins out in mid-summer." },
+  { id:"credit-upper", river:"Credit River", section:"Upper — Forks of the Credit / Belfountain",
+    region:"Inland cold-water", zone:"FMZ 16", water:"Forested freestone + spring input",
+    species:["BKT","BNT"], lat:43.78, lon:-80.00,
+    h:{hold:70,struct:80,spawn:80,cold:80,ox:86,gw:75}, history:74, report:55, reportAge:4, conf:78,
+    note:"Shaded, spring-influenced headwaters holding wild brook and brown trout. A genuine summer cold-water option while the lower river sleeps." },
+  { id:"ganaraska", river:"Ganaraska River", section:"Lower — Port Hope below the fishway",
+    region:"Lake Ontario tributary", zone:"FMZ 17", water:"Classic steelhead tributary",
+    species:["STL","CHN"], lat:43.95, lon:-78.29,
+    h:{hold:80,struct:70,spawn:86,cold:50,ox:78,gw:50}, history:92, report:85, reportAge:1, conf:86,
+    note:"One of Ontario's great steelhead factories — exceptional spring and late-fall runs. Migratory-driven, so out of season it goes quiet." },
+  { id:"notty-main", river:"Nottawasaga River", section:"Main stem — Angus to Wasaga",
+    region:"Georgian Bay tributary", zone:"FMZ 16 / mouth 14", water:"Large tributary, soft bottom",
+    species:["STL","CHN"], lat:44.32, lon:-79.88,
+    h:{hold:78,struct:70,spawn:72,cold:42,ox:72,gw:40}, history:86, report:78, reportAge:2, conf:82,
+    note:"Big spring steelhead push and a notable fall chinook run. Lower-gradient and warm in summer." },
+  { id:"notty-tribs", river:"Nottawasaga tributaries", section:"Mad / Boyne / Pine Rivers (cold tribs)",
+    region:"Inland cold-water", zone:"FMZ 16", water:"Spring-fed cold creeks",
+    species:["BKT","BNT"], lat:44.32, lon:-80.10,
+    h:{hold:68,struct:82,spawn:84,cold:86,ox:88,gw:82}, history:76, report:48, reportAge:6, conf:74,
+    note:"Spring-fed feeders that stay cold through July. Strong wild brook-trout habitat that almost never appears in public spot reports." },
+  { id:"beaver-lower", river:"Beaver River", section:"Lower — Thornbury below the dam/fishway",
+    region:"Georgian Bay tributary", zone:"FMZ 14", water:"Tributary with fishway",
+    species:["STL","CHN"], lat:44.56, lon:-80.45,
+    h:{hold:82,struct:78,spawn:76,cold:60,ox:80,gw:55}, history:85, report:72, reportAge:3, conf:80,
+    note:"Famous Georgian Bay steelhead water with a concentrated run at the Thornbury fishway. Spring and fall are the windows." },
+  { id:"twelve-mile", river:"Twelve Mile Creek", section:"St. Catharines / Short Hills cold reach",
+    region:"Niagara / inland", zone:"FMZ 17 — check exceptions", water:"Spring-fed wild trout stream",
+    species:["BNT","RBT"], lat:43.13, lon:-79.25,
+    h:{hold:78,struct:82,spawn:78,cold:92,ox:88,gw:90}, history:80, report:50, reportAge:5, conf:76,
+    note:"One of the region's few self-sustaining wild brown-trout streams — cold, spring-fed, holds through summer. Heavily protected; sections carry special regulations and sanctuary closures." },
+  { id:"bronte", river:"Bronte Creek", section:"Lower — Oakville to the lake",
+    region:"Lake Ontario tributary", zone:"FMZ 16", water:"Small-mid tributary",
+    species:["STL","CHN","BNTr"], lat:43.39, lon:-79.71,
+    h:{hold:72,struct:72,spawn:74,cold:48,ox:74,gw:45}, history:78, report:74, reportAge:2, conf:80,
+    note:"Reliable fall chinook and brown run plus spring steelhead. Low summer flows; cold-season fishery." },
+  { id:"sixteen", river:"Sixteen Mile Creek", section:"Lower — Oakville to the lake",
+    region:"Lake Ontario tributary", zone:"FMZ 16", water:"Small-mid tributary",
+    species:["STL","CHN","BNTr"], lat:43.45, lon:-79.70,
+    h:{hold:72,struct:70,spawn:72,cold:46,ox:72,gw:42}, history:76, report:72, reportAge:2, conf:78,
+    note:"Sister system to Bronte with a similar fall salmon / spring steelhead rhythm." },
+  { id:"duffins", river:"Duffins Creek", section:"Lower — Ajax / Pickering",
+    region:"Lake Ontario tributary", zone:"FMZ 17", water:"Small-mid tributary",
+    species:["STL","CHN","ATS"], lat:43.85, lon:-79.04,
+    h:{hold:74,struct:72,spawn:76,cold:50,ox:76,gw:48}, history:80, report:76, reportAge:1, conf:80,
+    note:"Strong, accessible run-fishery and an Atlantic-salmon restoration stream. Spring and fall carry it." },
+  { id:"wilmot", river:"Wilmot Creek", section:"Lower — Newcastle",
+    region:"Lake Ontario tributary", zone:"FMZ 17", water:"Small cold-leaning tributary",
+    species:["STL","CHN","ATS","BNTr"], lat:43.91, lon:-78.59,
+    h:{hold:74,struct:74,spawn:80,cold:58,ox:80,gw:60}, history:82, report:68, reportAge:3, conf:80,
+    note:"Historic native Atlantic-salmon stream and a key restoration site, with quality steelhead and salmon runs. Holds cold better than most lakeshore creeks." },
+  { id:"niagara-lower", river:"Niagara River", section:"Lower — Whirlpool / Devil's Hole drifts",
+    region:"Niagara", zone:"FMZ 17", water:"Massive cold tailrace from Lake Erie",
+    species:["STL","BNT","LAT"], lat:43.15, lon:-79.05,
+    h:{hold:90,struct:86,spawn:58,cold:70,ox:90,gw:40}, history:88, report:80, reportAge:1, conf:84,
+    note:"Enormous, oxygen-rich cold river holding steelhead, big browns and lake trout. Peaks late fall through spring; deep and fishable but slower in high summer." },
+];
+
+const W = { habitat:0.25, seasonal:0.20, current:0.20, history:0.15, report:0.10, water:0.10 };
+
+/* ============================ ENGINE (pure) ================================ */
+function seasonOf(m){ if(m<=1||m===11) return "Winter"; if(m<=4) return "Spring"; if(m<=7) return "Summer"; return "Fall"; }
+function habitatComposite(h){ return Math.round(0.26*h.cold+0.22*h.hold+0.16*h.struct+0.14*h.ox+0.12*h.spawn+0.10*h.gw); }
+function bestSpecies(sec,m){ let best=null,val=-1; sec.species.forEach(k=>{const v=SPECIES[k].a[m]; if(v>val){val=v;best=k;}}); return {key:best,activity:val}; }
+function seasonalComponent(sec,m){ return Math.round(100*bestSpecies(sec,m).activity); }
+
+/* water-temperature model: live multi-day air mean, damped toward a
+   groundwater base by the reach's cold-water retention */
+function modelStreamTemp(sec, airMean){
+  const cold = sec.h.cold;
+  const gwBase = 8 + (1 - cold/100)*4.5;     // 8.0 (very cold) .. 12.5 (warm)
+  const track  = 0.34 + 0.56*(1 - cold/100); // 0.37 .. 0.79
+  const t = gwBase + track*(airMean - gwBase);
+  return Math.max(2, Math.min(27, t));
+}
+function thermalFactor(t){
+  if(t<=15) return 1.0;
+  if(t<=18) return 1 - (t-15)*0.10;
+  if(t<=21) return 0.70 - (t-18)*0.16;
+  return Math.max(0.08, 0.22 - (t-21)*0.05);
+}
+function flowFit(flow,mode){
+  const tb={ "Low / clear":{resident:0.85,run:0.55}, "Normal":{resident:1.00,run:0.85},
+    "High / stained":{resident:0.70,run:1.00}, "Blown out":{resident:0.25,run:0.30} };
+  return tb[flow][mode];
+}
+function freshnessFactor(days,mode){ if(mode!=="run") return 1; if(days<=1) return 0.7; if(days<=4) return 1.0; if(days<=8) return 0.8; return 0.55; }
+function waterComponent(flow){ return ({ "Low / clear":68,"Normal":90,"High / stained":80,"Blown out":24 })[flow]; }
+function reportComponent(sec){ return Math.round(sec.report*Math.max(0.35,1-sec.reportAge/24)); }
+function confidence(sec,live){ const recency=Math.max(0.6,1-sec.reportAge/30); return Math.round(sec.conf*recency*(live?1:0.9)); }
+function overallRiverScore(sec){ const hab=habitatComposite(sec.h); let peak=0; for(let m=0;m<12;m++) peak=Math.max(peak,seasonalComponent(sec,m)); return Math.round(0.60*hab+0.25*sec.history+0.15*peak); }
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const clamp100=v=>clamp(v,0,100);
+
+function windFactor(w,g){ if(w==null) return 1; let f= w<12?1.0 : w<25?0.92 : w<40?0.70 : 0.45; if(g!=null&&g>45) f*=0.85; return clamp(f,0.4,1.0); }
+function pressureFactor(p,tr){ if(tr==null) return 1; const a=Math.abs(tr); if(a<1.5) return 1.0; if(tr<0) return tr>-4?1.08:0.95; return tr<4?0.90:0.80; }
+function cloudFactor(c,flow){ if(c==null) return 1; if(c>70) return 1.08; if(c<30) return flow==="Low / clear"?0.85:0.95; return 1.0; }
+function feedingWindow(now,sr,ss,season){
+  if(!sr||!ss){ const h=now.getHours(); if((h>=5&&h<8)||(h>=19&&h<22)) return 1.10; if(season==="Summer"&&h>=11&&h<16) return 0.80; return 0.95; }
+  const t=now.getTime(), R=new Date(sr).getTime(), S=new Date(ss).getTime(), W=75*60000;
+  if(Math.abs(t-R)<=W || Math.abs(t-S)<=W) return 1.12;          // dawn / dusk feeding window
+  if(t<R-W || t>S+W) return 0.55;                                 // night
+  const noon=(R+S)/2; if(Math.abs(t-noon)<=2*3600000) return 0.80;// midday lull
+  return 0.92;
+}
+function confidence2(sec,cond){
+  let c=confidence(sec,cond.live);
+  if(cond.live && cond.wind!=null && cond.pressure!=null && cond.sunrise) c=Math.min(98,c+5);
+  return c;
+}
+
+function evaluate(sec,m,cond,now){
+  const habitat=habitatComposite(sec.h);
+  const seasonal=seasonalComponent(sec,m);
+  const bs=bestSpecies(sec,m), key=bs.key, mode=SPECIES[key].mode;
+  const thermal=thermalFactor(cond.temp);
+  const flow=flowFit(cond.flow,mode);
+  const fresh=freshnessFactor(cond.days,mode);
+  const wind=windFactor(cond.wind,cond.gust);
+  const press=pressureFactor(cond.pressure,cond.pressureTrend);
+  const sky=cloudFactor(cond.cloud,cond.flow);
+  const feed=feedingWindow(now,cond.sunrise,cond.sunset,seasonOf(m));
+  const water=clamp100(100*thermal*flow*fresh);
+  const weather=clamp100(100*wind*press*sky);
+  const time=clamp100(100*feed);
+  const report=reportComponent(sec);
+  let opp = 0.20*habitat + 0.20*seasonal + 0.22*water + 0.18*weather + 0.08*time + 0.07*sec.history + 0.05*report;
+  const warmStress = cond.temp>=20;
+  if(warmStress) opp*=0.5;
+  opp=Math.round(clamp100(opp));
+  const detail={thermal,flow,fresh,wind,press,sky,feed,mode};
+  const parts={weather:Math.round(weather),water:Math.round(water),seasonal,time:Math.round(time),habitat};
+  return {
+    sec, cond, target:key, targetActivity:SPECIES[key].a[m],
+    opportunity:opp, overall:overallRiverScore(sec), confidence:confidence2(sec,cond),
+    warmStress, parts, detail,
+    explanation: explainScore(opp,cond,detail,seasonal,key,feed,warmStress),
+  };
+}
+
+function explainScore(opp,cond,detail,seasonal,key,feed,warmStress){
+  const q = opp>=80?"Excellent conditions":opp>=65?"A good window":opp>=50?"Fair — workable":opp>=35?"Tough going":"Poor — likely off";
+  const cl=[];
+  cl.push(({"Low / clear":"low, clear water","Normal":"moderate flow","High / stained":"high, stained flow","Blown out":"blown-out, dirty water"})[cond.flow]||"moderate flow");
+  const t=cond.temp;
+  cl.push(t>=20?`warm water (${t.toFixed(0)}°C)`:t<8?`cold water (${t.toFixed(0)}°C)`:t<=18?`water in the trout band (${t.toFixed(0)}°C)`:`mild water (${t.toFixed(0)}°C)`);
+  if(cond.pressureTrend!=null){ const pt=cond.pressureTrend; cl.push(Math.abs(pt)<1.5?"stable pressure":pt<0?"falling pressure":"rising pressure"); }
+  if(cond.cloud!=null) cl.push(cond.cloud>70?"overcast skies":cond.cloud<30?"bright skies":"broken cloud");
+  if(cond.wind!=null && cond.wind>=25) cl.push("strong wind");
+  if(feed>=1.08) cl.push("an active feeding window right now");
+  else if(feed<=0.85) cl.push("a midday lull");
+  if(seasonal>=75) cl.push(`${SPECIES[key].name.toLowerCase()} near their peak`);
+  else if(seasonal<=20) cl.push(`${SPECIES[key].name.toLowerCase()} well off-peak`);
+  let s=`Score: ${opp}/100. ${q}. `+cl.slice(0,4).join(", ")+".";
+  if(warmStress) s+=" Warm-water flag — consider resting the trout today.";
+  return s;
+}
+
+/* ============================== LIVE LAYER ================================= */
+function buildWeatherURL(){
+  const lats=RIVERS.map(r=>r.lat).join(",");
+  const lons=RIVERS.map(r=>r.lon).join(",");
+  return `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}`
+    +`&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl,cloud_cover`
+    +`&hourly=pressure_msl`
+    +`&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset`
+    +`&past_days=5&forecast_days=3&timezone=America%2FToronto`;
+}
+function deriveFlow(p48,days){ if(p48>=35) return "Blown out"; if(p48>=12) return "High / stained"; if(days>=6) return "Low / clear"; return "Normal"; }
+function parseStation(st){
+  const d=st.daily; if(!d||!d.time) return null;
+  const cur=st.current||{};
+  const times=d.time, todayStr=(cur.time||"").slice(0,10);
+  let ti=times.indexOf(todayStr); if(ti<0) ti=Math.min(5,times.length-1);
+  const mid=i=>((d.temperature_2m_max[i]+d.temperature_2m_min[i])/2);
+  let sum=0,n=0; for(let i=Math.max(0,ti-2);i<=ti;i++){ if(d.temperature_2m_max[i]!=null){sum+=mid(i);n++;} }
+  const airMean = n? sum/n : (cur.temperature_2m!=null? cur.temperature_2m : 15);
+  let days=null; for(let i=ti;i>=0;i--){ if((d.precipitation_sum[i]||0)>2){ days=ti-i; break; } }
+  if(days==null) days=ti+2;
+  const p48=(d.precipitation_sum[ti]||0)+(ti-1>=0?(d.precipitation_sum[ti-1]||0):0);
+  // pressure trend: now vs ~6h ago from hourly series
+  let pressureTrend=null;
+  const h=st.hourly;
+  if(h&&h.time&&h.pressure_msl){
+    const hk=(cur.time||"").slice(0,13);
+    let hi=h.time.findIndex(x=>x.slice(0,13)===hk);
+    if(hi<0) hi=h.time.length-1;
+    if(hi-6>=0 && h.pressure_msl[hi]!=null && h.pressure_msl[hi-6]!=null) pressureTrend=+(h.pressure_msl[hi]-h.pressure_msl[hi-6]).toFixed(1);
+  }
+  const forecast=[]; for(let i=ti+1;i<=ti+2 && i<times.length;i++) forecast.push({date:times[i],max:d.temperature_2m_max[i],precip:d.precipitation_sum[i]});
+  return {
+    airNow: cur.temperature_2m!=null?cur.temperature_2m:airMean, code: cur.weather_code!=null?cur.weather_code:0,
+    airMean, days, flow:deriveFlow(p48,days), p48, forecast,
+    wind: cur.wind_speed_10m!=null?cur.wind_speed_10m:null,
+    gust: cur.wind_gusts_10m!=null?cur.wind_gusts_10m:null,
+    windDir: cur.wind_direction_10m!=null?cur.wind_direction_10m:null,
+    pressure: cur.pressure_msl!=null?cur.pressure_msl:null, pressureTrend,
+    cloud: cur.cloud_cover!=null?cur.cloud_cover:null,
+    sunrise: d.sunrise?d.sunrise[ti]:null, sunset: d.sunset?d.sunset[ti]:null,
+  };
+}
+const WX_CODE = c => c==null?"" : c===0?"Clear" : c<=3?"Cloud" : c<=48?"Fog" : c<=67?"Rain" : c<=77?"Snow" : c<=82?"Showers" : c<=99?"Storm":"";
+
+/* ---- parking (Overpass / OpenStreetMap) + routing (OSRM), client-side ---- */
+function distM(a,b,c,d){ const R=6371000,toR=x=>x*Math.PI/180; const dLa=toR(c-a),dLo=toR(d-b);
+  const s=Math.sin(dLa/2)**2+Math.cos(toR(a))*Math.cos(toR(c))*Math.sin(dLo/2)**2; return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s)); }
+function walkEst(a){ const min=Math.max(1,Math.round(a/83.3)); return {m:Math.round(a), km:+(a/1000).toFixed(2), min}; } // ~5 km/h
+
+async function fetchParking(lat,lon){
+  const key=`parking:${lat.toFixed(3)},${lon.toFixed(3)}`;
+  try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return c.list; }catch(e){}
+  const q=`[out:json][timeout:20];(node["amenity"="parking"](around:1500,${lat},${lon});way["amenity"="parking"](around:1500,${lat},${lon});node["leisure"="slipway"](around:1500,${lat},${lon}););out center 25;`;
+  try{
+    const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q)});
+    if(!r.ok) throw 0; const d=await r.json();
+    const list=(d.elements||[]).map(e=>{
+      const la=e.lat!=null?e.lat:(e.center&&e.center.lat), lo=e.lon!=null?e.lon:(e.center&&e.center.lon);
+      if(la==null) return null; const tg=e.tags||{};
+      const type = tg.leisure==="slipway"?"Boat launch":(tg.parking?tg.parking.replace(/_/g," "):"parking");
+      return {id:""+e.type+e.id, lat:la, lon:lo, name:tg.name||null, type, fee:tg.fee||null, access:tg.access||null};
+    }).filter(Boolean);
+    try{ await dbSet(key,{ts:Date.now(),list}); }catch(e){}
+    return list;
+  }catch(e){ return null; }
+}
+async function fetchDriveRoute(from,to){
+  try{
+    const u=`https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
+    const r=await fetch(u); if(!r.ok) throw 0; const d=await r.json();
+    const rt=d.routes&&d.routes[0]; if(!rt) return null;
+    return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(1), durMin:Math.round(rt.duration/60) };
+  }catch(e){ return null; }
+}
+
+/* ============================== UI HELPERS ================================= */
+/* ===================== FLY & SPECIES STRATEGY ADVISOR =====================
+   Pure rules engine: turns the live read (water temp, flow/clarity, season,
+   target species) into techniques, a recommended fly box, and species tactics. */
+function clarityOf(flow){ return ({"Blown out":"very murky","High / stained":"stained","Normal":"moderate clarity","Low / clear":"clear, low water"})[flow]||"moderate clarity"; }
+function advise(ev,m){
+  const t=ev.cond.temp, flow=ev.cond.flow, key=ev.target, sp=SPECIES[key];
+  const run=sp.mode==="run", season=seasonOf(m), clarity=clarityOf(flow);
+  const cold=t<8, cool=t>=8&&t<14, prime=t>=14&&t<=18, warm=t>18;
+  const tech=[];
+  if(flow==="Blown out"){ tech.push("Wait for levels to drop, or work soft edges with heavy streamers"); }
+  else if(run && season!=="Summer"){
+    if(flow==="High / stained") tech.push("Indicator nymphing with eggs & stoneflies","Heavy streamers on the swing");
+    else tech.push("Swinging flies through runs & tailouts","Indicator nymphing the seams");
+    tech.push("Float / centre-pin drifts where legal");
+  } else if(cold){ tech.push("Deep nymphing with split-shot","Euro / tight-line nymphing","Slow streamers along the bottom"); }
+  else if(cool){ tech.push("Euro / tight-line nymphing","Swinging wet flies","Dry-dropper on the seams"); }
+  else if(prime){ tech.push("Dry fly to rising fish","Dry-dropper","Nymphing the runs","Streamers at first & last light"); }
+  else { tech.push("First-light & evening only, light presentations","Work riffles & oxygenated water"); }
+
+  const flies=[]; const add=(name,size,color,reason)=>flies.push({name,size,color,reason});
+  if(run && season!=="Summer"){
+    add("Egg pattern / Sucker Spawn","#10–14",flow==="Low / clear"?"pale / natural":"chartreuse / orange","Migratory fish key on eggs through the run.");
+    add(flow==="Low / clear"?"Zebra Midge":"Pat's Rubber Legs",flow==="Low / clear"?"#16–18":"#6–10",flow==="Low / clear"?"black / red":"black / coffee","Anchor nymph matched to the water clarity.");
+    add("Woolly Bugger / Intruder","#4–8",flow==="High / stained"?"black / white":"olive / black","Swung streamer to provoke aggressive takes.");
+  } else if(cold||cool){
+    add("Pheasant Tail Nymph","#14–18","natural","Everyday mayfly nymph; works in "+clarity+".");
+    add(flow==="Low / clear"?"Zebra Midge":"Hare's Ear",flow==="Low / clear"?"#16–20":"#12–16",flow==="Low / clear"?"black / silver":"natural / olive","Subsurface staple sized to the water.");
+    add("Woolly Bugger","#6–10",flow==="High / stained"?"black":"olive / brown","Slow streamer for cold, sluggish fish.");
+  } else if(prime){
+    add(season==="Summer"?"Elk Hair Caddis":"Adams","#14–16","tan / grey","Searching dry for surface-active fish.");
+    add("Blue-Winged Olive","#16–20","olive / dun","On overcast, cool spells BWOs bring fish up.");
+    add("Pheasant Tail dropper","#16","natural","Dropped under the dry to cover both columns.");
+    if(flow!=="Low / clear") add("Muddler / sculpin","#6–8","brown","Low-light streamer for bigger browns.");
+  } else {
+    add("Foam hopper / attractor dry","#10–14","tan","A low-light surface option when it's hot.");
+    add("Small sparse nymph","#18–20","natural","Downsize and fish stealthy in warm, clear water.");
+  }
+  if(clarity==="very murky"){ flies.length=Math.min(flies.length,2); add("San Juan Worm","#10","red / pink","High, dirty water — worms drift well and show up."); }
+
+  const strat=[]; const row=(label,text)=>strat.push({label,text});
+  if(["BNT","RBT","BKT"].includes(key)){
+    row("Presentation depth", cold||cool?"Drift dead-on-bottom; add weight until you tick gravel.":prime?"Surface to mid-column — follow the hatch; a dry-dropper covers both.":"Keep it shallow, and only at first and last light.");
+    row("Fly selection","Match the hatch in "+clarity+"; switch to attractors when nothing's rising.");
+    row("Retrieve","Dead-drift nymphs and dries; strip streamers slow with pauses, a touch faster as water warms.");
+  } else if(key==="STL"){
+    row("Seasonal tactics", season==="Spring"?"Spawn-run fish hold below the redds — work tailouts and slots, never the redds themselves.":season==="Fall"||season==="Winter"?"Fresh and holding fish stack in deeper slots and pool tails.":"Few fish around — focus dawn and dusk on the coldest water.");
+    row("Fly sizes", flow==="Low / clear"?"Downsize to #12–16 nymphs on light tippet.":"#6–12 eggs, stoneflies and buggers in stained flow.");
+    row("Water conditions","Best on dropping, clearing water a day or two after a rise.");
+  } else if(["CHN","COH"].includes(key)){
+    row("Holding water","Deep pools, log-jam tailouts and current breaks in the lower river.");
+    row("Swing patterns","Large bright streamers / spey flies swung slow through the holding lies.");
+    row("Best runs","Lower-river pools on a fresh push after rain; first light is prime.");
+  } else if(key==="ATS"){
+    row("Approach","Light tippet, small wets and nymphs, low light — and strictly catch-and-release for restoration fish.");
+    row("Water","Cool, oxygenated runs from summer into fall.");
+  } else if(key==="LAT"){
+    row("Approach","Deep, slow presentations — heavy streamers and jigs in the big cold water.");
+    row("Timing","Cold months; fish the seams off the main current.");
+  }
+  let note=null;
+  if(warm) note="Water's warm — if you do fish, keep them wet, land them fast and release quickly. Often the right call is to rest the trout.";
+  else if(flow==="Blown out") note="Most water is unfishable until it drops — give it a day.";
+  return {clarity, techniques:tech.slice(0,4), flies:flies.slice(0,4), strategy:strat, note};
+}
+
+/* ===================== HYPERLOCAL FEED (client-side) =====================
+   Generates a ranked, personalized feed from live conditions + forecasts +
+   scoring + the angler's saved water and location. No backend needed. */
+function buildFeed(ranked, userLoc, savedIds, now){
+  const items=[]; const todayStr=now.toISOString().slice(0,10);
+  ranked.forEach(ev=>{
+    const sec=ev.sec, c=ev.cond, sp=SPECIES[ev.target];
+    const isSaved=savedIds.includes(sec.id);
+    const dist=userLoc?haversineKm(userLoc.lat,userLoc.lon,sec.lat,sec.lon):null;
+    const rel = ev.opportunity/6 + (isSaved?40:0) + (dist!=null?Math.max(0,22-dist/6):0);
+    const cand=[];
+    if(Array.isArray(c.forecast)){
+      const wet=c.forecast.find(f=>f&&f.precip>=5);
+      if(wet){ const dd=(new Date(wet.date)-new Date(todayStr))/864e5;
+        const when = wet.date===todayStr?"today": dd<=1.5?"tomorrow":"in a couple of days";
+        cand.push({cat:"Weather",u:15,title:`Rain coming to the ${sec.river} ${when}`,
+          body:`About ${Math.round(wet.precip)} mm forecast${isSaved?" in your saved water":""} — flows will bump and colour up. Time a trip to the back of the rise.`}); }
+    }
+    if(c.flow==="Blown out") cand.push({cat:"Water",u:11,title:`${sec.river} is blown out`,body:`High, dirty water on the ${sec.section.toLowerCase()} — likely unfishable until it drops and clears.`});
+    else if(c.flow==="High / stained") cand.push({cat:"Water",u:8,title:`High, stained flows on the ${sec.river}`,body:`Good streamer and run water right now — work the soft edges and seams.`});
+    else if(c.flow==="Low / clear"&&c.days>=6) cand.push({cat:"Water",u:5,title:`Low, clear water on the ${sec.river}`,body:`${c.days} days since meaningful rain — downsize, lengthen the leader, fish first and last light.`});
+    if(ev.warmStress) cand.push({cat:"Water",u:13,title:`Warm water on the ${sec.river} (${c.temp.toFixed(0)}°C)`,body:`Trout are stressed at this temperature — best to rest them, or fish the coldest water early and release fast.`});
+    if(ev.opportunity>=78) cand.push({cat:"Window",u:10,title:`Prime window on the ${sec.river}`,body:`Opportunity ${ev.opportunity}/100 — ${sp.name.toLowerCase()} active. ${ev.explanation.replace(/^Score:[^.]*\.\s*/,"")}`});
+    cand.sort((a,b)=>b.u-a.u);
+    cand.slice(0,isSaved?2:1).forEach((x,i)=>items.push({
+      id:sec.id+"-"+x.cat+i, category:x.cat, title:x.title, body:x.body,
+      river:sec.river, secId:sec.id, ts:now.toISOString(), relevance:rel+x.u, saved:isSaved, dist}));
+  });
+  items.sort((a,b)=>b.relevance-a.relevance);
+  return items.slice(0,16);
+}
+
+function scoreColor(v){ return v>=70?C.cyan:v>=45?C.amber:C.red; }
+function confLabel(v){ return v>=80?"High":v>=62?"Moderate":"Building"; }
+const serif='"Playfair Display",Besley,Georgia,"Times New Roman",serif';
+const sans='"Public Sans","Trade Gothic","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif';
+const mono=sans; // heritage brand uses clean industrial-signage sans for labels, not monospace
+
+function HeaderCrest({size=48}){
+  return (<svg width={size} height={size} viewBox="0 0 200 200" style={{flexShrink:0}} aria-hidden="true">
+    <circle cx="100" cy="100" r="95" fill="#1F3A2C" stroke="#D4AF37" strokeWidth="5"/>
+    <circle cx="100" cy="100" r="80" fill="none" stroke="#D4AF37" strokeWidth="2"/>
+    <g fill="#F4EFE6" stroke="#D4AF37" strokeWidth="2" strokeLinejoin="round">
+      <path d="M64 116 Q116 78 162 88 Q112 126 64 116 Z"/>
+      <path d="M64 116 L40 100 L52 116 L40 132 Z"/>
+      <path d="M104 88 L116 74 L126 92 Z"/>
+    </g>
+    <circle cx="150" cy="98" r="3" fill="#1F3A2C"/>
+  </svg>);
+}
+function Gauge({value,size=72,label,stroke=7}){
+  const r=(size-stroke)/2, circ=2*Math.PI*r, col=scoreColor(value);
+  return (<div style={{display:"inline-flex",flexDirection:"column",alignItems:"center",gap:4}}>
+    <div style={{position:"relative",width:size,height:size}}>
+      <svg width={size} height={size} style={{transform:"rotate(-90deg)"}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.line} strokeWidth={stroke}/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={stroke}
+          strokeDasharray={circ} strokeDashoffset={circ*(1-value/100)} strokeLinecap="round"
+          style={{transition:"stroke-dashoffset .5s ease, stroke .4s ease"}}/>
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",
+        fontFamily:serif,fontSize:size*0.32,fontWeight:700,color:col,fontVariantNumeric:"tabular-nums"}}>{value}</div>
+    </div>
+    {label&&<div style={{fontFamily:mono,fontSize:9,letterSpacing:1.2,textTransform:"uppercase",color:C.textDim}}>{label}</div>}
+  </div>);
+}
+function Bar({label,value}){
+  return (<div style={{display:"flex",alignItems:"center",gap:8,fontSize:11}}>
+    <div style={{width:72,fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,textAlign:"right"}}>{label}</div>
+    <div style={{flex:1,height:6,background:C.line,borderRadius:3,overflow:"hidden"}}>
+      <div style={{width:`${value}%`,height:"100%",background:scoreColor(value),borderRadius:3,transition:"width .5s ease"}}/>
+    </div>
+    <div style={{width:26,fontFamily:mono,fontSize:10,color:C.text,fontVariantNumeric:"tabular-nums",textAlign:"right"}}>{value}</div>
+  </div>);
+}
+function Pill({k,dim}){
+  const sp=SPECIES[k];
+  return (<span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"2px 8px",borderRadius:20,
+    border:`1px solid ${sp.color}55`,background:`${sp.color}14`,fontFamily:mono,fontSize:10,letterSpacing:0.5,color:dim?C.textDim:sp.color}}>
+    <span style={{width:5,height:5,borderRadius:5,background:sp.color}}/>{sp.short}</span>);
+}
+function SeasonStrip({sec,m}){
+  return (<div style={{display:"flex",gap:2,marginTop:6}}>
+    {MONTHS.map((mo,i)=>{ const v=bestSpecies(sec,i).activity, here=i===m;
+      return (<div key={i} style={{flex:1,textAlign:"center"}}>
+        <div style={{height:18,display:"flex",alignItems:"flex-end"}}>
+          <div style={{width:"100%",height:`${20+v*80}%`,background:here?C.cyan:`${C.cyanDeep}${v>0.4?"cc":"55"}`,borderRadius:1,opacity:v<0.08?0.25:1}}/>
+        </div>
+        <div style={{fontFamily:mono,fontSize:7,marginTop:2,color:here?C.cyan:C.textFaint}}>{mo[0]}</div>
+      </div>); })}
+  </div>);
+}
+
+/* ============================== MAIN APP =================================== */
+/* ============================== MAP VIEW ================================== */
+/* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
+   is an online feature; offline it shows a graceful note and the other tabs work. */
+function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
+  const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
+  const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
+  const [sel,setSel]=useState(null);
+  const [tick,setTick]=useState(0);
+  const [parking,setParking]=useState(undefined);   // undefined | "loading" | "error" | [ ]
+  const [route,setRoute]=useState(null);             // {drive,walk}
+  const [routeStatus,setRouteStatus]=useState("idle");
+  rankedRef.current=ranked;
+  const sig=ranked.map(e=>e.sec.id+":"+e.opportunity).join(",");
+  const ev = sel? ranked.find(e=>e.sec.id===sel) : null;
+  const sec = ev?ev.sec:null;
+
+  useEffect(()=>{
+    const L=window.L;
+    if(mapRef.current) return;
+    if(!L){ const id=setInterval(()=>{ if(window.L){clearInterval(id);setTick(t=>t+1);} },300);
+      const to=setTimeout(()=>clearInterval(id),6000); return ()=>{clearInterval(id);clearTimeout(to);}; }
+    const map=L.map(elRef.current,{zoomControl:true}).setView([43.9,-79.4],8);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      {maxZoom:19,subdomains:"abcd",attribution:"© OpenStreetMap, © CARTO"}).addTo(map);
+    mapRef.current=map;
+    setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },220);
+    return ()=>{ try{map.remove();}catch(e){} mapRef.current=null; clusterRef.current=null; userRef.current=null; overlayRef.current=null; routeRef.current=null; };
+  },[tick]);
+
+  useEffect(()=>{
+    const L=window.L, map=mapRef.current; if(!L||!map) return;
+    if(clusterRef.current){ try{map.removeLayer(clusterRef.current);}catch(e){} }
+    const grp = L.markerClusterGroup? L.markerClusterGroup({maxClusterRadius:45,showCoverageOnHover:false}) : L.layerGroup();
+    const pts=[];
+    rankedRef.current.forEach(e=>{
+      const lat=e.sec.lat, lon=e.sec.lon; if(lat==null) return;
+      const col=scoreColor(e.opportunity);
+      const icon=L.divIcon({className:"",iconSize:[32,32],iconAnchor:[16,16],
+        html:`<div style="width:30px;height:30px;border-radius:50%;background:${C.bone};border:2.5px solid ${col};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:12.5px;color:${C.pine};box-shadow:0 1px 4px rgba(0,0,0,.35)">${e.opportunity}</div>`});
+      const mk=L.marker([lat,lon],{icon}); mk.on("click",()=>setSel(e.sec.id)); grp.addLayer(mk); pts.push([lat,lon]);
+    });
+    map.addLayer(grp); clusterRef.current=grp;
+    if(pts.length){ try{ map.fitBounds(pts,{padding:[45,45],maxZoom:10}); }catch(e){} }
+  },[sig,tick]);
+
+  useEffect(()=>{
+    const L=window.L, map=mapRef.current; if(!L||!map) return;
+    if(userRef.current){ try{map.removeLayer(userRef.current);}catch(e){} userRef.current=null; }
+    if(userLoc) userRef.current=L.circleMarker([userLoc.lat,userLoc.lon],{radius:7,weight:3,color:C.brick,fillColor:C.brick,fillOpacity:.5}).addTo(map);
+  },[userLoc,tick]);
+
+  // fetch parking when a section is selected
+  useEffect(()=>{
+    setRoute(null); setRouteStatus("idle");
+    if(!sec){ setParking(undefined); return; }
+    let live=true; setParking("loading");
+    fetchParking(sec.lat,sec.lon).then(r=>{ if(live) setParking(r===null?"error":r); });
+    return ()=>{ live=false; };
+  },[sel]);
+
+  // draw access point + parking markers
+  useEffect(()=>{
+    const L=window.L, map=mapRef.current; if(!L||!map) return;
+    if(overlayRef.current){ try{map.removeLayer(overlayRef.current);}catch(e){} overlayRef.current=null; }
+    if(!sec) return;
+    const g=L.layerGroup();
+    const access=L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,15],
+      html:`<div style="width:26px;height:26px;border-radius:50%;background:${C.brass};border:2px solid ${C.pine};display:flex;align-items:center;justify-content:center;font-size:13px;color:${C.pine}">◆</div>`});
+    L.marker([sec.lat,sec.lon],{icon:access,zIndexOffset:500}).addTo(g);
+    if(Array.isArray(parking)) parking.forEach(p=>{
+      const pic=L.divIcon({className:"",iconSize:[24,24],iconAnchor:[12,12],
+        html:`<div style="width:22px;height:22px;border-radius:4px;background:${C.pine};color:${C.bone};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:13px;border:1px solid ${C.bone}">P</div>`});
+      L.marker([p.lat,p.lon],{icon:pic}).addTo(g).bindPopup((p.name||p.type||"Parking"));
+    });
+    g.addTo(map); overlayRef.current=g;
+  },[sel,parking,tick]);
+
+  // draw drive + walk route
+  useEffect(()=>{
+    const L=window.L, map=mapRef.current; if(!L||!map) return;
+    if(routeRef.current){ try{map.removeLayer(routeRef.current);}catch(e){} routeRef.current=null; }
+    if(!route) return;
+    const g=L.layerGroup(); const all=[];
+    if(route.drive&&route.drive.coords){ L.polyline(route.drive.coords,{color:C.pine,weight:5,opacity:.85}).addTo(g); route.drive.coords.forEach(c=>all.push(c)); }
+    if(route.walk){ L.polyline([route.walk.from,route.walk.to],{color:C.brass,weight:4,dashArray:"2,8",opacity:.95}).addTo(g); all.push(route.walk.from,route.walk.to); }
+    g.addTo(map); routeRef.current=g;
+    if(all.length){ try{ map.fitBounds(all,{padding:[50,50]}); }catch(e){} }
+  },[route,tick]);
+
+  const nearestP = (Array.isArray(parking)&&parking.length&&sec) ? parking.reduce((b,p)=>{ const d=distM(sec.lat,sec.lon,p.lat,p.lon); return (!b||d<b.d)?{p,d}:b; },null) : null;
+  const walk = nearestP? walkEst(nearestP.d) : null;
+
+  const routeFromMe=()=>{
+    if(!userLoc||!nearestP||!sec) return;
+    setRouteStatus("loading");
+    fetchDriveRoute(userLoc,nearestP.p).then(dr=>{
+      if(!dr){ setRouteStatus("error"); return; }
+      setRouteStatus("done");
+      setRoute({drive:dr, walk:{from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],...walkEst(distM(nearestP.p.lat,nearestP.p.lon,sec.lat,sec.lon))}});
+    });
+  };
+
+  const hasL = typeof window!=="undefined" && !!window.L;
+  const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
+
+  return (<div style={{position:"relative",marginBottom:8}}>
+    <div ref={elRef} style={{height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
+    {!hasL && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:24,fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine}}>Loading the map — this part needs a connection.</div>}
+    <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:6,textAlign:"center"}}>Marker number = today's opportunity score · tap one for the report</div>
+    {ev && (<div style={{position:"absolute",left:8,right:8,bottom:30,maxHeight:"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1000}}>
+      <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
+          <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
+        </div>
+        <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
+        <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,fontSize:20,lineHeight:1,padding:"0 2px"}}>✕</button>
+      </div>
+      <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
+      <ConditionsStrip cond={ev.cond}/>
+      <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
+        <AdvHead t="Parking & route"/>
+        {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
+        {parking==="error" && <div style={small}>Couldn't load parking just now — try again shortly.</div>}
+        {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
+        {Array.isArray(parking)&&parking.length>0 && (<>
+          <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
+          {userLoc ? (
+            <button onClick={routeFromMe} style={{...btn,borderColor:C.brick,color:C.brick}}>{routeStatus==="loading"?"Plotting…":"🚗 Route from me"}</button>
+          ) : <div style={small}>Share your location (Report tab ▸ Find water near me) to plot a drive route.</div>}
+          {routeStatus==="error" && <div style={{...small,marginTop:8}}>Couldn't plot a driving route just now.</div>}
+          {route && <div style={{...small,marginTop:8}}>Drive <b style={{color:C.text}}>{route.drive.durMin} min</b> ({route.drive.distKm} km) to parking, then walk <b style={{color:C.text}}>~{route.walk.min} min</b> ({route.walk.km} km) to the access. <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0}}>clear</button></div>}
+        </>)}
+        <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
+      </div>
+      <Advisor ev={ev} m={m}/>
+    </div>)}
+  </div>);
+}
+
+function SavedView({saved,visits,ranked,m,onUnsave,onLog,onRemoveVisit,goMap}){
+  const [logFor,setLogFor]=useState(null); // section id being logged
+  const [species,setSpecies]=useState(""), [flies,setFlies]=useState(""), [notes,setNotes]=useState("");
+  const evOf=id=>ranked.find(e=>e.sec.id===id);
+  const submit=(s)=>{
+    const ev=evOf(s.id);
+    onLog({ secId:s.id, river:s.label, section:s.section, date:new Date().toISOString(),
+      opp:ev?ev.opportunity:null, target:ev?ev.target:null, flow:ev?ev.cond.flow:null, temp:ev?+ev.cond.temp.toFixed(0):null,
+      species:species.trim(), flies:flies.trim(), notes:notes.trim() });
+    setLogFor(null); setSpecies(""); setFlies(""); setNotes("");
+  };
+  const inp={width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:13,marginTop:6};
+  return (<div>
+    <SectionTitle t="Saved Water"/>
+    {saved.length===0 ? (
+      <div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:16,fontSize:13,color:C.textDim,lineHeight:1.5}}>
+        Your tackle box is empty. Tap <b style={{color:C.pine}}>☆ Save</b> on any river — in the Report or on the Map — and it'll wait for you here. <button onClick={goMap} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",textDecoration:"underline",fontSize:13,padding:0}}>Open the map</button>
+      </div>
+    ) : saved.map(s=>{ const ev=evOf(s.id); return (
+      <div key={s.id} style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:10,padding:14,marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine}}>{s.label}</div>
+            <div style={{fontSize:11.5,color:C.textDim}}>{s.section}</div>
+          </div>
+          {ev && <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:scoreColor(ev.opportunity)}}>{ev.opportunity}</div>}
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+          <button onClick={()=>setLogFor(logFor===s.id?null:s.id)} style={{...btn,borderColor:C.brass,color:C.pine}}>＋ Log a visit</button>
+          <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} style={{...btn,borderColor:C.line,color:C.textDim}}>Remove</button>
+        </div>
+        {logFor===s.id && (<div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
+          {ev && <div style={{fontSize:11,color:C.textFaint,marginBottom:4}}>Conditions today auto-saved: {ev.cond.temp.toFixed(0)}°C · {ev.cond.flow} · opp {ev.opportunity}</div>}
+          <input style={inp} placeholder="Species caught (e.g. 2 browns)" value={species} onChange={e=>setSpecies(e.target.value)}/>
+          <input style={inp} placeholder="Flies that worked" value={flies} onChange={e=>setFlies(e.target.value)}/>
+          <input style={inp} placeholder="Notes" value={notes} onChange={e=>setNotes(e.target.value)}/>
+          <button onClick={()=>submit(s)} style={{...btn,marginTop:10,borderColor:C.brick,background:C.brick,color:C.bone}}>Save to logbook</button>
+        </div>)}
+      </div>); })}
+
+    <div style={{height:18}}/>
+    <SectionTitle t="The Logbook"/>
+    {visits.length===0 ? (
+      <div style={{fontSize:13,color:C.textDim,lineHeight:1.5}}>No entries yet. Log a visit above and it'll keep the date, conditions, fish and flies — your own record, stored on this phone.</div>
+    ) : visits.map(v=>(
+      <div key={v.id} style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:"11px 13px",marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+          <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine,flex:1,minWidth:0}}>{v.river} <span style={{color:C.textDim,fontWeight:400,fontSize:12}}>· {v.section}</span></span>
+          <span style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{new Date(v.date).toLocaleDateString([], {month:"short",day:"numeric",year:"numeric"})}</span>
+        </div>
+        <div style={{fontSize:11.5,color:C.textFaint,marginTop:2}}>{v.temp!=null?`${v.temp}°C · `:""}{v.flow||""}{v.opp!=null?` · opp ${v.opp}`:""}</div>
+        {v.species && <div style={{fontSize:12.5,color:C.text,marginTop:5}}><b style={{color:C.brickDeep}}>Caught:</b> {v.species}</div>}
+        {v.flies && <div style={{fontSize:12.5,color:C.text,marginTop:2}}><b style={{color:C.brickDeep}}>Flies:</b> {v.flies}</div>}
+        {v.notes && <div style={{fontSize:12.5,color:C.textDim,marginTop:2,lineHeight:1.45}}>{v.notes}</div>}
+        <button onClick={()=>onRemoveVisit(v.id)} style={{background:"none",border:"none",color:C.textFaint,cursor:"pointer",fontSize:11,textDecoration:"underline",padding:0,marginTop:6}}>delete</button>
+      </div>
+    ))}
+  </div>);
+}
+
+function catColor(cat){ return /weather/i.test(cat)?C.pine : /water/i.test(cat)?C.amberDeep : /window/i.test(cat)?C.brick : /regulat|regs|closure|licen/i.test(cat)?C.brick : C.pine; }
+function FeedCard({it}){
+  const col=catColor(it.category);
+  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:13,marginBottom:8,position:"relative",overflow:"hidden"}}>
+    <div style={{position:"absolute",top:0,left:0,width:3,height:"100%",background:col}}/>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
+      <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:col,border:`1px solid ${col}55`,borderRadius:3,padding:"1px 6px"}}>{it.category}</span>
+      {it.saved && <span style={{fontFamily:sans,fontSize:9.5,color:C.brickDeep,fontWeight:700}}>★ your water</span>}
+      {it.dist!=null && <span style={{fontFamily:sans,fontSize:9.5,color:C.textFaint}}>{it.dist} km</span>}
+      {it.source && <span style={{fontFamily:sans,fontSize:9.5,color:C.textFaint}}>{it.source}</span>}
+    </div>
+    <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine,lineHeight:1.25}}>{it.title}</div>
+    {it.body && <div style={{fontSize:12.5,color:C.text,lineHeight:1.5,marginTop:4}}>{it.body}</div>}
+    {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer" style={{fontFamily:sans,fontSize:11,color:C.brick,marginTop:6,display:"inline-block"}}>Read more →</a>}
+  </div>);
+}
+function NewsView({derived, newsUrl, onSaveUrl, personalized}){
+  const [cat,setCat]=useState("All");
+  const [url,setUrl]=useState(newsUrl||"");
+  const [ext,setExt]=useState(null);
+  const [extStatus,setExtStatus]=useState(newsUrl?"loading":"none");
+  const [showCfg,setShowCfg]=useState(false);
+  useEffect(()=>{
+    if(!newsUrl){ setExtStatus("none"); setExt(null); return; }
+    let live=true; setExtStatus("loading");
+    fetch(newsUrl).then(r=>r.ok?r.json():Promise.reject()).then(d=>{ if(!live) return;
+      const arr=Array.isArray(d)?d:(d.items||[]);
+      setExt(arr.map((x,i)=>({id:"ext"+i,category:x.category||"Reports",title:x.title||"",body:x.summary||x.body||"",
+        source:x.source||"",url:x.url||x.link||"",ts:x.published||x.date||"",relevance:60-i,external:true})));
+      setExtStatus("ok");
+    }).catch(()=>{ if(live){ setExt(null); setExtStatus("error"); } });
+    return ()=>{ live=false; };
+  },[newsUrl]);
+
+  const all=[...(ext||[]),...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
+  const cats=["All","Weather","Water","Window","Reports","Regs"];
+  const match=it=>{ if(cat==="All") return true;
+    if(cat==="Reports") return /report|event|stock|catch|tournament|community/i.test(it.category);
+    if(cat==="Regs") return /regulat|closure|licen|season/i.test(it.category);
+    return it.category===cat; };
+  const shown=all.filter(match);
+  const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:12.5};
+
+  return (<div>
+    <SectionTitle t={personalized?"Your Local Report":"The Local Report"}/>
+    <p style={{fontSize:12,color:C.textDim,lineHeight:1.5,margin:"0 0 12px"}}>
+      Live conditions from your rivers — rain on the way, flows up or down, prime windows and warm-water warnings — ranked toward {personalized?"your saved water and what's near you":"the most actionable water"}.</p>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+      {cats.map(x=><span key={x} className={"seg"+(cat===x?" on":"")} onClick={()=>setCat(x)}>{x}</span>)}
+    </div>
+    {shown.length===0
+      ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Nothing in this category right now. Conditions are quiet — try “All”.</div>
+      : shown.map(it=><FeedCard key={it.id} it={it}/>)}
+
+    <div style={{marginTop:16,padding:14,background:`${C.cyanDeep}14`,border:`1px solid ${C.cyanDeep}44`,borderRadius:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.pine,fontWeight:700}}>External news, reports &amp; regulations</div>
+        <button onClick={()=>setShowCfg(s=>!s)} style={{...btn,borderColor:C.line,color:C.pine}}>{showCfg?"Close":newsUrl?"Edit source":"Connect a source"}</button>
+      </div>
+      <p style={{fontSize:12,color:C.text,lineHeight:1.5,margin:"8px 0 0"}}>
+        {newsUrl
+          ? (extStatus==="loading"?"Loading from your news source…":extStatus==="ok"?`Connected · pulling reports, events and regulations from your source.`:"Couldn't reach your news source — showing the live conditions feed only.")
+          : "Conservation-authority reports, stocking updates, tournaments and regulation notices come from sources you choose. Browsers can't pull those feeds directly, so the download includes a small aggregator (server/news-worker.js) you deploy once, then paste its URL here."}
+      </p>
+      {showCfg && (<div style={{marginTop:10}}>
+        <input style={inp} placeholder="https://your-aggregator.workers.dev/news" value={url} onChange={e=>setUrl(e.target.value)}/>
+        <div style={{display:"flex",gap:8,marginTop:8}}>
+          <button onClick={()=>onSaveUrl(url.trim())} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone}}>Save source</button>
+          {newsUrl && <button onClick={()=>{ setUrl(""); onSaveUrl(""); }} style={{...btn,borderColor:C.line,color:C.textDim}}>Disconnect</button>}
+        </div>
+        <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:8,lineHeight:1.45}}>Deploy guide: server/README.md in the download. The endpoint must return JSON items with title, summary, category, source, url, published.</div>
+      </div>)}
+    </div>
+  </div>);
+}
+
+export default function App(){
+  const [now,setNow]=useState(new Date());
+  const [wx,setWx]=useState({});                 // id -> parsed station
+  const [status,setStatus]=useState("loading");  // loading | live | fallback
+  const [updated,setUpdated]=useState(null);
+  const [manual,setManual]=useState(false);      // planning / what-if override
+  const [mMonth,setMMonth]=useState(new Date().getMonth());
+  const [mTemp,setMTemp]=useState(15);
+  const [mFlow,setMFlow]=useState("Normal");
+  const [mDays,setMDays]=useState(4);
+  const [tab,setTab]=useState("map");
+  const [open,setOpen]=useState(null);
+  const [userLoc,setUserLoc]=useState(null);        // {lat,lon} where you are
+  const [userWx,setUserWx]=useState(null);          // weather where you are
+  const [locStatus,setLocStatus]=useState("idle");  // idle|locating|on|denied|error|unsupported
+  const [logCount,setLogCount]=useState(0);
+  const [saved,setSaved]=useState([]);   // [{id,label,section,lat,lon,savedAt}]
+  const [visits,setVisits]=useState([]); // logbook entries
+  const [newsUrl,setNewsUrl]=useState("");
+  const [sortBy,setSortBy]=useState("overall");     // overall|distance
+  const liveRef=useRef();
+
+  const maybeLog=useCallback(async(map)=>{
+    const last=await dbGet("log:lastTs"); const nowMs=Date.now();
+    if(last && nowMs-last < 6*3600*1000) return;            // throttle: at most once / 6h
+    const m=new Date().getMonth(), hr=new Date().getHours();
+    const evs=RIVERS.map(s=>{ const w=map[s.id];
+      const cond=w?{temp:modelStreamTemp(s,w.airMean),flow:w.flow,days:w.days,live:true}
+                  :{temp:modelStreamTemp(s,CLIMO[m]),flow:"Normal",days:4,live:false};
+      return evaluate(s,m,cond,new Date()); }).sort((a,b)=>b.opportunity-a.opportunity);
+    const entry={ts:new Date().toISOString(),month:m,season:seasonOf(m),
+      top:evs.slice(0,3).map(e=>({id:e.sec.id,river:e.sec.river,section:e.sec.section,opp:e.opportunity,target:e.target}))};
+    const log=(await dbGet("log:entries"))||[]; log.push(entry); while(log.length>90) log.shift();
+    await dbSet("log:entries",log); await dbSet("log:lastTs",nowMs); setLogCount(log.length);
+  },[]);
+
+  const loadWeather=useCallback(async()=>{
+    setStatus(s=>s==="live"?"live":"loading");
+    try{
+      const res=await fetch(buildWeatherURL());
+      if(!res.ok) throw new Error("net");
+      const data=await res.json();
+      const arr=Array.isArray(data)?data:[data];
+      const map={};
+      RIVERS.forEach((r,i)=>{ const p=arr[i]?parseStation(arr[i]):null; if(p) map[r.id]=p; });
+      if(Object.keys(map).length===0) throw new Error("empty");
+      const ts=new Date();
+      setWx(map); setStatus("live"); setUpdated(ts);
+      dbSet("wx:last",{map,ts:ts.toISOString()});
+      maybeLog(map);
+    }catch(e){ setStatus(f=>f==="live"?"live":"fallback"); setUpdated(new Date()); }
+  },[maybeLog]);
+  liveRef.current=loadWeather;
+
+  const fetchUserWx=useCallback(async(lat,lon)=>{
+    try{ const u=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      +`&current=temperature_2m,precipitation,weather_code&timezone=America%2FToronto`;
+      const r=await fetch(u); if(!r.ok) return; const d=await r.json();
+      if(d&&d.current) setUserWx({air:d.current.temperature_2m,code:d.current.weather_code,precip:d.current.precipitation});
+    }catch(e){}
+  },[]);
+  const requestLocation=useCallback(()=>{
+    if(!navigator.geolocation){ setLocStatus("unsupported"); return; }
+    setLocStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      p=>{ const loc={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4)};
+        setUserLoc(loc); setLocStatus("on"); dbSet("loc:last",loc); fetchUserWx(loc.lat,loc.lon); },
+      e=>{ setLocStatus(e&&e.code===1?"denied":"error"); },
+      {enableHighAccuracy:false,timeout:10000,maximumAge:600000});
+  },[fetchUserWx]);
+
+  useEffect(()=>{
+    if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+    (async()=>{
+      const cached=await dbGet("wx:last");
+      if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
+      const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
+      const log=await dbGet("log:entries"); if(log) setLogCount(log.length);
+      const sv=await dbGet("saved"); if(Array.isArray(sv)) setSaved(sv);
+      const vs=await dbGet("visits"); if(Array.isArray(vs)) setVisits(vs);
+      const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
+    })();
+    loadWeather();
+    const t1=setInterval(()=>liveRef.current&&liveRef.current(),30*60*1000);
+    const t2=setInterval(()=>setNow(new Date()),60*1000);
+    return ()=>{clearInterval(t1);clearInterval(t2);};
+  },[loadWeather,fetchUserWx]);
+
+  const hasData = Object.keys(wx).length>0;
+  const liveMode = !manual && status==="live";
+  const cached = !manual && status!=="live" && hasData;
+  const month = manual ? mMonth : now.getMonth();
+  const hour  = now.getHours();
+  const season= seasonOf(month);
+
+  // per-section conditions resolver (uses cached weather when offline)
+  const condFor=useCallback((sec)=>{
+    if(manual) return {temp:mTemp,flow:mFlow,days:mDays,live:false,cached:false,air:null,code:null};
+    const w=wx[sec.id];
+    if(w) return {temp:modelStreamTemp(sec,w.airMean),flow:w.flow,days:w.days,live:status==="live",cached:status!=="live",air:w.airNow,code:w.code,p48:w.p48,forecast:w.forecast,
+      wind:w.wind,gust:w.gust,windDir:w.windDir,pressure:w.pressure,pressureTrend:w.pressureTrend,cloud:w.cloud,sunrise:w.sunrise,sunset:w.sunset};
+    return {temp:modelStreamTemp(sec,CLIMO[month]),flow:"Normal",days:4,live:false,cached:false,air:CLIMO[month],code:null};
+  },[manual,mTemp,mFlow,mDays,wx,status,month]);
+
+  const distOf=useCallback(sec=>userLoc?haversineKm(userLoc.lat,userLoc.lon,sec.lat,sec.lon):null,[userLoc]);
+  const isSaved=useCallback(id=>saved.some(s=>s.id===id),[saved]);
+  const toggleSave=useCallback((sec)=>{
+    setSaved(prev=>{ const ex=prev.some(s=>s.id===sec.id);
+      const next= ex? prev.filter(s=>s.id!==sec.id)
+        : [...prev,{id:sec.id,label:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,savedAt:new Date().toISOString()}];
+      dbSet("saved",next); return next; });
+  },[]);
+  const addVisit=useCallback((entry)=>{
+    setVisits(prev=>{ const next=[{...entry,id:"v"+Date.now()},...prev].slice(0,200); dbSet("visits",next); return next; });
+  },[]);
+  const removeVisit=useCallback((id)=>{ setVisits(prev=>{ const next=prev.filter(v=>v.id!==id); dbSet("visits",next); return next; }); },[]);
+  const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
+  const nearest=useMemo(()=>{ if(!userLoc) return null; let best=null;
+    RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
+    return best; },[userLoc]);
+
+  const ranked=useMemo(()=>RIVERS.map(s=>evaluate(s,month,condFor(s),now)).sort((a,b)=>b.opportunity-a.opportunity),
+    [month,now,condFor]);
+  const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
+  const top3=ranked.slice(0,3), honourable=ranked.slice(3,6);
+  const warmAny=ranked.some(r=>r.warmStress);
+
+  const fmtTime=d=>d?d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"—";
+  const fmtDate=d=>d.toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"});
+
+  const tabBtn=(id,label)=>(<button onClick={()=>setTab(id)} style={{flex:1,padding:"11px 2px",background:"none",border:"none",cursor:"pointer",
+    fontFamily:sans,fontSize:10,letterSpacing:0.3,textTransform:"uppercase",fontWeight:tab===id?700:500,color:tab===id?C.brass:C.headDim,
+    borderBottom:tab===id?`2px solid ${C.brass}`:`2px solid transparent`}}>{label}</button>);
+
+  const statusDot = status==="live"?C.brass:status==="loading"?C.brass:(hasData?C.bone:C.brick);
+  const statusTxt = manual?"Planning mode"
+    : status==="live"?"Live"
+    : status==="loading"?(hasData?"Refreshing…":"Updating…")
+    : hasData?"Last-known (offline)":"Offline · seasonal model";
+
+  return (
+    <div style={{minHeight:"100vh",background:C.ink,color:C.text,fontFamily:sans}}>
+      <style>{`
+        *{box-sizing:border-box;}
+        html,body{margin:0;padding:0;background:${C.ink};-webkit-text-size-adjust:100%;}
+        #root{min-height:100vh;background:${C.ink} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");}
+        ::selection{background:${C.brass}55;}
+        input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:${C.line};outline:none;}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:${C.brick};border:2px solid ${C.bone};cursor:pointer;}
+        input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:${C.brick};border:2px solid ${C.bone};cursor:pointer;}
+        .seg{font-family:${sans};font-size:10px;letter-spacing:.5px;padding:6px 9px;border-radius:4px;cursor:pointer;border:1px solid ${C.line};background:${C.bone};color:${C.textDim};}
+        .seg.on{background:${C.brick};border-color:${C.brick};color:${C.bone};}
+        .tabs::-webkit-scrollbar{display:none;} .tabs{scrollbar-width:none;-ms-overflow-style:none;}
+        @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+        @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
+      `}</style>
+
+      {/* Header */}
+      <div style={{borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
+        <div style={{maxWidth:760,margin:"0 auto",padding:"calc(16px + env(safe-area-inset-top)) 18px 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <HeaderCrest/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
+              <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:3,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div>
+            </div>
+            <span style={{display:"inline-flex",alignItems:"center",gap:6,fontFamily:sans,fontSize:10,color:C.headDim}}>
+              <span style={{width:7,height:7,borderRadius:7,background:statusDot,animation:status==="loading"?"pulse 1.2s infinite":"none"}}/>
+              {statusTxt}{updated&&status!=="loading"?` · ${fmtTime(updated)}`:""}
+            </span>
+          </div>
+          <h1 style={{margin:"14px 0 0",fontFamily:serif,fontSize:19,fontWeight:400,fontStyle:"italic",color:C.headText,lineHeight:1.25}}>
+            Find the right water, morning by morning.</h1>
+          <div style={{display:"flex",alignItems:"baseline",gap:10,marginTop:7,flexWrap:"wrap"}}>
+            <span style={{fontFamily:sans,fontSize:12,color:C.bone}}>{fmtDate(now)} · {fmtTime(now)}</span>
+            <span style={{fontFamily:sans,fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:C.brass}}>{season}</span>
+            <span style={{fontFamily:sans,fontSize:10,color:C.headFaint}}>Southern Ontario · ~2 hr radius</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs" style={{maxWidth:760,margin:"0 auto",display:"flex",borderBottom:`1px solid ${C.line}`,background:C.ink2,overflowX:"auto"}}>
+        {tabBtn("map","Map")}{tabBtn("today","Report")}{tabBtn("database","Rivers")}{tabBtn("news","News")}{tabBtn("saved","Saved")}{tabBtn("method","Notes")}
+      </div>
+
+      <div style={{maxWidth:760,margin:"0 auto",padding:"18px 18px calc(28px + env(safe-area-inset-bottom))"}}>
+
+        {/* DATA / CONTROL PANEL */}
+        <div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div style={{fontSize:12.5,color:C.text}}>
+              {manual ? "Planning a trip — set the conditions yourself."
+                      : status==="live" ? "Reading live weather, river by river."
+                      : "Can't reach live weather — leaning on the seasonal almanac."}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              {!manual && <button onClick={loadWeather} style={{...btn,borderColor:C.line,color:C.cyan}}>↻ Refresh</button>}
+              <button onClick={()=>setManual(m=>!m)} style={{...btn,borderColor:manual?C.amber:C.line,color:manual?C.amber:C.textDim}}>
+                {manual?"Back to live":"Plan a trip"}</button>
+            </div>
+          </div>
+
+          {!manual && (
+            <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <button onClick={requestLocation} style={{...btn,borderColor:userLoc?C.cyan:C.line,color:userLoc?C.cyan:C.textDim}}>
+                {locStatus==="locating"?"Casting about…":userLoc?"◉ Located":"Find water near me"}</button>
+              {userLoc && userWx && <span style={{fontFamily:mono,fontSize:11,color:C.textDim}}>
+                At your spot: <b style={{color:C.text}}>{Math.round(userWx.air)}°C</b>{WX_CODE(userWx.code)?` · ${WX_CODE(userWx.code)}`:""}{userWx.precip>0?" · rain now":""}</span>}
+              {locStatus==="denied" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Our line got snagged — location is blocked. Turn it on in Settings ▸ Safari ▸ Location.</span>}
+              {locStatus==="unsupported" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Location isn't available on this device.</span>}
+              {locStatus==="error" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Couldn't get a fix — try casting again.</span>}
+            </div>)}
+          {!manual && nearest && <div style={{marginTop:8,fontFamily:mono,fontSize:10,color:C.textFaint}}>
+            Nearest water: {nearest.s.river} — {nearest.s.section} · {nearest.d} km</div>}
+
+          {!manual && status!=="loading" && (
+            <div style={{marginTop:10,fontFamily:mono,fontSize:10,color:C.textFaint,lineHeight:1.5}}>
+              Air &amp; rain: live{status==="fallback"?" (unavailable)":""}. Water temp: read from the air and each reach's cold-water hold. Flow: judged from recent rain.
+            </div>
+          )}
+
+          {manual && (
+            <div style={{marginTop:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                <label style={{fontSize:11,color:C.textDim}}>
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Water temp</span><span style={{fontFamily:mono,color:C.text}}>{mTemp}°C</span></div>
+                  <input type="range" min="2" max="26" value={mTemp} style={{width:"100%",marginTop:7}} onChange={e=>setMTemp(+e.target.value)}/>
+                </label>
+                <label style={{fontSize:11,color:C.textDim}}>
+                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Days since rain</span><span style={{fontFamily:mono,color:C.text}}>{mDays}d</span></div>
+                  <input type="range" min="0" max="14" value={mDays} style={{width:"100%",marginTop:7}} onChange={e=>setMDays(+e.target.value)}/>
+                </label>
+              </div>
+              <div style={{marginTop:14}}>
+                <div style={{fontSize:11,color:C.textDim,marginBottom:7}}>Flow / clarity</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {["Low / clear","Normal","High / stained","Blown out"].map(f=>(
+                    <span key={f} className={"seg"+(mFlow===f?" on":"")} onClick={()=>setMFlow(f)}>{f}</span>))}
+                </div>
+              </div>
+              <div style={{marginTop:14}}>
+                <div style={{fontSize:11,color:C.textDim,marginBottom:7}}>Month</div>
+                <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                  {MONTHS.map((mo,i)=>(<span key={i} className={"seg"+(mMonth===i?" on":"")} onClick={()=>setMMonth(i)} style={{padding:"5px 7px"}}>{mo}</span>))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ---------------- MAP ---------------- */}
+        {tab==="map" && <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave}/>}
+
+        {/* ---------------- NEWS ---------------- */}
+        {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}/>}
+
+        {/* ---------------- SAVED ---------------- */}
+        {tab==="saved" && <SavedView saved={saved} visits={visits} ranked={ranked} m={month} onUnsave={toggleSave} onLog={addVisit} onRemoveVisit={removeVisit} goMap={()=>setTab("map")}/>}
+
+        {/* ---------------- TODAY ---------------- */}
+        {tab==="today" && (<>
+          <SectionTitle t="Today's Best Water"/>
+          {warmAny && (top3[0]?.cond.temp>=19) && (
+            <div style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:14,background:`${C.red}14`,border:`1px solid ${C.red}55`,borderRadius:10,fontSize:12,color:C.text,lineHeight:1.5}}>
+              <span style={{color:C.red,fontFamily:mono}}>!</span>
+              <span>A word on warm water: at these temperatures a hooked trout or salmon rarely survives release. We've eased the warm rivers down the list — favour cold tailwater and spring creeks, or let the trout rest today.</span>
+            </div>)}
+          {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave}/>)}
+
+          <SectionTitle n="02" t="Honourable Mentions"/>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+            {honourable.map(ev=>(
+              <div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
+                <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor(ev.opportunity),fontVariantNumeric:"tabular-nums",width:26}}>{ev.opportunity}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,color:C.text,fontWeight:500}}>{ev.sec.river} <span style={{color:C.textDim}}>· {ev.sec.section}</span>{distOf(ev.sec)!=null && <span style={{color:C.textFaint,fontFamily:mono,fontSize:10}}> · {distOf(ev.sec)} km</span>}</div>
+                </div>
+                <Pill k={ev.target}/>
+              </div>))}
+          </div>
+
+          <SectionTitle t="Notes from the Water"/>
+          <NotesBlock month={month} season={season} top={top3[0]} live={liveMode} cached={cached} manual={manual} status={status} now={now}/>
+
+          <SectionTitle t="The Season Ahead"/>
+          <Outlook month={month}/>
+        </>)}
+
+        {/* ---------------- DATABASE ---------------- */}
+        {tab==="database" && (<>
+          <p style={{fontSize:12,color:C.textDim,margin:"0 0 12px",lineHeight:1.5}}>
+            {RIVERS.length} reaches in the logbook. Tap any one to open its page — habitat, live read, and run timing.</p>
+          <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 14px",flexWrap:"wrap"}}>
+            <span style={{fontFamily:mono,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim}}>Sort</span>
+            <span className={"seg"+(sortBy==="overall"?" on":"")} onClick={()=>setSortBy("overall")}>Overall score</span>
+            {userLoc && <span className={"seg"+(sortBy==="distance"?" on":"")} onClick={()=>setSortBy("distance")}>Nearest to me</span>}
+          </div>
+          {[...RIVERS].map(s=>({s,ov:overallRiverScore(s),d:userLoc?haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon):null}))
+            .sort((a,b)=> (sortBy==="distance"&&userLoc) ? a.d-b.d : b.ov-a.ov).map(({s,ov,d})=>{
+            const ev=evaluate(s,month,condFor(s),now); const isOpen=open===s.id; const cd=ev.cond;
+            return (<div key={s.id} style={{marginBottom:8,background:C.panel,border:`1px solid ${isOpen?C.line:C.lineSoft}`,borderRadius:10,overflow:"hidden"}}>
+              <button onClick={()=>setOpen(isOpen?null:s.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+                <span style={{fontFamily:serif,fontSize:17,fontWeight:700,width:26,color:scoreColor(ov),fontVariantNumeric:"tabular-nums"}}>{ov}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.river}</div>
+                  <div style={{fontSize:11,color:C.textDim}}>{s.section}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                  {d!=null && <span style={{fontFamily:mono,fontSize:9,color:C.textFaint}}>{d} km</span>}
+                  <div style={{display:"flex",gap:4}}>{s.species.slice(0,3).map(k=><Pill key={k} k={k} dim={!isOpen}/>)}</div>
+                </div>
+              </button>
+              {isOpen && (<div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.lineSoft}`}}>
+                <div style={{display:"flex",gap:14,flexWrap:"wrap",fontFamily:mono,fontSize:10,color:C.textFaint,margin:"10px 0 10px"}}>
+                  <span>{s.region}</span><span>{s.zone}</span><span>{s.water}</span></div>
+                <ConditionsStrip cond={cd}/>
+                <div style={{margin:"8px 0 4px",fontFamily:sans,fontSize:10,color:cd.live?C.cyan:cd.cached?C.amber:C.textFaint}}>{cd.live?"live read":cd.cached?"last-known read":"seasonal model"}{cd.code!=null?` · ${WX_CODE(cd.code)}`:""}</div>
+                <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:"0 0 14px"}}>{s.note}</p>
+                <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:14}}>
+                  <Bar label="Holding" value={s.h.hold}/><Bar label="Structure" value={s.h.struct}/>
+                  <Bar label="Spawning" value={s.h.spawn}/><Bar label="Cold-water" value={s.h.cold}/>
+                  <Bar label="Oxygen" value={s.h.ox}/><Bar label="Groundwtr" value={s.h.gw}/>
+                </div>
+                <div style={{fontFamily:mono,fontSize:9,letterSpacing:1,textTransform:"uppercase",color:C.textDim,marginBottom:2}}>Fishing window · best target by month</div>
+                <SeasonStrip sec={s} m={month}/>
+                <div style={{display:"flex",gap:18,marginTop:14,flexWrap:"wrap"}}>
+                  <MiniStat label="Overall" value={ov}/><MiniStat label="Now opp." value={ev.opportunity}/>
+                  <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
+                </div>
+                <Advisor ev={ev} m={month}/>
+              </div>)}
+            </div>);
+          })}
+        </>)}
+
+        {tab==="method" && <Method logCount={logCount}/>}
+        <Footer/>
+      </div>
+    </div>
+  );
+}
+
+const btn={fontFamily:mono,fontSize:10,letterSpacing:0.5,padding:"6px 11px",borderRadius:6,cursor:"pointer",background:C.panel,border:`1px solid ${C.line}`};
+
+/* ============================ SUB-COMPONENTS =============================== */
+function SectionTitle({n,t}){
+  return (<div style={{display:"flex",alignItems:"center",gap:10,margin:"6px 0 14px"}}>
+    <span style={{color:C.brass,fontSize:11}}>◆</span>
+    <span style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine,letterSpacing:0.2}}>{t}</span>
+    <span style={{flex:1,borderTop:`2px dotted ${C.line}`,height:0}}/></div>);
+}
+function MiniStat({label,value,sub}){
+  return (<div>
+    <div style={{fontFamily:serif,fontSize:22,fontWeight:700,color:scoreColor(value),fontVariantNumeric:"tabular-nums",lineHeight:1}}>{value}</div>
+    <div style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,marginTop:3}}>{label}{sub&&<span style={{color:C.textFaint}}> · {sub}</span>}</div>
+  </div>);
+}
+function ConditionsStrip({cond}){
+  if(cond.air==null && cond.wind==null && cond.temp==null) return null;
+  const DIRS=["N","NE","E","SE","S","SW","W","NW"];
+  const dir=cond.windDir!=null?DIRS[Math.round(cond.windDir/45)%8]:"";
+  const pt=cond.pressureTrend;
+  const press=pt==null?null:(pt>1.5?"↑ rising":pt<-1.5?"↓ falling":"→ steady");
+  const sky=cond.cloud==null?null:(cond.cloud>70?"Overcast":cond.cloud<30?"Clear":"Cloudy");
+  const chip=(label,val)=>(<span key={label} style={{display:"inline-flex",gap:5,alignItems:"baseline"}}>
+    <span style={{fontFamily:sans,fontSize:9,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{label}</span>
+    <span style={{fontFamily:sans,fontSize:12,color:C.text,fontWeight:600}}>{val}</span></span>);
+  return (<div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8}}>
+    {chip("Water",`${cond.temp.toFixed(0)}°C`)}
+    {cond.air!=null && chip("Air",`${Math.round(cond.air)}°C`)}
+    {cond.wind!=null && chip("Wind",`${Math.round(cond.wind)} km/h${dir?" "+dir:""}`)}
+    {press && chip("Pressure",press)}
+    {sky && chip("Sky",sky)}
+    {chip("Flow",cond.flow)}
+  </div>);
+}
+function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
+function Advisor({ev,m}){
+  const [open,setOpen]=useState(false);
+  const a=useMemo(()=>advise(ev,m),[ev,m]);
+  const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
+    border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
+  return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
+    <button onClick={()=>setOpen(o=>!o)} style={{fontFamily:sans,fontSize:11,letterSpacing:0.5,fontWeight:700,padding:"6px 11px",borderRadius:4,
+      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}>🪶 Strategy &amp; flies {open?"▴":"▾"}</button>
+    {open && (<div style={{marginTop:12}}>
+      <AdvHead t="Recommended techniques"/>
+      <ul style={{margin:"0 0 14px",paddingLeft:18}}>
+        {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
+      </ul>
+      <AdvHead t="Recommended flies"/>
+      <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
+        {a.flies.map((f,i)=>(<div key={i}>
+          <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
+            <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
+            {tag(f.size,true)}{tag(f.color)}
+          </div>
+          <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
+        </div>))}
+      </div>
+      {a.strategy.length>0 && (<><AdvHead t={SPECIES[ev.target].name+" strategy"}/>
+        <div style={{marginBottom:a.note?12:0}}>
+          {a.strategy.map((s,i)=>(<div key={i} style={{marginBottom:9}}>
+            <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brick,marginBottom:1}}>{s.label}</div>
+            <div style={{fontSize:12.5,color:C.text,lineHeight:1.45}}>{s.text}</div>
+          </div>))}
+        </div></>)}
+      {a.note && <div style={{padding:"9px 11px",background:`${C.brass}1f`,border:`1px solid ${C.brass}66`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>{a.note}</div>}
+    </div>)}
+  </div>);
+}
+function SaveButton({saved,onClick}){
+  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.5,padding:"4px 9px",borderRadius:4,cursor:"pointer",
+    border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:C.bone,color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
+    {saved?"★ Saved":"☆ Save"}</button>);
+}
+function RecCard({ev,rank,m,dist,isSaved,onToggleSave}){
+  const sec=ev.sec, cd=ev.cond;
+  return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
+    <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
+    <div style={{display:"flex",gap:14}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+          <span style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.brass}}>No.{rank}</span>
+          <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</span>
+        </div>
+        <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+          <Pill k={ev.target}/>{sec.species.filter(k=>k!==ev.target).slice(0,2).map(k=><Pill key={k} k={k} dim/>)}
+          {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
+        </div>
+      </div>
+      <Gauge value={ev.opportunity} label="Opportunity"/>
+    </div>
+    <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"14px 0 0"}}>{ev.explanation}</p>
+    <ConditionsStrip cond={cd}/>
+    <div style={{display:"flex",gap:18,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
+      <MiniStat label="Overall" value={ev.overall}/>
+      <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
+      <div style={{flex:1}}/>
+      <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,textAlign:"right",lineHeight:1.5}}>
+        {SPECIES[ev.target].mode}{cd.live?" · live":cd.cached?" · last-known":" · modeled"}
+      </div>
+    </div>
+    <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:5}}>
+      <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
+      <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
+      <Bar label="Habitat" value={ev.parts.habitat}/>
+    </div>
+    <Advisor ev={ev} m={m}/>
+  </div>);
+}
+function NotesBlock({month,season,top,live,cached,manual,status,now}){
+  const notes=[];
+  const h=now.getHours();
+  notes.push(`Reading for ${now.toLocaleDateString([], {weekday:"long",month:"long",day:"numeric"})}, ${now.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · ${season.toLowerCase()}.`);
+  if(manual) notes.push("Planning mode: scenario values are applied to every river for what-if comparison.");
+  else if(live) notes.push("Conditions are live per river: air temperature and rainfall pulled from current weather, water temperature modeled from those readings.");
+  else if(cached) notes.push("Showing your last saved live readings while offline — reconnect and refresh for current numbers.");
+  else notes.push("Live weather is unavailable, so the engine is running on seasonal climate norms — treat exact temperatures as estimates and refresh when back online.");
+  if(season==="Summer") notes.push("Migratory steelhead and salmon are out of the tributaries; productive water is cold-holding resident trout in tailwater and spring-fed reaches.");
+  if(season==="Fall") notes.push("Chinook lead the fall push (late Aug–Sep), then coho, lake-run browns and staging steelhead. A fresh rain that bumps and stains flows is the trigger.");
+  if(season==="Spring") notes.push("Peak steelhead window — fish move on rising, dropping water. Time outings to the back of a high-water event.");
+  if(season==="Winter") notes.push("Overwintering steelhead hold in deeper, slower, oxygen-rich water; larger tailrace-fed systems stay fishable when small creeks lock up.");
+  if(live && (h>=5&&h<8 || h>=19&&h<22)) notes.push("Low-light window right now — the most productive feeding period of the day.");
+  if(live && season==="Summer" && h>=11 && h<16) notes.push("Midday summer sun: fish are deep, shaded or holding in faster oxygenated water until evening.");
+  if(top) notes.push(`Strongest read right now: ${top.sec.river} — ${top.sec.section}.`);
+  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:14,marginBottom:24}}>
+    {notes.map((n,i)=>(<p key={i} style={{margin:i?"10px 0 0":0,fontSize:12.5,color:C.text,lineHeight:1.55,paddingLeft:14,position:"relative"}}>
+      <span style={{position:"absolute",left:0,color:C.brass}}>›</span>{n}</p>))}
+  </div>);
+}
+function Outlook({month}){
+  const rows=[];
+  for(let k=0;k<4;k++){ const mm=(month+k)%12; let label;
+    const s=seasonOf(mm);
+    if(s==="Fall") label="chinook → coho → lake-run brown → staging steelhead";
+    else if(s==="Spring") label="steelhead run (peak) + early resident trout";
+    else if(s==="Winter") label="overwintering steelhead in larger systems";
+    else label="resident brook & brown trout in cold water";
+    rows.push({mo:MONTHS[mm],label,here:k===0}); }
+  return (<div style={{marginBottom:24}}>
+    {rows.map((r,i)=>(<div key={i} style={{display:"flex",gap:12,alignItems:"baseline",padding:"10px 0",borderBottom:i<3?`1px dotted ${C.line}`:"none"}}>
+      <span style={{fontFamily:mono,fontSize:11,width:34,color:r.here?C.cyan:C.textDim}}>{r.mo}</span>
+      <span style={{fontSize:12.5,color:r.here?C.text:C.textDim}}>{r.label}</span></div>))}
+  </div>);
+}
+function Method({logCount}){
+  const rows=[
+    ["Habitat quality","25%","Cold-water retention, holding water, structure, oxygen, spawning gravel, groundwater."],
+    ["Seasonal suitability","20%","How in-season the best available species is, from monthly run-timing curves."],
+    ["Current conditions","20%","Live air temp → modeled water temp, flow fit, post-rain freshness, time of day."],
+    ["Historical success","15%","Encoded long-run productivity of the reach."],
+    ["Recent reports","10%","Public-report signal, decayed by age (24-month ceiling)."],
+    ["Water conditions","10%","Level and clarity suitability."],
+  ];
+  return (<div>
+    <p style={{fontSize:13,color:C.text,lineHeight:1.6,margin:"0 0 16px"}}>
+      Each section gets an <b>Overall Score</b> (season-independent quality), a <b>Current Opportunity Score</b> (recomputed live for the moment you open the app), and a <b>Confidence</b> rating. Opportunity is the weighted sum below; habitat + history + conditions make up <b>70%</b>, public reports only <b>10%</b>.</p>
+    {rows.map(([a,b,c])=>(<div key={a} style={{display:"flex",gap:12,padding:"11px 0",borderBottom:`1px dotted ${C.line}`}}>
+      <span style={{fontFamily:mono,fontSize:13,color:C.cyan,width:42}}>{b}</span>
+      <div><div style={{fontSize:13,color:C.text,fontWeight:500}}>{a}</div>
+        <div style={{fontSize:12,color:C.textDim,marginTop:2,lineHeight:1.5}}>{c}</div></div></div>))}
+    <div style={{marginTop:20,padding:14,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10}}>
+      <div style={{fontFamily:mono,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.cyan,marginBottom:8}}>On this device</div>
+      <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:0}}>
+        The river database, your last weather pull, your saved location and an analysis log are stored on this iPhone in the app's own on-device database — nothing leaves the phone except the weather request itself. The app keeps showing your last-known readings even with no signal, and logs a snapshot of its top picks over time (currently <b style={{color:C.cyan}}>{logCount}</b> {logCount===1?"entry":"entries"}) — the seed of a learning record that grows the more you use it. Storage is requested as persistent so iOS keeps it between sessions; installing the app to your Home Screen is what protects it from being cleared.</p>
+    </div>
+    <div style={{marginTop:14,padding:14,background:`${C.cyanDeep}1a`,border:`1px solid ${C.cyanDeep}55`,borderRadius:10}}>
+      <div style={{fontFamily:mono,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.cyan,marginBottom:8}}>How the report is read</div>
+      <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:0}}>
+        Air temperature and rainfall are fetched live per river from Open-Meteo and refresh every 30 minutes. Water temperature is <b>modeled</b> from a multi-day air-temp average damped by each reach's cold-water retention — there's no public real-time temperature gauge on most of these rivers. Flow is <b>estimated</b> from recent rainfall; wiring in true Water Survey of Canada gauge data needs a small backend proxy because browsers block those endpoints directly. Persistent learning (storing analyses, tuning confidence over time) also needs a database. The DATA / ENGINE / LIVE / UI split means each of those upgrades drops in without touching the scoring logic.</p>
+    </div>
+    <div style={{marginTop:14,padding:14,background:`${C.amber}14`,border:`1px solid ${C.amber}55`,borderRadius:10}}>
+      <div style={{fontFamily:mono,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.amber,marginBottom:8}}>Before you fish</div>
+      <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:0}}>
+        Always confirm open seasons, gear and limits in the current Ontario Fishing Regulations Summary for the relevant zone — FMZ 16 and 17 around Toronto, FMZ 13/14 for Georgian Bay tributaries — plus waterbody exceptions and seasonal sanctuary (spawning) closures. Several reaches here, including Twelve Mile Creek and the upper Credit, carry special rules. When water is warm, the kindest call is often not to target trout at all.</p>
+    </div>
+  </div>);
+}
+function Footer(){
+  return (<div style={{marginTop:28,paddingTop:16,borderTop:`2px dotted ${C.line}`,fontSize:11,color:C.textFaint,lineHeight:1.6}}>
+    Habitat and run-timing records are researched estimates for planning, not a substitute for on-the-water judgement or official regulations. No directions, access or parking are provided by design — the system scores fishing potential only.</div>);
+}
+
+/* ------------------------------- PWA MOUNT -------------------------------- */
+const _root=document.getElementById("root");
+if(_root) createRoot(_root).render(<App/>);
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("./sw.js").catch(()=>{}); });
+}
