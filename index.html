@@ -16,12 +16,12 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
 
-  <!-- Interactive map (online feature) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <!-- Interactive map (self-hosted so it survives a bad CDN and works offline) -->
+  <link rel="stylesheet" href="./vendor/leaflet.css" />
+  <link rel="stylesheet" href="./vendor/MarkerCluster.css" />
+  <link rel="stylesheet" href="./vendor/MarkerCluster.Default.css" />
+  <script defer src="./vendor/leaflet.js"></script>
+  <script defer src="./vendor/markercluster.js"></script>
 
   <style>
     html,body{margin:0;padding:0;background:#F4EFE6;}
