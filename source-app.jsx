@@ -6,7 +6,7 @@ import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
 import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
-import { gmapsDirections, gmapsPin } from "./lib/deeplinks.js";
+import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
 
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
@@ -1258,6 +1258,8 @@ function Advisor({ev,m}){
           <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
             <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
             {tag(f.size,true)}{tag(f.color)}
+            <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
+              style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}>🔍 See it</a>
           </div>
           <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
         </div>))}
