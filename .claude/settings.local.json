@@ -28,7 +28,9 @@
       "Bash(curl -s -o qf.json -w \"HTTP %{http_code}\\\\n\" -X POST -H \"Content-Type: application/x-www-form-urlencoded\" --data-urlencode \"data=$\\(cat qgen.txt\\)\" \"https://overpass-api.de/api/interpreter\")",
       "Bash(cp /tmp/qf.json /tmp/qf.json)",
       "Bash(node /tmp/claude-501/-Users-faheemafridi-river-intel-pwa/0045a1e0-2e4b-4a69-837a-ed503c9e9c35/scratchpad/smoke3.mjs)",
-      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: discover, score, weather-enrich and merge nearby spots into ranked list + map\")"
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: discover, score, weather-enrich and merge nearby spots into ranked list + map\")",
+      "Bash(grep -n 'function scoreColor\\\\|const \\\\[tab,setTab\\\\]=useState\\\\|fontSize:7,marginTop:2\\\\|fontSize:9,letterSpacing:0.6,textTransform:\"uppercase\",color:C.textFaint}}>{label}\\\\|fontFamily:mono,fontSize:10,letterSpacing:0.5,color:dim?C.textDim\\\\|fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor\\(ev.opportunity\\),fontVariantNumeric:\"tabular-nums\",width:26}}>{ev.opportunity}' source-app.jsx)",
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: google maps hand-off + hiking \\(foot\\) route; offline vendor cache; legibility + colorblind score words; default to Report\")"
     ]
   }
 }

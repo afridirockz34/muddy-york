@@ -6,6 +6,7 @@ import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
 import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
+import { gmapsDirections, gmapsPin } from "./lib/deeplinks.js";
 
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
@@ -339,6 +340,15 @@ async function fetchDriveRoute(from,to){
   }catch(e){ return null; }
 }
 
+async function fetchFootRoute(from,to){
+  try{
+    const u=`https://router.project-osrm.org/route/v1/foot/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
+    const r=await fetch(u); if(!r.ok) throw 0; const d=await r.json();
+    const rt=d.routes&&d.routes[0]; if(!rt) return null;
+    return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(2), durMin:Math.round(rt.duration/60) };
+  }catch(e){ return null; }
+}
+
 /* --------- dynamic spot discovery: OSM water -> curated-shaped secs -------- */
 const OVERPASS_HOSTS = [
   "https://overpass-api.de/api/interpreter",
@@ -477,6 +487,7 @@ function buildFeed(ranked, userLoc, savedIds, now){
 }
 
 function scoreColor(v){ return v>=70?C.cyan:v>=45?C.amber:C.red; }
+function scoreWord(v){ return v>=70?"Prime":v>=45?"Fair":"Slow"; }
 function confLabel(v){ return v>=80?"High":v>=62?"Moderate":"Building"; }
 const serif='"Playfair Display",Besley,Georgia,"Times New Roman",serif';
 const sans='"Public Sans","Trade Gothic","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif';
@@ -507,7 +518,8 @@ function Gauge({value,size=72,label,stroke=7}){
       <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",
         fontFamily:serif,fontSize:size*0.32,fontWeight:700,color:col,fontVariantNumeric:"tabular-nums"}}>{value}</div>
     </div>
-    {label&&<div style={{fontFamily:mono,fontSize:9,letterSpacing:1.2,textTransform:"uppercase",color:C.textDim}}>{label}</div>}
+    {label&&<div style={{fontFamily:mono,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.textDim}}>{label}</div>}
+    {label&&<div style={{fontFamily:sans,fontSize:9,fontWeight:700,letterSpacing:0.5,color:col}}>{scoreWord(value)}</div>}
   </div>);
 }
 function Bar({label,value}){
@@ -522,7 +534,7 @@ function Bar({label,value}){
 function Pill({k,dim}){
   const sp=SPECIES[k];
   return (<span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"2px 8px",borderRadius:20,
-    border:`1px solid ${sp.color}55`,background:`${sp.color}14`,fontFamily:mono,fontSize:10,letterSpacing:0.5,color:dim?C.textDim:sp.color}}>
+    border:`1px solid ${sp.color}55`,background:`${sp.color}14`,fontFamily:mono,fontSize:11,letterSpacing:0.5,color:dim?C.textDim:sp.color}}>
     <span style={{width:5,height:5,borderRadius:5,background:sp.color}}/>{sp.short}</span>);
 }
 function SeasonStrip({sec,m}){
@@ -532,7 +544,7 @@ function SeasonStrip({sec,m}){
         <div style={{height:18,display:"flex",alignItems:"flex-end"}}>
           <div style={{width:"100%",height:`${20+v*80}%`,background:here?C.cyan:`${C.cyanDeep}${v>0.4?"cc":"55"}`,borderRadius:1,opacity:v<0.08?0.25:1}}/>
         </div>
-        <div style={{fontFamily:mono,fontSize:7,marginTop:2,color:here?C.cyan:C.textFaint}}>{mo[0]}</div>
+        <div style={{fontFamily:mono,fontSize:9,marginTop:2,color:here?C.cyan:C.textFaint}}>{mo[0]}</div>
       </div>); })}
   </div>);
 }
@@ -622,7 +634,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
     if(!route) return;
     const g=L.layerGroup(); const all=[];
     if(route.drive&&route.drive.coords){ L.polyline(route.drive.coords,{color:C.pine,weight:5,opacity:.85}).addTo(g); route.drive.coords.forEach(c=>all.push(c)); }
-    if(route.walk){ L.polyline([route.walk.from,route.walk.to],{color:C.brass,weight:4,dashArray:"2,8",opacity:.95}).addTo(g); all.push(route.walk.from,route.walk.to); }
+    if(route.walk){ const line=route.walk.coords?route.walk.coords:[route.walk.from,route.walk.to]; L.polyline(line,{color:C.brass,weight:4,dashArray:route.walk.trail?null:"2,8",opacity:.95}).addTo(g); line.forEach(c=>all.push(c)); }
     g.addTo(map); routeRef.current=g;
     if(all.length){ try{ map.fitBounds(all,{padding:[50,50]}); }catch(e){} }
   },[route,tick]);
@@ -633,10 +645,14 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
   const routeFromMe=()=>{
     if(!userLoc||!nearestP||!sec) return;
     setRouteStatus("loading");
-    fetchDriveRoute(userLoc,nearestP.p).then(dr=>{
+    fetchDriveRoute(userLoc,nearestP.p).then(async dr=>{
       if(!dr){ setRouteStatus("error"); return; }
+      const foot=await fetchFootRoute({lat:nearestP.p.lat,lon:nearestP.p.lon},{lat:sec.lat,lon:sec.lon});
       setRouteStatus("done");
-      setRoute({drive:dr, walk:{from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],...walkEst(distM(nearestP.p.lat,nearestP.p.lon,sec.lat,sec.lon))}});
+      setRoute({drive:dr,
+        walk: foot
+          ? {from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],coords:foot.coords,min:foot.durMin,km:foot.distKm,trail:true}
+          : {from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],...walkEst(distM(nearestP.p.lat,nearestP.p.lon,sec.lat,sec.lon)),trail:false}});
     });
   };
 
@@ -666,11 +682,14 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
         {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
         {Array.isArray(parking)&&parking.length>0 && (<>
           <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
-          {userLoc ? (
-            <button onClick={routeFromMe} style={{...btn,borderColor:C.brick,color:C.brick}}>{routeStatus==="loading"?"Plotting…":"🚗 Route from me"}</button>
-          ) : <div style={small}>Share your location (Report tab ▸ Find water near me) to plot a drive route.</div>}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
+            {userLoc && <button onClick={routeFromMe} style={{...btn,borderColor:C.brick,color:C.brick}}>{routeStatus==="loading"?"Plotting…":"🚗 Route from me"}</button>}
+            <a href={gmapsDirections(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btn,borderColor:C.pine,color:C.pine,textDecoration:"none"}}>🗺️ Directions (parking)</a>
+            <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btn,borderColor:C.line,color:C.textDim,textDecoration:"none"}}>📍 Access point</a>
+          </div>
+          {!userLoc && <div style={{...small,marginTop:8}}>Share your location (Report tab ▸ Use my location) to plot a drive route from where you are.</div>}
           {routeStatus==="error" && <div style={{...small,marginTop:8}}>Couldn't plot a driving route just now.</div>}
-          {route && <div style={{...small,marginTop:8}}>Drive <b style={{color:C.text}}>{route.drive.durMin} min</b> ({route.drive.distKm} km) to parking, then walk <b style={{color:C.text}}>~{route.walk.min} min</b> ({route.walk.km} km) to the access. <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0}}>clear</button></div>}
+          {route && <div style={{...small,marginTop:8}}>Drive <b style={{color:C.text}}>{route.drive.durMin} min</b> ({route.drive.distKm} km) to parking, then {route.walk.trail?"walk the trail":"walk"} <b style={{color:C.text}}>~{route.walk.min} min</b> ({route.walk.km} km) to the access. <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0}}>clear</button></div>}
         </>)}
         <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
       </div>
@@ -825,7 +844,7 @@ export default function App(){
   const [mTemp,setMTemp]=useState(15);
   const [mFlow,setMFlow]=useState("Normal");
   const [mDays,setMDays]=useState(4);
-  const [tab,setTab]=useState("map");
+  const [tab,setTab]=useState("today");
   const [open,setOpen]=useState(null);
   const [userLoc,setUserLoc]=useState(null);        // {lat,lon} where you are
   const [userWx,setUserWx]=useState(null);          // weather where you are
@@ -1116,7 +1135,7 @@ export default function App(){
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
             {honourable.map(ev=>(
               <div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
-                <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor(ev.opportunity),fontVariantNumeric:"tabular-nums",width:26}}>{ev.opportunity}</span>
+                <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor(ev.opportunity),fontVariantNumeric:"tabular-nums",width:26}}>{ev.opportunity}</span>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,color:C.text,fontWeight:500}}>{ev.sec.river} <span style={{color:C.textDim}}>· {ev.sec.section}</span>{distOf(ev.sec)!=null && <span style={{color:C.textFaint,fontFamily:mono,fontSize:10}}> · {distOf(ev.sec)} km</span>}</div>
                 </div>
@@ -1208,7 +1227,7 @@ function ConditionsStrip({cond}){
   const press=pt==null?null:(pt>1.5?"↑ rising":pt<-1.5?"↓ falling":"→ steady");
   const sky=cond.cloud==null?null:(cond.cloud>70?"Overcast":cond.cloud<30?"Clear":"Cloudy");
   const chip=(label,val)=>(<span key={label} style={{display:"inline-flex",gap:5,alignItems:"baseline"}}>
-    <span style={{fontFamily:sans,fontSize:9,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{label}</span>
+    <span style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{label}</span>
     <span style={{fontFamily:sans,fontSize:12,color:C.text,fontWeight:600}}>{val}</span></span>);
   return (<div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8}}>
     {chip("Water",`${cond.temp.toFixed(0)}°C`)}
