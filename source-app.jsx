@@ -71,6 +71,14 @@ const SPECIES = {
     a:[0.05,0.05,0.05,0.05,0.20,0.40,0.50,0.55,0.60,0.40,0.10,0.05]},
   LAT:{name:"Lake trout",short:"LAT",mode:"resident",color:C.cyan,
     a:[0.70,0.65,0.70,0.60,0.30,0.15,0.10,0.10,0.25,0.55,0.75,0.75]},
+  SMB:{name:"Smallmouth bass",short:"SMB",mode:"resident",color:C.amber,
+    a:[0.05,0.05,0.10,0.35,0.75,0.95,0.90,0.85,0.75,0.55,0.20,0.08]},
+  NP:{name:"Northern pike",short:"NP",mode:"resident",color:C.cyan,
+    a:[0.35,0.35,0.55,0.85,0.80,0.60,0.50,0.50,0.65,0.80,0.70,0.45]},
+  WAL:{name:"Walleye",short:"WAL",mode:"resident",color:C.amber,
+    a:[0.30,0.30,0.55,0.80,0.70,0.60,0.55,0.55,0.70,0.80,0.60,0.40]},
+  PAN:{name:"Panfish",short:"PAN",mode:"resident",color:C.cyan,
+    a:[0.15,0.15,0.30,0.60,0.85,0.95,0.90,0.85,0.75,0.55,0.30,0.18]},
 };
 
 /* ------------------------------ DATA LAYER -------------------------------- */
@@ -1285,7 +1293,7 @@ function Method({logCount}){
 }
 function Footer(){
   return (<div style={{marginTop:28,paddingTop:16,borderTop:`2px dotted ${C.line}`,fontSize:11,color:C.textFaint,lineHeight:1.6}}>
-    Habitat and run-timing records are researched estimates for planning, not a substitute for on-the-water judgement or official regulations. No directions, access or parking are provided by design — the system scores fishing potential only.</div>);
+    Habitat and run-timing records are researched estimates for planning, not a substitute for on-the-water judgement or official regulations. Parking, driving and walking routes are drawn from OpenStreetMap and OSRM as a convenience — always confirm access and legality on site.</div>);
 }
 
 /* ------------------------------- PWA MOUNT -------------------------------- */

@@ -14,7 +14,9 @@
       "Bash(curl -sL https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js -o vendor/markercluster.js)",
       "Bash(curl -sL https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css -o vendor/MarkerCluster.css)",
       "Bash(curl -sL https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css -o vendor/MarkerCluster.Default.css)",
-      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"chore: esbuild build, vitest, self-hosted leaflet\")"
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"chore: esbuild build, vitest, self-hosted leaflet\")",
+      "Bash(npm test *)",
+      "Bash(git -c user.email=afridirockz34@gmail.com -c user.name=\"Faheem Afridi\" commit -q -m \"feat: pure lib modules \\(deep links, species inference, habitat proxy, resilient fetch, discovery, terrain, scoring\\); warmwater species; footer copy\")"
     ]
   }
 }
