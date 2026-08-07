@@ -12,7 +12,11 @@ import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
    parking and routing flow through it (cached + rate-limit-hardened). With no
    API base set, the app calls the public APIs directly, exactly as before. */
 const API_BASE = (typeof window !== "undefined" && window.MUDDY_API_BASE) || "";
-async function proxyJSON(path){ const r = await fetch(API_BASE + path); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
+async function proxyJSON(path, opts){ const o = opts||{};
+  const init = { credentials:"include", headers:{} };
+  if(o.method) init.method = o.method;
+  if(o.body!=null){ init.headers["Content-Type"]="application/json"; init.body = JSON.stringify(o.body); }
+  const r = await fetch(API_BASE + path, init); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
 
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
@@ -934,7 +938,12 @@ export default function App(){
       if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
       const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
       const log=await dbGet("log:entries"); if(log) setLogCount(log.length);
-      const sv=await dbGet("saved"); if(Array.isArray(sv)) setSaved(sv);
+      const sv=await dbGet("saved"); if(Array.isArray(sv)){ setSaved(sv);
+        if(API_BASE && !(await dbGet("saved:synced"))){
+          for(const s of sv){ if(s.habitat) proxyJSON("/saved-spots",{method:"POST",body:{ref:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon,source:s.source||"verified",habitat:s.habitat,species:s.species||[],history:s.history??60}}).catch(()=>{}); }
+          dbSet("saved:synced",true);
+        }
+      }
       const vs=await dbGet("visits"); if(Array.isArray(vs)) setVisits(vs);
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
@@ -964,9 +973,15 @@ export default function App(){
   const isSaved=useCallback(id=>saved.some(s=>s.id===id),[saved]);
   const toggleSave=useCallback((sec)=>{
     setSaved(prev=>{ const ex=prev.some(s=>s.id===sec.id);
-      const next= ex? prev.filter(s=>s.id!==sec.id)
-        : [...prev,{id:sec.id,label:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,savedAt:new Date().toISOString()}];
-      dbSet("saved",next); return next; });
+      const rec={id:sec.id,label:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,
+        habitat:sec.h,species:sec.species,history:sec.history,source:sec.source||"verified",savedAt:new Date().toISOString()};
+      const next= ex? prev.filter(s=>s.id!==sec.id) : [...prev,rec];
+      dbSet("saved",next);
+      if(API_BASE){
+        if(ex) proxyJSON(`/saved-spots/${encodeURIComponent(sec.id)}`,{method:"DELETE"}).catch(()=>{});
+        else proxyJSON("/saved-spots",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,source:rec.source,habitat:sec.h,species:sec.species,history:sec.history}}).catch(()=>{});
+      }
+      return next; });
   },[]);
   const addVisit=useCallback((entry)=>{
     setVisits(prev=>{ const next=[{...entry,id:"v"+Date.now()},...prev].slice(0,200); dbSet("visits",next); return next; });

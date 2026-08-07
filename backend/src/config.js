@@ -14,6 +14,10 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
   },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || "",
+    from: process.env.EMAIL_FROM || "Muddy York <onboarding@resend.dev>",
+  },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || "",
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",

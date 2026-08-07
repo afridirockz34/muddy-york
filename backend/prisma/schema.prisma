@@ -15,9 +15,31 @@ model User {
   googleId         String?       @unique
   stripeCustomerId String?       @unique
   trialEnd         DateTime?
+  alertEmail       Boolean       @default(true)
+  alertThreshold   Int           @default(75)
   createdAt        DateTime      @default(now())
   sessions         Session[]
   subscription     Subscription?
+  savedSpots       SavedSpot[]
+}
+
+model SavedSpot {
+  id          String    @id @default(cuid())
+  userId      String
+  ref         String
+  river       String
+  section     String
+  lat         Float
+  lon         Float
+  source      String    @default("verified")
+  habitat     Json
+  species     Json
+  history     Int       @default(60)
+  lastAlertAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ref])
 }
 
 model Subscription {
