@@ -2,6 +2,7 @@ import { makeCache } from "../proxy/cache.js";
 import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
+import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
 
 const DAY = 864e5;
 const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
@@ -58,6 +59,22 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       } catch { return reply.code(502).send({ error: "routing unavailable" }); }
       cache.set(key, json, DAY);
       return json;
+    });
+
+    app.get("/api/conditions", async (req, reply) => {
+      const lat = num(req.query.lat), lon = num(req.query.lon);
+      if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
+      const key = `cond:${r3(lat)},${r3(lon)}`;
+      const hit = cache.get(key);
+      if (hit) return hit;
+      let geojson;
+      try {
+        const res = await proxyFetch([buildHydroUrl(lat, lon)], {}, { retries: 1 });
+        geojson = await res.json();
+      } catch { return reply.code(502).send({ error: "gauge data unavailable" }); }
+      const payload = { gauge: nearestGauge(geojson, { lat, lon }) };
+      cache.set(key, payload, 60 * 60 * 1000);
+      return payload;
     });
   };
 }
