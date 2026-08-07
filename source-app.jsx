@@ -7,6 +7,7 @@ import { deriveHabitat } from "./lib/habitat-proxy.js";
 import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
 import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
+import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -559,7 +560,7 @@ function SeasonStrip({sec,m}){
 /* ============================== MAP VIEW ================================== */
 /* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
    is an online feature; offline it shows a graceful note and the other tabs work. */
-function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
+function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
   const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
   const [sel,setSel]=useState(null);
@@ -684,6 +685,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & route"/>
+        <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & routes">
         {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
         {parking==="error" && <div style={small}>Couldn't load parking just now — try again shortly.</div>}
         {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
@@ -698,9 +700,10 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
           {routeStatus==="error" && <div style={{...small,marginTop:8}}>Couldn't plot a driving route just now.</div>}
           {route && <div style={{...small,marginTop:8}}>Drive <b style={{color:C.text}}>{route.drive.durMin} min</b> ({route.drive.distKm} km) to parking, then {route.walk.trail?"walk the trail":"walk"} <b style={{color:C.text}}>~{route.walk.min} min</b> ({route.walk.km} km) to the access. <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0}}>clear</button></div>}
         </>)}
+        </Locked>
         <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
       </div>
-      <Advisor ev={ev} m={m}/>
+      <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
     </div>)}
   </div>);
 }
@@ -852,6 +855,12 @@ export default function App(){
   const [mFlow,setMFlow]=useState("Normal");
   const [mDays,setMDays]=useState(4);
   const [tab,setTab]=useState("today");
+  const [me,setMe]=useState(null);
+  const [authOpen,setAuthOpen]=useState(false);
+  const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
+  const isPremium = !API_BASE || isPremiumMe(me);
+  const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
+  useEffect(()=>{ refreshMe(); },[refreshMe]);
   const [open,setOpen]=useState(null);
   const [userLoc,setUserLoc]=useState(null);        // {lat,lon} where you are
   const [userWx,setUserWx]=useState(null);          // weather where you are
@@ -1045,6 +1054,7 @@ export default function App(){
               <span style={{width:7,height:7,borderRadius:7,background:statusDot,animation:status==="loading"?"pulse 1.2s infinite":"none"}}/>
               {statusTxt}{updated&&status!=="loading"?` · ${fmtTime(updated)}`:""}
             </span>
+            {API_BASE && <AccountButton me={me} onClick={()=>setAuthOpen(true)}/>}
           </div>
           <h1 style={{margin:"14px 0 0",fontFamily:serif,fontSize:19,fontWeight:400,fontStyle:"italic",color:C.headText,lineHeight:1.25}}>
             Find the right water, morning by morning.</h1>
@@ -1082,8 +1092,8 @@ export default function App(){
             <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <button onClick={requestLocation} style={{...btn,borderColor:userLoc?C.cyan:C.line,color:userLoc?C.cyan:C.textDim}}>
                 {locStatus==="locating"?"Casting about…":userLoc?"◉ Located":"Use my location"}</button>
-              {userLoc && <button onClick={()=>discoverNearby(radiusM)} style={{...btn,borderColor:C.brass,color:C.pine}}>
-                {discoStatus==="loading"?"Scouting…":discovered.length?`◎ ${discovered.length} spots found`:"Find water near me"}</button>}
+              {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btn,borderColor:C.brass,color:C.pine}}>
+                {!isPremium?"🔒 Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`◎ ${discovered.length} spots found`:"Find water near me"}</button>}
               {userLoc && discovered.length>0 && <button onClick={()=>{const nr=Math.min(radiusM+40000,150000);setRadiusM(nr);discoverNearby(nr);}} style={{...btn,borderColor:C.line,color:C.textDim}}>Widen search</button>}
               {discoStatus==="error" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Couldn't scout new water just now — try again shortly.</span>}
               {userLoc && userWx && <span style={{fontFamily:mono,fontSize:11,color:C.textDim}}>
@@ -1131,7 +1141,7 @@ export default function App(){
         </div>
 
         {/* ---------------- MAP ---------------- */}
-        {tab==="map" && <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave}/>}
+        {tab==="map" && <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>}
 
         {/* ---------------- NEWS ---------------- */}
         {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}/>}
@@ -1147,9 +1157,14 @@ export default function App(){
               <span style={{color:C.red,fontFamily:mono}}>!</span>
               <span>A word on warm water: at these temperatures a hooked trout or salmon rarely survives release. We've eased the warm rivers down the list — favour cold tailwater and spring creeks, or let the trout rest today.</span>
             </div>)}
-          {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave}/>)}
+          {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+          {top3.length>1 && (
+            <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
+              {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+            </Locked>)}
 
           <SectionTitle n="02" t="Honourable Mentions"/>
+          <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
             {honourable.map(ev=>(
               <div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
@@ -1160,6 +1175,7 @@ export default function App(){
                 <Pill k={ev.target}/>
               </div>))}
           </div>
+          </Locked>
 
           <SectionTitle t="Notes from the Water"/>
           <NotesBlock month={month} season={season} top={top3[0]} live={liveMode} cached={cached} manual={manual} status={status} now={now}/>
@@ -1209,7 +1225,7 @@ export default function App(){
                   <MiniStat label="Overall" value={ov}/><MiniStat label="Now opp." value={ev.opportunity}/>
                   <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
                 </div>
-                <Advisor ev={ev} m={month}/>
+                <Advisor ev={ev} m={month} premium={isPremium} onUpgrade={openUpgrade}/>
               </div>)}
             </div>);
           })}
@@ -1218,11 +1234,84 @@ export default function App(){
         {tab==="method" && <Method logCount={logCount}/>}
         <Footer/>
       </div>
+      {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe}/>}
     </div>
   );
 }
 
 const btn={fontFamily:mono,fontSize:10,letterSpacing:0.5,padding:"6px 11px",borderRadius:6,cursor:"pointer",background:C.panel,border:`1px solid ${C.line}`};
+
+/* ============================ AUTH / PAYWALL UI =========================== */
+function AccountButton({me,onClick}){
+  const label=entitlementLabel(me);
+  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?`◉ ${label}`:"Sign in"}</button>);
+}
+function AlertPrefs(){
+  const [p,setP]=useState(null);
+  useEffect(()=>{ let live=true; proxyJSON("/alert-prefs").then(d=>{ if(live) setP(d); }).catch(()=>{}); return ()=>{live=false;}; },[]);
+  if(!p) return null;
+  const save=(next)=>{ setP(next); proxyJSON("/alert-prefs",{method:"PUT",body:next}).catch(()=>{}); };
+  return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:8}}>Condition alerts</div>
+    <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:"pointer"}}>
+      <input type="checkbox" checked={p.alertEmail} onChange={e=>save({...p,alertEmail:e.target.checked})}/> Email me when my water hits prime
+    </label>
+    <div style={{marginTop:10,fontSize:11,color:C.textDim,display:"flex",justifyContent:"space-between"}}><span>Alert threshold</span><span style={{fontFamily:mono,color:C.text}}>{p.alertThreshold}/100</span></div>
+    <input type="range" min="50" max="95" value={p.alertThreshold} style={{width:"100%",marginTop:6}} onChange={e=>save({...p,alertThreshold:+e.target.value})}/>
+  </div>);
+}
+function AuthModal({me,onClose,onAuth}){
+  const signedIn=me&&me.user;
+  const [mode,setMode]=useState("signin");
+  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
+  const inp={width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
+  const submit=async()=>{ setErr(""); setBusy(true);
+    try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); onClose(); }
+    catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); }
+    finally{ setBusy(false); } };
+  const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); onClose(); };
+  const checkout=async(plan)=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan}}); if(url) window.location=url; }catch{ setErr("Couldn't start checkout — try again."); } };
+  const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
+  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.55)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"88vh",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:20,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>{signedIn?"Your account":mode==="signup"?"Create account":"Sign in"}</div>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,fontSize:20}}>✕</button>
+      </div>
+      {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
+      {signedIn ? (<div style={{marginTop:12}}>
+        <div style={{fontSize:13,color:C.text}}>{me.user.email}</div>
+        <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
+        {me.entitlement!=="active" ? (<div style={{marginTop:14}}>
+          <div style={{fontSize:12,color:C.textDim,marginBottom:8,lineHeight:1.45}}>Unlock the full ranked list, discovery, the fly advisor, and routes.</div>
+          <button onClick={()=>checkout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Go annual — {planPrice("annual")}</button>
+          <button onClick={()=>checkout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
+        </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
+        <AlertPrefs/>
+        <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"9px",marginTop:14}}>Sign out</button>
+      </div>) : (<div style={{marginTop:12}}>
+        <a href={`${API_BASE}/auth/google`} style={{...btn,borderColor:C.pine,color:C.pine,width:"100%",padding:"10px",display:"block",textAlign:"center",textDecoration:"none",boxSizing:"border-box"}}>Continue with Google</a>
+        <div style={{textAlign:"center",fontSize:11,color:C.textFaint,margin:"12px 0"}}>or with email</div>
+        <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+        <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)}/>
+        <button disabled={busy} onClick={submit} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account & start trial":"Sign in"}</button>
+        <div style={{textAlign:"center",marginTop:12,fontSize:12,color:C.textDim}}>
+          {mode==="signup"?"Already have an account? ":"New here? "}
+          <button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",textDecoration:"underline",fontSize:12}}>{mode==="signup"?"Sign in":"Create one — 14-day free trial"}</button>
+        </div>
+      </div>)}
+    </div>
+  </div>);
+}
+function Locked({premium,onUpgrade,children,label="Upgrade to unlock"}){
+  if(premium) return children;
+  return (<div style={{position:"relative"}}>
+    <div style={{filter:"blur(4px)",pointerEvents:"none",userSelect:"none",opacity:0.7}} aria-hidden="true">{children}</div>
+    <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <button onClick={onUpgrade} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,padding:"9px 16px",boxShadow:"0 3px 12px rgba(0,0,0,.25)"}}>🔒 {label}</button>
+    </div>
+  </div>);
+}
 
 /* ============================ SUB-COMPONENTS =============================== */
 function SectionTitle({n,t}){
@@ -1276,15 +1365,15 @@ function MeasuredGauge({lat,lon}){
   </div>);
 }
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
-function Advisor({ev,m}){
+function Advisor({ev,m,premium=true,onUpgrade}){
   const [open,setOpen]=useState(false);
   const a=useMemo(()=>advise(ev,m),[ev,m]);
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
-    <button onClick={()=>setOpen(o=>!o)} style={{fontFamily:sans,fontSize:11,letterSpacing:0.5,fontWeight:700,padding:"6px 11px",borderRadius:4,
-      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}>🪶 Strategy &amp; flies {open?"▴":"▾"}</button>
-    {open && (<div style={{marginTop:12}}>
+    <button onClick={()=> premium ? setOpen(o=>!o) : (onUpgrade&&onUpgrade())} style={{fontFamily:sans,fontSize:11,letterSpacing:0.5,fontWeight:700,padding:"6px 11px",borderRadius:4,
+      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}>{premium?`🪶 Strategy & flies ${open?"▴":"▾"}`:"🔒 Strategy & flies · Upgrade"}</button>
+    {open && premium && (<div style={{marginTop:12}}>
       <AdvHead t="Recommended techniques"/>
       <ul style={{margin:"0 0 14px",paddingLeft:18}}>
         {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
@@ -1317,7 +1406,7 @@ function SaveButton({saved,onClick}){
     border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:C.bone,color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
     {saved?"★ Saved":"☆ Save"}</button>);
 }
-function RecCard({ev,rank,m,dist,isSaved,onToggleSave}){
+function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade}){
   const sec=ev.sec, cd=ev.cond;
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
@@ -1351,7 +1440,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave}){
       <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
       <Bar label="Habitat" value={ev.parts.habitat}/>
     </div>
-    <Advisor ev={ev} m={m}/>
+    <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
   </div>);
 }
 function NotesBlock({month,season,top,live,cached,manual,status,now}){

@@ -6,7 +6,7 @@ import { createSession } from "../auth/session.js";
 function client() {
   return new Google(config.google.clientId, config.google.clientSecret, config.google.redirectUri);
 }
-const oauthCookie = { httpOnly: true, sameSite: "lax", secure: config.isProd, path: "/", maxAge: 600 };
+const oauthCookie = { httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", maxAge: 600 };
 
 export function decodeIdToken(jwt) {
   const payload = jwt.split(".")[1];
@@ -38,7 +38,7 @@ export default async function googleRoutes(app) {
     if (!user) user = await prisma.user.create({ data: { email, googleId, emailVerified: true } });
     else if (!user.googleId) user = await prisma.user.update({ where: { id: user.id }, data: { googleId, emailVerified: true } });
     const { token, expiresAt } = await createSession(user.id);
-    reply.setCookie(config.cookieName, token, { httpOnly: true, sameSite: "lax", secure: config.isProd, path: "/", expires: expiresAt });
+    reply.setCookie(config.cookieName, token, { httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt });
     return reply.redirect(config.frontendOrigin);
   });
 }

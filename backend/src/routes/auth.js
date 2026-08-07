@@ -7,7 +7,7 @@ import { entitlementForUser } from "../billing/user-entitlement.js";
 
 function setSessionCookie(reply, token, expiresAt) {
   reply.setCookie(config.cookieName, token, {
-    httpOnly: true, sameSite: "lax", secure: config.isProd, path: "/", expires: expiresAt,
+    httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt,
   });
 }
 const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified });
