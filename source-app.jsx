@@ -677,6 +677,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave}){
       </div>
       <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
       <ConditionsStrip cond={ev.cond}/>
+      <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & route"/>
         {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
@@ -1238,6 +1239,25 @@ function ConditionsStrip({cond}){
     {press && chip("Pressure",press)}
     {sky && chip("Sky",sky)}
     {chip("Flow",cond.flow)}
+  </div>);
+}
+function MeasuredGauge({lat,lon}){
+  const [g,setG]=useState(undefined); // undefined=loading | null=none | object
+  useEffect(()=>{
+    if(!API_BASE){ setG(null); return; }
+    let live=true; setG(undefined);
+    proxyJSON(`/api/conditions?lat=${lat}&lon=${lon}`)
+      .then(d=>{ if(live) setG(d.gauge||null); })
+      .catch(()=>{ if(live) setG(null); });
+    return ()=>{ live=false; };
+  },[lat,lon]);
+  if(!g) return null;
+  const ago=Math.max(0,Math.round((Date.now()-new Date(g.observedAt).getTime())/3600000));
+  return (<div style={{marginTop:10,padding:"8px 11px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>
+    <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Measured · nearest gauge</span>
+    <div style={{marginTop:3}}><b>{g.name}</b> · {g.distanceKm} km</div>
+    <div style={{marginTop:2}}>Flow <b>{g.discharge} m³/s</b>{g.level!=null?<> · level <b>{g.level} m</b></>:null} <span style={{color:C.textFaint}}>· {ago===0?"just now":`${ago} h ago`}</span></div>
+    <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:3}}>Live reading from Water Survey of Canada. Water temperature remains modeled.</div>
   </div>);
 }
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
