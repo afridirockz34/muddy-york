@@ -8,6 +8,12 @@ import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
 import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
 
+/* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
+   parking and routing flow through it (cached + rate-limit-hardened). With no
+   API base set, the app calls the public APIs directly, exactly as before. */
+const API_BASE = (typeof window !== "undefined" && window.MUDDY_API_BASE) || "";
+async function proxyJSON(path){ const r = await fetch(API_BASE + path); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
+
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
    Coverage: rivers within ~2 hrs driving of Jarvis St & College St, Toronto
@@ -318,9 +324,11 @@ async function fetchParking(lat,lon){
   const key=`parking:${lat.toFixed(3)},${lon.toFixed(3)}`;
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return c.list; }catch(e){}
   const q=`[out:json][timeout:20];(node["amenity"="parking"](around:1500,${lat},${lon});way["amenity"="parking"](around:1500,${lat},${lon});node["leisure"="slipway"](around:1500,${lat},${lon}););out center 25;`;
+  const directParking=async()=>{ const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q)}); if(!r.ok) throw 0; return r.json(); };
   try{
-    const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q)});
-    if(!r.ok) throw 0; const d=await r.json();
+    let d;
+    try{ d = API_BASE ? await proxyJSON(`/api/parking?lat=${lat}&lon=${lon}`) : await directParking(); }
+    catch(e){ d = await directParking(); }
     const list=(d.elements||[]).map(e=>{
       const la=e.lat!=null?e.lat:(e.center&&e.center.lat), lo=e.lon!=null?e.lon:(e.center&&e.center.lon);
       if(la==null) return null; const tg=e.tags||{};
@@ -331,23 +339,16 @@ async function fetchParking(lat,lon){
     return list;
   }catch(e){ return null; }
 }
-async function fetchDriveRoute(from,to){
-  try{
-    const u=`https://router.project-osrm.org/route/v1/driving/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
-    const r=await fetch(u); if(!r.ok) throw 0; const d=await r.json();
-    const rt=d.routes&&d.routes[0]; if(!rt) return null;
-    return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(1), durMin:Math.round(rt.duration/60) };
-  }catch(e){ return null; }
+async function osrmRoute(profile,from,to,decimals){
+  const directOSRM=async()=>{ const u=`https://router.project-osrm.org/route/v1/${profile}/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`; const r=await fetch(u); if(!r.ok) throw 0; return r.json(); };
+  let d;
+  try{ d = API_BASE ? await proxyJSON(`/api/route?profile=${profile}&from=${from.lon},${from.lat}&to=${to.lon},${to.lat}`) : await directOSRM(); }
+  catch(e){ try{ d=await directOSRM(); }catch(e2){ return null; } }
+  const rt=d.routes&&d.routes[0]; if(!rt) return null;
+  return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(decimals), durMin:Math.round(rt.duration/60) };
 }
-
-async function fetchFootRoute(from,to){
-  try{
-    const u=`https://router.project-osrm.org/route/v1/foot/${from.lon},${from.lat};${to.lon},${to.lat}?overview=full&geometries=geojson`;
-    const r=await fetch(u); if(!r.ok) throw 0; const d=await r.json();
-    const rt=d.routes&&d.routes[0]; if(!rt) return null;
-    return { coords: rt.geometry.coordinates.map(c=>[c[1],c[0]]), distKm:+(rt.distance/1000).toFixed(2), durMin:Math.round(rt.duration/60) };
-  }catch(e){ return null; }
-}
+async function fetchDriveRoute(from,to){ return osrmRoute("driving",from,to,1); }
+async function fetchFootRoute(from,to){ return osrmRoute("foot",from,to,2); }
 
 /* --------- dynamic spot discovery: OSM water -> curated-shaped secs -------- */
 const OVERPASS_HOSTS = [
@@ -363,12 +364,13 @@ async function discoverSecs(loc, radiusM){
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return {list:c.list, wxUrl:c.wxUrl||null}; }catch(e){}
   const body="data="+encodeURIComponent(buildOverpassQuery(loc.lat,loc.lon,radiusM));
   let json;
+  const directOverpass=async()=>{ const res=await fetchWithFallback(OVERPASS_HOSTS,
+      {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body},{retries:1}); return res.json(); };
   try{
-    const res=await fetchWithFallback(OVERPASS_HOSTS,
-      {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body},
-      {retries:1});
-    json=await res.json();
-  }catch(e){ return null; }
+    json = API_BASE ? await proxyJSON(`/api/discover?lat=${loc.lat}&lon=${loc.lon}&radiusM=${radiusM}`) : await directOverpass();
+  }catch(e){
+    try{ json=await directOverpass(); }catch(e2){ return null; }
+  }
   const spots=parseOverpassSpots(json,loc);
   const elev=await elevations(spots.map(s=>({lat:s.lat,lon:s.lon})));
   const list=spots.map((s,i)=>{
