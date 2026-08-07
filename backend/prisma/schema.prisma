@@ -8,13 +8,27 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  passwordHash  String?
-  googleId      String?   @unique
-  createdAt     DateTime  @default(now())
-  sessions      Session[]
+  id               String        @id @default(cuid())
+  email            String        @unique
+  emailVerified    Boolean       @default(false)
+  passwordHash     String?
+  googleId         String?       @unique
+  stripeCustomerId String?       @unique
+  trialEnd         DateTime?
+  createdAt        DateTime      @default(now())
+  sessions         Session[]
+  subscription     Subscription?
+}
+
+model Subscription {
+  id               String    @id
+  userId           String    @unique
+  status           String
+  priceId          String?
+  currentPeriodEnd DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {

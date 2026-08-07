@@ -14,4 +14,12 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
   },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || "",
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
+    priceMonthly: process.env.STRIPE_PRICE_MONTHLY || "",
+    priceAnnual: process.env.STRIPE_PRICE_ANNUAL || "",
+    successUrl: process.env.CHECKOUT_SUCCESS_URL || "http://localhost:8000/?checkout=success",
+    cancelUrl: process.env.CHECKOUT_CANCEL_URL || "http://localhost:8000/?checkout=cancel",
+  },
 };

@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import { hashPassword, verifyPassword } from "../auth/password.js";
 import { createSession, invalidateSession } from "../auth/session.js";
 import { getCurrentUser } from "../auth/current-user.js";
+import { entitlementForUser } from "../billing/user-entitlement.js";
 
 function setSessionCookie(reply, token, expiresAt) {
   reply.setCookie(config.cookieName, token, {
@@ -18,7 +19,8 @@ export default async function authRoutes(app) {
       return reply.code(400).send({ error: "email and 8+ char password required" });
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return reply.code(409).send({ error: "email already registered" });
-    const user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password) } });
+    const trialEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    const user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), trialEnd } });
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
     return { user: publicUser(user) };
@@ -42,6 +44,7 @@ export default async function authRoutes(app) {
 
   app.get("/auth/me", async (req) => {
     const user = await getCurrentUser(req);
-    return { user: user ? publicUser(user) : null };
+    if (!user) return { user: null, entitlement: "free" };
+    return { user: publicUser(user), entitlement: await entitlementForUser(user.id) };
   });
 }
