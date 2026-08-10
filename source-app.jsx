@@ -8,6 +8,9 @@ import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
 import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
 import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.js";
+import { Crest, Icon } from "./lib/brand.jsx";
+import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
+import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -854,7 +857,12 @@ export default function App(){
   const [mTemp,setMTemp]=useState(15);
   const [mFlow,setMFlow]=useState("Normal");
   const [mDays,setMDays]=useState(4);
-  const [tab,setTab]=useState("today");
+  const [tab,setTab]=useState("rivers");
+  const [drawerOpen,setDrawerOpen]=useState(false);
+  const [riversView,setRiversView]=useState("list");
+  const [radiusOpen,setRadiusOpen]=useState(false);
+  const [methodOpen,setMethodOpen]=useState(false);
+  const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
@@ -954,6 +962,7 @@ export default function App(){
         }
       }
       const vs=await dbGet("visits"); if(Array.isArray(vs)) setVisits(vs);
+      const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
     loadWeather();
@@ -996,6 +1005,8 @@ export default function App(){
     setVisits(prev=>{ const next=[{...entry,id:"v"+Date.now()},...prev].slice(0,200); dbSet("visits",next); return next; });
   },[]);
   const removeVisit=useCallback((id)=>{ setVisits(prev=>{ const next=prev.filter(v=>v.id!==id); dbSet("visits",next); return next; }); },[]);
+  const addNote=useCallback((fields)=>{ setNotes(prev=>{ const next=[newNote(fields),...prev].slice(0,300); dbSet("notes",next); return next; }); },[]);
+  const removeNote=useCallback((id)=>{ setNotes(prev=>{ const next=prev.filter(n=>n.id!==id); dbSet("notes",next); return next; }); },[]);
   const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
   const nearest=useMemo(()=>{ if(!userLoc) return null; let best=null;
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
@@ -1041,205 +1052,200 @@ export default function App(){
         @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
       `}</style>
 
-      {/* Header */}
-      <div style={{borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
-        <div style={{maxWidth:760,margin:"0 auto",padding:"calc(16px + env(safe-area-inset-top)) 18px 16px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <HeaderCrest/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
-              <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:3,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div>
-            </div>
-            <span style={{display:"inline-flex",alignItems:"center",gap:6,fontFamily:sans,fontSize:10,color:C.headDim}}>
-              <span style={{width:7,height:7,borderRadius:7,background:statusDot,animation:status==="loading"?"pulse 1.2s infinite":"none"}}/>
-              {statusTxt}{updated&&status!=="loading"?` · ${fmtTime(updated)}`:""}
-            </span>
-            {API_BASE && <AccountButton me={me} onClick={()=>setAuthOpen(true)}/>}
+      {/* TopBar */}
+      <div style={{position:"sticky",top:0,zIndex:20,borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
+        <div style={{maxWidth:820,margin:"0 auto",padding:"calc(9px + env(safe-area-inset-top)) 16px 9px",display:"flex",alignItems:"center",gap:11}}>
+          <Crest size={38}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
+            <div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div>
           </div>
-          <h1 style={{margin:"14px 0 0",fontFamily:serif,fontSize:19,fontWeight:400,fontStyle:"italic",color:C.headText,lineHeight:1.25}}>
-            Find the right water, morning by morning.</h1>
-          <div style={{display:"flex",alignItems:"baseline",gap:10,marginTop:7,flexWrap:"wrap"}}>
-            <span style={{fontFamily:sans,fontSize:12,color:C.bone}}>{fmtDate(now)} · {fmtTime(now)}</span>
-            <span style={{fontFamily:sans,fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:C.brass}}>{season}</span>
-            <span style={{fontFamily:sans,fontSize:10,color:C.headFaint}}>Southern Ontario · ~2 hr radius</span>
-          </div>
+          {API_BASE && <AccountButton me={me} onClick={()=>setAuthOpen(true)}/>}
+          <button aria-label="Menu" onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="menu" size={23}/></button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="tabs" style={{maxWidth:760,margin:"0 auto",display:"flex",borderBottom:`1px solid ${C.line}`,background:C.ink2,overflowX:"auto"}}>
-        {tabBtn("map","Map")}{tabBtn("today","Report")}{tabBtn("database","Rivers")}{tabBtn("news","News")}{tabBtn("saved","Saved")}{tabBtn("method","Notes")}
-      </div>
+      <div style={{maxWidth:820,margin:"0 auto",padding:"14px 16px calc(86px + env(safe-area-inset-bottom))"}}>
 
-      <div style={{maxWidth:760,margin:"0 auto",padding:"18px 18px calc(28px + env(safe-area-inset-bottom))"}}>
-
-        {/* DATA / CONTROL PANEL */}
-        <div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,marginBottom:18}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <div style={{fontSize:12.5,color:C.text}}>
-              {manual ? "Planning a trip — set the conditions yourself."
-                      : status==="live" ? "Reading live weather, river by river."
-                      : "Can't reach live weather — leaning on the seasonal almanac."}
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              {!manual && <button onClick={loadWeather} style={{...btn,borderColor:C.line,color:C.cyan}}>↻ Refresh</button>}
-              <button onClick={()=>setManual(m=>!m)} style={{...btn,borderColor:manual?C.amber:C.line,color:manual?C.amber:C.textDim}}>
-                {manual?"Back to live":"Plan a trip"}</button>
-            </div>
-          </div>
-
-          {!manual && (
-            <div style={{marginTop:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-              <button onClick={requestLocation} style={{...btn,borderColor:userLoc?C.cyan:C.line,color:userLoc?C.cyan:C.textDim}}>
-                {locStatus==="locating"?"Casting about…":userLoc?"◉ Located":"Use my location"}</button>
-              {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btn,borderColor:C.brass,color:C.pine}}>
-                {!isPremium?"🔒 Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`◎ ${discovered.length} spots found`:"Find water near me"}</button>}
-              {userLoc && discovered.length>0 && <button onClick={()=>{const nr=Math.min(radiusM+40000,150000);setRadiusM(nr);discoverNearby(nr);}} style={{...btn,borderColor:C.line,color:C.textDim}}>Widen search</button>}
-              {discoStatus==="error" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Couldn't scout new water just now — try again shortly.</span>}
-              {userLoc && userWx && <span style={{fontFamily:mono,fontSize:11,color:C.textDim}}>
-                At your spot: <b style={{color:C.text}}>{Math.round(userWx.air)}°C</b>{WX_CODE(userWx.code)?` · ${WX_CODE(userWx.code)}`:""}{userWx.precip>0?" · rain now":""}</span>}
-              {locStatus==="denied" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Our line got snagged — location is blocked. Turn it on in Settings ▸ Safari ▸ Location.</span>}
-              {locStatus==="unsupported" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Location isn't available on this device.</span>}
-              {locStatus==="error" && <span style={{fontFamily:mono,fontSize:10,color:C.amber}}>Couldn't get a fix — try casting again.</span>}
-            </div>)}
-          {!manual && nearest && <div style={{marginTop:8,fontFamily:mono,fontSize:10,color:C.textFaint}}>
-            Nearest water: {nearest.s.river} — {nearest.s.section} · {nearest.d} km</div>}
-
-          {!manual && status!=="loading" && (
-            <div style={{marginTop:10,fontFamily:mono,fontSize:10,color:C.textFaint,lineHeight:1.5}}>
-              Air &amp; rain: live{status==="fallback"?" (unavailable)":""}. Water temp: read from the air and each reach's cold-water hold. Flow: judged from recent rain.
-            </div>
-          )}
-
-          {manual && (
-            <div style={{marginTop:14}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-                <label style={{fontSize:11,color:C.textDim}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Water temp</span><span style={{fontFamily:mono,color:C.text}}>{mTemp}°C</span></div>
-                  <input type="range" min="2" max="26" value={mTemp} style={{width:"100%",marginTop:7}} onChange={e=>setMTemp(+e.target.value)}/>
-                </label>
-                <label style={{fontSize:11,color:C.textDim}}>
-                  <div style={{display:"flex",justifyContent:"space-between"}}><span>Days since rain</span><span style={{fontFamily:mono,color:C.text}}>{mDays}d</span></div>
-                  <input type="range" min="0" max="14" value={mDays} style={{width:"100%",marginTop:7}} onChange={e=>setMDays(+e.target.value)}/>
-                </label>
-              </div>
-              <div style={{marginTop:14}}>
-                <div style={{fontSize:11,color:C.textDim,marginBottom:7}}>Flow / clarity</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {["Low / clear","Normal","High / stained","Blown out"].map(f=>(
-                    <span key={f} className={"seg"+(mFlow===f?" on":"")} onClick={()=>setMFlow(f)}>{f}</span>))}
-                </div>
-              </div>
-              <div style={{marginTop:14}}>
-                <div style={{fontSize:11,color:C.textDim,marginBottom:7}}>Month</div>
-                <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-                  {MONTHS.map((mo,i)=>(<span key={i} className={"seg"+(mMonth===i?" on":"")} onClick={()=>setMMonth(i)} style={{padding:"5px 7px"}}>{mo}</span>))}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Compact meta strip — scrolls away */}
+        <div style={{display:"flex",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:12,overflow:"hidden",marginBottom:14}}>
+          <div style={metaCell}><div style={metaK}>{fmtDate(now)}</div><div style={metaV}>{fmtTime(now)}</div></div>
+          <div style={metaCell}><div style={metaK}>Now</div><div style={metaV}>{userWx?`${Math.round(userWx.air)}°`:status==="live"?"Live":"—"}<span style={metaEm}>{userWx&&WX_CODE(userWx.code)?" "+WX_CODE(userWx.code):""}</span></div></div>
+          <div style={metaCell}><div style={metaK}>Season</div><div style={metaV}>{season}</div></div>
+          <div style={{...metaCell,borderRight:"none",cursor:"pointer"}} onClick={()=>setRadiusOpen(true)}><div style={metaK}>Radius</div><div style={{...metaV,color:C.amberDeep}}>{radiusLabel(radiusM)}</div></div>
         </div>
 
-        {/* ---------------- MAP ---------------- */}
-        {tab==="map" && <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>}
+        {/* ===================== RIVERS TAB ===================== */}
+        {tab==="rivers" && (<>
+          <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+            <button onClick={requestLocation} style={{...btnBig,borderColor:userLoc?C.pine:C.line,color:userLoc?C.pine:C.textDim}}>
+              <Icon name="pin" size={15}/>{locStatus==="locating"?"Locating…":userLoc?"Located":"Use my location"}</button>
+            {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btnBig,borderColor:C.brass,color:C.pine}}>
+              <Icon name="search" size={15}/>{!isPremium?"Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`${discovered.length} spots found`:"Find water near me"}</button>}
+            <button onClick={loadWeather} style={{...btnBig,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={15}/>Refresh</button>
+          </div>
+          {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
+          {locStatus==="denied" && <div style={hint}>Location is blocked — enable it in Settings ▸ Safari ▸ Location.</div>}
 
-        {/* ---------------- NEWS ---------------- */}
+          <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14,position:"sticky",top:"calc(56px + env(safe-area-inset-top))",zIndex:10}}>
+            <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
+            <button onClick={()=>setRiversView("map")} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
+          </div>
+
+          {riversView==="map"
+            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>
+            : (<>
+              {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
+                <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
+              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+              {top3.length>1 && <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
+                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+              </Locked>}
+              <SectionTitle t="More water nearby"/>
+              <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
+                  {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+                    <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
+                    <Pill k={ev.target}/></div>))}
+                </div>
+              </Locked>
+            </>)}
+        </>)}
+
+        {/* ===================== NEWS TAB ===================== */}
         {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}/>}
 
-        {/* ---------------- SAVED ---------------- */}
-        {tab==="saved" && <SavedView saved={saved} visits={visits} ranked={ranked} m={month} onUnsave={toggleSave} onLog={addVisit} onRemoveVisit={removeVisit} goMap={()=>setTab("map")}/>}
-
-        {/* ---------------- TODAY ---------------- */}
-        {tab==="today" && (<>
-          <SectionTitle t="Today's Best Water"/>
-          {warmAny && (top3[0]?.cond.temp>=19) && (
-            <div style={{display:"flex",gap:10,padding:"10px 12px",marginBottom:14,background:`${C.red}14`,border:`1px solid ${C.red}55`,borderRadius:10,fontSize:12,color:C.text,lineHeight:1.5}}>
-              <span style={{color:C.red,fontFamily:mono}}>!</span>
-              <span>A word on warm water: at these temperatures a hooked trout or salmon rarely survives release. We've eased the warm rivers down the list — favour cold tailwater and spring creeks, or let the trout rest today.</span>
-            </div>)}
-          {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
-          {top3.length>1 && (
-            <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
-              {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
-            </Locked>)}
-
-          <SectionTitle n="02" t="Honourable Mentions"/>
-          <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
-            {honourable.map(ev=>(
-              <div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
-                <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor(ev.opportunity),fontVariantNumeric:"tabular-nums",width:26}}>{ev.opportunity}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,color:C.text,fontWeight:500}}>{ev.sec.river} <span style={{color:C.textDim}}>· {ev.sec.section}</span>{distOf(ev.sec)!=null && <span style={{color:C.textFaint,fontFamily:mono,fontSize:10}}> · {distOf(ev.sec)} km</span>}</div>
-                </div>
-                <Pill k={ev.target}/>
-              </div>))}
-          </div>
-          </Locked>
-
-          <SectionTitle t="Notes from the Water"/>
-          <NotesBlock month={month} season={season} top={top3[0]} live={liveMode} cached={cached} manual={manual} status={status} now={now}/>
-
-          <SectionTitle t="The Season Ahead"/>
-          <Outlook month={month}/>
-        </>)}
-
-        {/* ---------------- DATABASE ---------------- */}
-        {tab==="database" && (<>
-          <p style={{fontSize:12,color:C.textDim,margin:"0 0 12px",lineHeight:1.5}}>
-            {RIVERS.length} reaches in the logbook. Tap any one to open its page — habitat, live read, and run timing.</p>
-          <div style={{display:"flex",alignItems:"center",gap:8,margin:"0 0 14px",flexWrap:"wrap"}}>
-            <span style={{fontFamily:mono,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim}}>Sort</span>
-            <span className={"seg"+(sortBy==="overall"?" on":"")} onClick={()=>setSortBy("overall")}>Overall score</span>
-            {userLoc && <span className={"seg"+(sortBy==="distance"?" on":"")} onClick={()=>setSortBy("distance")}>Nearest to me</span>}
-          </div>
-          {[...RIVERS].map(s=>({s,ov:overallRiverScore(s),d:userLoc?haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon):null}))
-            .sort((a,b)=> (sortBy==="distance"&&userLoc) ? a.d-b.d : b.ov-a.ov).map(({s,ov,d})=>{
-            const ev=evaluate(s,month,condFor(s),now); const isOpen=open===s.id; const cd=ev.cond;
-            return (<div key={s.id} style={{marginBottom:8,background:C.panel,border:`1px solid ${isOpen?C.line:C.lineSoft}`,borderRadius:10,overflow:"hidden"}}>
-              <button onClick={()=>setOpen(isOpen?null:s.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
-                <span style={{fontFamily:serif,fontSize:17,fontWeight:700,width:26,color:scoreColor(ov),fontVariantNumeric:"tabular-nums"}}>{ov}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.river}</div>
-                  <div style={{fontSize:11,color:C.textDim}}>{s.section}</div>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                  {d!=null && <span style={{fontFamily:mono,fontSize:9,color:C.textFaint}}>{d} km</span>}
-                  <div style={{display:"flex",gap:4}}>{s.species.slice(0,3).map(k=><Pill key={k} k={k} dim={!isOpen}/>)}</div>
-                </div>
-              </button>
-              {isOpen && (<div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.lineSoft}`}}>
-                <div style={{display:"flex",gap:14,flexWrap:"wrap",fontFamily:mono,fontSize:10,color:C.textFaint,margin:"10px 0 10px"}}>
-                  <span>{s.region}</span><span>{s.zone}</span><span>{s.water}</span></div>
-                <ConditionsStrip cond={cd}/>
-                <div style={{margin:"8px 0 4px",fontFamily:sans,fontSize:10,color:cd.live?C.cyan:cd.cached?C.amber:C.textFaint}}>{cd.live?"live read":cd.cached?"last-known read":"seasonal model"}{cd.code!=null?` · ${WX_CODE(cd.code)}`:""}</div>
-                <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:"0 0 14px"}}>{s.note}</p>
-                <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:14}}>
-                  <Bar label="Holding" value={s.h.hold}/><Bar label="Structure" value={s.h.struct}/>
-                  <Bar label="Spawning" value={s.h.spawn}/><Bar label="Cold-water" value={s.h.cold}/>
-                  <Bar label="Oxygen" value={s.h.ox}/><Bar label="Groundwtr" value={s.h.gw}/>
-                </div>
-                <div style={{fontFamily:mono,fontSize:9,letterSpacing:1,textTransform:"uppercase",color:C.textDim,marginBottom:2}}>Fishing window · best target by month</div>
-                <SeasonStrip sec={s} m={month}/>
-                <div style={{display:"flex",gap:18,marginTop:14,flexWrap:"wrap"}}>
-                  <MiniStat label="Overall" value={ov}/><MiniStat label="Now opp." value={ev.opportunity}/>
-                  <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
-                </div>
-                <Advisor ev={ev} m={month} premium={isPremium} onUpgrade={openUpgrade}/>
-              </div>)}
-            </div>);
-          })}
-        </>)}
-
-        {tab==="method" && <Method logCount={logCount}/>}
-        <Footer/>
+        {/* ===================== NOTES TAB ===================== */}
+        {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]}/>}
       </div>
+
+      {/* Bottom tab bar */}
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:30,background:C.ink2,borderTop:`3px solid ${C.brass}`,display:"flex",padding:"6px 4px calc(8px + env(safe-area-inset-bottom))"}}>
+        {[["rivers","Rivers","rivers"],["news","News","news"],["notes","Notes","notes"]].map(([id,label,icon])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",color:tab===id?C.brass:C.headDim,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 2px"}}>
+            <Icon name={icon} size={22}/><span style={{fontSize:11,fontWeight:700}}>{label}</span></button>))}
+      </div>
+
+      {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
+        onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}/>}
+      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
+      {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe}/>}
     </div>
   );
 }
 
 const btn={fontFamily:mono,fontSize:10,letterSpacing:0.5,padding:"6px 11px",borderRadius:6,cursor:"pointer",background:C.panel,border:`1px solid ${C.line}`};
+
+/* ---- redesign shared styles + shell components ---- */
+const btnBig={display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:13,fontWeight:600,padding:"9px 13px",borderRadius:9,cursor:"pointer",background:"#fff",border:`1px solid ${C.line}`,color:C.pine};
+const metaCell={flex:1,padding:"7px 9px",borderRight:`1px solid ${C.lineSoft}`};
+const metaK={fontFamily:sans,fontSize:8.5,letterSpacing:1.1,textTransform:"uppercase",color:C.textFaint,fontWeight:700};
+const metaV={fontFamily:sans,fontSize:12.5,color:C.text,marginTop:2,fontWeight:700,whiteSpace:"nowrap"};
+const metaEm={fontWeight:500,color:C.textDim};
+const hint={fontFamily:sans,fontSize:11.5,color:C.amberDeep,marginBottom:10};
+const notePill={fontFamily:sans,fontSize:11.5,fontWeight:600,padding:"3px 9px",borderRadius:20,border:`1px solid ${C.line}`,background:C.bone,color:C.textDim};
+const sheetOverlay={position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:2000,display:"flex",alignItems:"flex-end",justifyContent:"center"};
+const sheetPanel={width:"100%",maxWidth:520,maxHeight:"84vh",overflowY:"auto",background:C.panel,borderRadius:"18px 18px 0 0",padding:"14px 18px calc(20px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 30px rgba(0,0,0,.25)"};
+function segBtn(on){ return {flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"9px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:600,background:on?C.pine:"transparent",color:on?C.headText:C.textDim}; }
+
+function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod}){
+  useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
+  const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
+  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex"}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:280,maxWidth:"82%",background:C.cyanDeep,padding:"16px 12px calc(20px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
+      <div style={{display:"flex",gap:11,alignItems:"center",padding:"4px 8px 14px"}}><Crest size={44}/><div><div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:"#EFE9DB"}}>Muddy York</div><div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div></div></div>
+      {link("rivers","Rivers",tab==="rivers",()=>onNav("rivers"))}
+      {link("news","News & catches",tab==="news",()=>onNav("news"))}
+      {link("notes","My notes",tab==="notes",()=>onNav("notes"))}
+      <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
+      {API_BASE && link("account",`Account${me&&me.user?" · "+entitlementLabel(me):""}`,false,onAccount)}
+      {link("radius","Search radius",false,onRadius)}
+      {link("method","Method & sources",false,onMethod)}
+      <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
+      <div style={{fontFamily:sans,fontSize:12,color:"#8FA394",padding:"8px 12px",lineHeight:1.5}}>Before you fish — confirm open seasons, limits and sanctuary closures in the current Ontario regulations.</div>
+    </div>
+  </div>);
+}
+function RadiusSheet({current,onPick,onClose}){
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
+      <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,marginBottom:4}}>Search radius</div>
+      <div style={{fontSize:13,color:C.textDim,marginBottom:14,lineHeight:1.5}}>How far around you to look for water. Wider searches take a little longer.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {RADIUS_PRESETS.map(p=>{ const on=radiusLabel(current)===p.label; return (
+          <button key={p.m} onClick={()=>onPick(p.m)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 15px",borderRadius:11,cursor:"pointer",fontFamily:sans,fontSize:15,fontWeight:600,border:`1px solid ${on?C.pine:C.line}`,background:on?"rgba(44,76,59,.08)":"#fff",color:C.pine}}>
+            {p.label}{on && <Icon name="check" size={18}/>}</button>); })}
+      </div>
+    </div>
+  </div>);
+}
+function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestLocation,top}){
+  const [f,setF]=useState({title:"",body:"",technique:"",flies:"",species:"",size:""});
+  const [pin,setPin]=useState(false);
+  const inp={width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const submit=()=>{ if(!f.title.trim()&&!f.body.trim()) return;
+    const fields={...f}; if(pin&&userLoc){ fields.lat=userLoc.lat; fields.lon=userLoc.lon; }
+    onAddNote(fields); setF({title:"",body:"",technique:"",flies:"",species:"",size:""}); setPin(false); };
+  const dropPin=()=>{ if(!userLoc) requestLocation(); setPin(true); };
+  return (<div>
+    <SectionTitle t="Drop a note"/>
+    <div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,marginBottom:18}}>
+      <input style={inp} placeholder="Title (e.g. Forks pool)" value={f.title} onChange={e=>set("title",e.target.value)}/>
+      <textarea style={{...inp,minHeight:70,resize:"vertical"}} placeholder="What happened, water read, conditions…" value={f.body} onChange={e=>set("body",e.target.value)}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <input style={inp} placeholder="Technique" value={f.technique} onChange={e=>set("technique",e.target.value)}/>
+        <input style={inp} placeholder="Flies / patterns" value={f.flies} onChange={e=>set("flies",e.target.value)}/>
+        <input style={inp} placeholder="Species caught" value={f.species} onChange={e=>set("species",e.target.value)}/>
+        <input style={inp} placeholder="Approx size" value={f.size} onChange={e=>set("size",e.target.value)}/>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+        <button onClick={dropPin} style={{...btnBig,borderColor:pin?C.pine:C.line,color:pin?C.pine:C.textDim}}><Icon name="pin" size={15}/>{pin?(userLoc?"Pinned to here":"Getting GPS…"):"Drop a pin here"}</button>
+        <button onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}><Icon name="plus" size={15}/>Save note</button>
+      </div>
+      <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Private to you, stored on this device. A pin saves your current GPS spot so you can return to the exact place.</div>
+    </div>
+
+    {saved.length>0 && (<><SectionTitle t="Saved water"/>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
+        {saved.map(s=>(<div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+          <div style={{flex:1,minWidth:0}}><div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.label}</div><div style={{fontSize:12.5,color:C.textDim}}>{s.section}</div></div>
+          <button onClick={()=>set("title",s.label+" — ")} style={{...btnBig,padding:"7px 10px",fontSize:12}}>Note</button>
+          <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6}}><Icon name="close" size={16}/></button>
+        </div>))}
+      </div></>)}
+
+    <SectionTitle t="Your notes"/>
+    {notes.length===0
+      ? <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:18}}>No notes yet. Jot down what worked — technique, flies, the water read — and drop a pin at spots worth returning to. It stays private to you.</div>
+      : <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18}}>
+          {notes.map(n=>(<div key={n.id} style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,padding:14}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:8}}><div style={{flex:1,fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine}}>{n.title||"Untitled"}</div><span style={{fontSize:11.5,color:C.textFaint}}>{new Date(n.createdAt).toLocaleDateString([], {month:"short",day:"numeric"})}</span></div>
+            {n.body && <div style={{fontSize:13.5,color:C.text,lineHeight:1.55,marginTop:6}}>{n.body}</div>}
+            {(n.technique||n.flies||n.species||n.size) && <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:9}}>
+              {n.technique && <span style={notePill}>{n.technique}</span>}{n.flies && <span style={notePill}>{n.flies}</span>}
+              {n.species && <span style={notePill}>{n.species}</span>}{n.size && <span style={notePill}>{n.size}</span>}</div>}
+            <div style={{display:"flex",gap:12,alignItems:"center",marginTop:11}}>
+              {hasPin(n) && <a href={gmapsPinUrl(n)} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12.5,fontWeight:600,color:C.pine,textDecoration:"none"}}><Icon name="pin" size={15}/>Open in Google Maps</a>}
+              <div style={{flex:1}}/>
+              <button onClick={()=>onRemoveNote(n.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,fontSize:12,textDecoration:"underline"}}>delete</button>
+            </div>
+          </div>))}
+        </div>}
+
+    {top && <div style={{background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:11,padding:13,marginBottom:12}}>
+      <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Today's best read</div>
+      <div style={{fontSize:14,color:C.text,marginTop:5}}><b style={{fontFamily:serif,fontSize:16,color:C.pine}}>{top.sec.river}</b> — opportunity {top.opportunity}/100 ({scoreWord(top.opportunity)}).</div></div>}
+    <div style={{background:`${C.amber}14`,border:`1px solid ${C.amber}55`,borderRadius:11,padding:13}}>
+      <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.amberDeep,marginBottom:6}}>Before you fish</div>
+      <div style={{fontSize:13,color:C.text,lineHeight:1.55}}>Confirm open seasons, gear and limits in the current Ontario Fishing Regulations for the zone, plus waterbody exceptions and sanctuary closures. When water is warm, the kindest call is often not to target trout at all.</div>
+    </div>
+  </div>);
+}
 
 /* ============================ AUTH / PAYWALL UI =========================== */
 function AccountButton({me,onClick}){
