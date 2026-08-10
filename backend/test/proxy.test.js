@@ -5,6 +5,22 @@ function stub(json) {
   return vi.fn().mockResolvedValue(new Response(JSON.stringify(json), { status: 200 }));
 }
 
+describe("bathymetry route", () => {
+  it("400 on bad coords", async () => {
+    const app = buildApp({ proxyFetch: stub({ features: [] }) });
+    expect((await app.inject({ method: "GET", url: "/api/bathymetry?lat=x&lon=-80" })).statusCode).toBe(400);
+  });
+  it("returns max depth + caches", async () => {
+    const f = stub({ features: [{ attributes: { DEPTH: -12 } }, { attributes: { DEPTH: -3 } }] });
+    const app = buildApp({ proxyFetch: f });
+    const url = "/api/bathymetry?lat=44.4&lon=-79.5";
+    const a = await app.inject({ method: "GET", url });
+    expect(a.json().bathy.maxDepthM).toBe(12);
+    await app.inject({ method: "GET", url });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("conditions route", () => {
   const feat = (num, lon, lat, disch, dt) => ({
     geometry: { type: "Point", coordinates: [lon, lat] },

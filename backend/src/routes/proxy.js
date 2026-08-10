@@ -3,6 +3,8 @@ import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
 import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
+import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
+import { parseStocking } from "../../../lib/stocking.js";
 
 const DAY = 864e5;
 const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
@@ -74,6 +76,37 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       } catch { return reply.code(502).send({ error: "gauge data unavailable" }); }
       const payload = { gauge: nearestGauge(geojson, { lat, lon }) };
       cache.set(key, payload, 60 * 60 * 1000);
+      return payload;
+    });
+
+    app.get("/api/bathymetry", async (req, reply) => {
+      const lat = num(req.query.lat), lon = num(req.query.lon);
+      if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
+      const key = `bathy:${r3(lat)},${r3(lon)}`;
+      const hit = cache.get(key); if (hit) return hit;
+      let json;
+      try { const res = await proxyFetch([buildBathyUrl(lat, lon)], {}, { retries: 1 }); json = await res.json(); }
+      catch { return reply.code(502).send({ error: "bathymetry unavailable" }); }
+      const payload = { bathy: parseBathy(json) };
+      cache.set(key, payload, 30 * 24 * 3600 * 1000);
+      return payload;
+    });
+
+    const STOCKING_URL = "https://services1.arcgis.com/TJH5KDher0W13Kgo/arcgis/rest/services/FishStockingDataForRecreationalPurposes/FeatureServer/0";
+    app.get("/api/stocking", async (req, reply) => {
+      const lat = num(req.query.lat), lon = num(req.query.lon);
+      if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
+      if (!STOCKING_URL) return { stocking: null };
+      const key = `stock:${r3(lat)},${r3(lon)}`;
+      const hit = cache.get(key); if (hit) return hit;
+      const h = 0.25;
+      const url = `${STOCKING_URL}/query?geometry=${(lon - h).toFixed(3)},${(lat - h).toFixed(3)},${(lon + h).toFixed(3)},${(lat + h).toFixed(3)}` +
+        `&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&f=json&resultRecordCount=200`;
+      let json;
+      try { const res = await proxyFetch([url], {}, { retries: 1 }); json = await res.json(); }
+      catch { return reply.code(502).send({ error: "stocking unavailable" }); }
+      const payload = { stocking: parseStocking(json, { lat, lon }) };
+      cache.set(key, payload, 7 * 24 * 3600 * 1000);
       return payload;
     });
   };
