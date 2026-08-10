@@ -11,6 +11,8 @@ import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.j
 import { Crest, Icon } from "./lib/brand.jsx";
 import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
+import { holdingWater } from "./lib/holding-water.js";
+import { estimateFish } from "./lib/fish-estimate.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -175,6 +177,31 @@ const RIVERS = [
     species:["STL","BNT","LAT"], lat:43.15, lon:-79.05,
     h:{hold:90,struct:86,spawn:58,cold:70,ox:90,gw:40}, history:88, report:80, reportAge:1, conf:84,
     note:"Enormous, oxygen-rich cold river holding steelhead, big browns and lake trout. Peaks late fall through spring; deep and fishable but slower in high summer." },
+  { id:"saugeen-denny", river:"Saugeen River", section:"Lower — Denny's Dam to the mouth (Southampton)",
+    region:"Lake Huron tributary", zone:"FMZ 13", water:"Large tributary below a dam/fishway",
+    species:["STL","CHN","BNTr"], lat:44.48, lon:-81.35,
+    h:{hold:84,struct:78,spawn:78,cold:52,ox:80,gw:48}, history:88, report:78, reportAge:2, conf:82,
+    note:"One of Lake Huron's premier steelhead rivers. Big spring and fall runs stack below Denny's Dam and the fishway; large, deep holding pools." },
+  { id:"maitland-lower", river:"Maitland River", section:"Lower — Benmiller to Goderich",
+    region:"Lake Huron tributary", zone:"FMZ 13", water:"Mid-large tributary",
+    species:["STL","BNTr","RBT"], lat:43.72, lon:-81.65,
+    h:{hold:78,struct:76,spawn:74,cold:56,ox:78,gw:52}, history:80, report:66, reportAge:4, conf:78,
+    note:"Strong Huron steelhead and resident brown water with long, deep runs. Fishes best spring and fall; warms in mid-summer." },
+  { id:"beaver-upper", river:"Beaver River", section:"Upper — Kimberley to below Eugenia",
+    region:"Inland cold-water", zone:"FMZ 14", water:"Spring-fed valley river",
+    species:["BNT","BKT","RBT"], lat:44.42, lon:-80.55,
+    h:{hold:74,struct:80,spawn:80,cold:82,ox:86,gw:78}, history:76, report:52, reportAge:6, conf:76,
+    note:"Cold, spring-fed upper Beaver holds wild brook and brown trout through summer — a genuine warm-season option well above the Thornbury runs." },
+  { id:"boyne", river:"Boyne River", section:"Primrose / Boyne valley cold headwaters",
+    region:"Inland cold-water", zone:"FMZ 16", water:"Small spring-fed brook-trout stream",
+    species:["BKT","BNT"], lat:44.15, lon:-80.05,
+    h:{hold:66,struct:82,spawn:84,cold:88,ox:88,gw:84}, history:72, report:44, reportAge:7, conf:72,
+    note:"Tiny, cold, spring-fed Nottawasaga feeder holding wild brook trout that stays fishable through July. Rarely appears in public spot reports." },
+  { id:"credit-mid", river:"Credit River", section:"Middle — Norval to Glen Williams",
+    region:"Lake Ontario tributary", zone:"FMZ 16", water:"Mid-size tributary with deeper runs",
+    species:["BNT","RBT","STL"], lat:43.65, lon:-79.92,
+    h:{hold:76,struct:78,spawn:72,cold:62,ox:78,gw:58}, history:80, report:70, reportAge:2, conf:80,
+    note:"A deeper middle stretch that holds resident browns year-round and stages migratory fish spring and fall; good pool-and-run water between the lower and upper reaches." },
 ];
 
 const W = { habitat:0.25, seasonal:0.20, current:0.20, history:0.15, report:0.10, water:0.10 };
@@ -686,6 +713,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
       <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
       <ConditionsStrip cond={ev.cond}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
+      <DepthFish sec={ev.sec}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & route"/>
         <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & routes">
@@ -1391,6 +1419,36 @@ function MeasuredGauge({lat,lon}){
     <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:3}}>Live reading from Water Survey of Canada. Water temperature remains modeled.</div>
   </div>);
 }
+function DepthFish({sec}){
+  const [d,setD]=useState(undefined);
+  useEffect(()=>{ let live=true; setD(undefined);
+    const jobs=[ API_BASE?proxyJSON(`/api/bathymetry?lat=${sec.lat}&lon=${sec.lon}`).catch(()=>({bathy:null})):Promise.resolve({bathy:null}),
+      API_BASE?proxyJSON(`/api/stocking?lat=${sec.lat}&lon=${sec.lon}`).catch(()=>({stocking:null})):Promise.resolve({stocking:null}) ];
+    Promise.all(jobs).then(([b,s])=>{ if(!live) return;
+      const sounded=b.bathy?b.bathy.maxDepthM:null;
+      const w=(sec.water||"").toLowerCase();
+      const hw=holdingWater({ isTailwater:/tailwater|below the dam|below a dam|fishway/i.test((sec.section||"")+" "+(sec.water||"")), waterType:w.includes("lake")?"lake":w.includes("stream")?"stream":"river", gradientPct:1, sinuosity:1.15, nearConfluence:false, belowLake:false, soundedMaxDepthM:sounded });
+      const stock=s.stocking&&s.stocking.events&&s.stocking.events[0];
+      const fish=estimateFish({ species:sec.species||[], holding:hw, stocking:stock?{species:stock.species,yearsAgo:stock.yearsAgo}:null, coldRetention:sec.h?sec.h.cold:60, month:new Date().getMonth() });
+      setD({hw,bathy:b.bathy,fish,stock}); });
+    return ()=>{live=false;};
+  },[sec.lat,sec.lon]);
+  if(d===undefined) return null;
+  const {hw,bathy,fish,stock}=d;
+  const spNames=fish.species.map(s=>SPECIES[s.key]?SPECIES[s.key].name:s.key);
+  return (<div style={{marginTop:10,padding:"10px 12px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:10}}>
+    <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine,marginBottom:5}}>Depth &amp; likely fish · estimate</div>
+    <div style={{fontSize:13.5,color:C.text,lineHeight:1.5}}>
+      {bathy&&bathy.maxDepthM!=null ? <><b>{bathy.maxDepthM} m</b> deepest here (surveyed)</> : <>Holding water: <b>{hw.class.replace("-"," ")}</b> ({hw.poolScore}/100)</>}
+      {hw.drivers.length>0 && <> — {hw.drivers.slice(0,2).join(", ")}</>}.
+    </div>
+    <div style={{fontSize:13.5,color:C.text,lineHeight:1.5,marginTop:4}}>
+      Likely: <b>{spNames.slice(0,3).join(", ")}</b>. Fish size: <b>{fish.sizeClass}</b> · {fish.ageEstimate}.
+      {stock && <span style={{color:C.textDim}}> Stocked {stock.species} ~{stock.yearsAgo} yr ago ({stock.distanceKm} km).</span>}
+    </div>
+    <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size are estimates that sharpen as anglers log catches.</div>
+  </div>);
+}
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
 function Advisor({ev,m,premium=true,onUpgrade}){
   const [open,setOpen]=useState(false);
@@ -1454,6 +1512,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade}){
     </div>
     <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"14px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
+    <DepthFish sec={sec}/>
     <div style={{display:"flex",gap:18,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
       <MiniStat label="Overall" value={ev.overall}/>
       <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
