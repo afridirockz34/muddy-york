@@ -627,7 +627,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
     if(!sec) return;
     const g=L.layerGroup();
     const access=L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,15],
-      html:`<div style="width:26px;height:26px;border-radius:50%;background:${C.brass};border:2px solid ${C.pine};display:flex;align-items:center;justify-content:center;font-size:13px;color:${C.pine}">◆</div>`});
+      html:`<div style="width:26px;height:26px;border-radius:50%;background:${C.brass};border:2px solid ${C.pine};display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;background:${C.pine};transform:rotate(45deg)"></div></div>`});
     L.marker([sec.lat,sec.lon],{icon:access,zIndexOffset:500}).addTo(g);
     if(Array.isArray(parking)) parking.forEach(p=>{
       const pic=L.divIcon({className:"",iconSize:[24,24],iconAnchor:[12,12],
@@ -681,7 +681,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
           <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
-        <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,fontSize:20,lineHeight:1,padding:"0 2px"}}>✕</button>
+        <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
       </div>
       <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
       <ConditionsStrip cond={ev.cond}/>
@@ -694,14 +694,25 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
         {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
         {Array.isArray(parking)&&parking.length>0 && (<>
           <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
-            {userLoc && <button onClick={routeFromMe} style={{...btn,borderColor:C.brick,color:C.brick}}>{routeStatus==="loading"?"Plotting…":"🚗 Route from me"}</button>}
-            <a href={gmapsDirections(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btn,borderColor:C.pine,color:C.pine,textDecoration:"none"}}>🗺️ Directions (parking)</a>
-            <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btn,borderColor:C.line,color:C.textDim,textDecoration:"none"}}>📍 Access point</a>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
+            {userLoc && <button onClick={routeFromMe} style={{...btnBig,borderColor:C.brick,color:C.brick,fontSize:12.5,padding:"8px 12px"}}><Icon name="drive" size={15}/>{routeStatus==="loading"?"Plotting…":"Route from me"}</button>}
+            <a href={gmapsDirections(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
+            <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.line,color:C.textDim,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="pin" size={15}/>Access</a>
           </div>
-          {!userLoc && <div style={{...small,marginTop:8}}>Share your location (Report tab ▸ Use my location) to plot a drive route from where you are.</div>}
+          {!userLoc && <div style={{...small,marginTop:8}}>Use your location (Rivers tab) to plot a route from where you are.</div>}
           {routeStatus==="error" && <div style={{...small,marginTop:8}}>Couldn't plot a driving route just now.</div>}
-          {route && <div style={{...small,marginTop:8}}>Drive <b style={{color:C.text}}>{route.drive.durMin} min</b> ({route.drive.distKm} km) to parking, then {route.walk.trail?"walk the trail":"walk"} <b style={{color:C.text}}>~{route.walk.min} min</b> ({route.walk.km} km) to the access. <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0}}>clear</button></div>}
+          {route && (<div style={{marginTop:10,borderTop:`1px dotted ${C.line}`}}>
+            <div style={{display:"flex",gap:11,alignItems:"flex-start",padding:"11px 0",borderBottom:`1px dotted ${C.line}`}}>
+              <div style={{width:32,height:32,borderRadius:9,background:C.panelHi,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.pine}}><Icon name="drive" size={17}/></div>
+              <div><div style={{fontSize:13.5,fontWeight:700,color:C.text}}>Drive {route.drive.durMin} min · {route.drive.distKm} km</div><div style={{fontSize:12,color:C.textDim,marginTop:2}}>To the nearest parking</div></div>
+            </div>
+            <div style={{display:"flex",gap:11,alignItems:"flex-start",padding:"11px 0"}}>
+              <div style={{width:32,height:32,borderRadius:9,background:C.panelHi,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.pine}}><Icon name="walk" size={17}/></div>
+              <div><div style={{fontSize:13.5,fontWeight:700,color:C.text}}>{route.walk.trail?"Walk the trail":"Walk"} ~{route.walk.min} min · {route.walk.km} km</div><div style={{fontSize:12,color:C.textDim,marginTop:2}}>To the water</div></div>
+              <div style={{flex:1}}/>
+              <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0,alignSelf:"center"}}>clear</button>
+            </div>
+          </div>)}
         </>)}
         </Locked>
         <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
@@ -774,17 +785,23 @@ function SavedView({saved,visits,ranked,m,onUnsave,onLog,onRemoveVisit,goMap}){
 function catColor(cat){ return /weather/i.test(cat)?C.pine : /water/i.test(cat)?C.amberDeep : /window/i.test(cat)?C.brick : /regulat|regs|closure|licen/i.test(cat)?C.brick : C.pine; }
 function FeedCard({it}){
   const col=catColor(it.category);
-  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:13,marginBottom:8,position:"relative",overflow:"hidden"}}>
-    <div style={{position:"absolute",top:0,left:0,width:3,height:"100%",background:col}}/>
-    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5,flexWrap:"wrap"}}>
-      <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:col,border:`1px solid ${col}55`,borderRadius:3,padding:"1px 6px"}}>{it.category}</span>
-      {it.saved && <span style={{fontFamily:sans,fontSize:9.5,color:C.brickDeep,fontWeight:700}}>★ your water</span>}
-      {it.dist!=null && <span style={{fontFamily:sans,fontSize:9.5,color:C.textFaint}}>{it.dist} km</span>}
-      {it.source && <span style={{fontFamily:sans,fontSize:9.5,color:C.textFaint}}>{it.source}</span>}
+  const handle=it.external?(it.source||"Reports"):"Muddy York";
+  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+      <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`}}><Crest size={38}/></div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontFamily:sans,fontSize:13.5,fontWeight:700,color:C.pine}}>{handle}</div>
+        <div style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{it.category}{it.ts?` · ${new Date(it.ts).toLocaleDateString([], {month:"short",day:"numeric"})}`:""}</div>
+      </div>
+      <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:800,color:col,border:`1px solid ${col}44`,borderRadius:5,padding:"2px 7px"}}>{it.category}</span>
     </div>
-    <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine,lineHeight:1.25}}>{it.title}</div>
-    {it.body && <div style={{fontSize:12.5,color:C.text,lineHeight:1.5,marginTop:4}}>{it.body}</div>}
-    {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer" style={{fontFamily:sans,fontSize:11,color:C.brick,marginTop:6,display:"inline-block"}}>Read more →</a>}
+    <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,lineHeight:1.3}}>{it.title}</div>
+    {it.body && <div style={{fontSize:13.5,color:C.text,lineHeight:1.55,marginTop:6}}>{it.body}</div>}
+    {it.url && <a href={it.url} target="_blank" rel="noopener noreferrer" style={{fontFamily:sans,fontSize:12,fontWeight:600,color:C.brick,marginTop:8,display:"inline-block"}}>Read more</a>}
+    <div style={{display:"flex",gap:20,alignItems:"center",marginTop:12,paddingTop:11,borderTop:`1px solid ${C.lineSoft}`,color:C.textDim}}>
+      <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12.5,fontWeight:600}}><Icon name="like" size={17}/>Like</span>
+      <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12.5,fontWeight:600}}><Icon name="comment" size={17}/>Comment</span>
+    </div>
   </div>);
 }
 function NewsView({derived, newsUrl, onSaveUrl, personalized}){
@@ -815,9 +832,13 @@ function NewsView({derived, newsUrl, onSaveUrl, personalized}){
   const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:12.5};
 
   return (<div>
-    <SectionTitle t={personalized?"Your Local Report":"The Local Report"}/>
-    <p style={{fontSize:12,color:C.textDim,lineHeight:1.5,margin:"0 0 12px"}}>
-      Live conditions from your rivers — rain on the way, flows up or down, prime windows and warm-water warnings — ranked toward {personalized?"your saved water and what's near you":"the most actionable water"}.</p>
+    <SectionTitle t="The Feed"/>
+    <div style={{display:"flex",alignItems:"center",gap:10,background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:12,marginBottom:14}}>
+      <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",border:`1px solid ${C.line}`,flexShrink:0}}><Crest size={38}/></div>
+      <div style={{flex:1,fontSize:13.5,color:C.textFaint}}>Share your catch or a technique…</div>
+      <span style={{fontFamily:sans,fontSize:10,fontWeight:700,color:C.textFaint,border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px"}}>Soon</span>
+    </div>
+    <div style={{fontSize:12,color:C.textFaint,lineHeight:1.5,margin:"0 0 14px"}}>Posting catches, photos and comments arrives soon. Catch locations always stay hidden.</div>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {cats.map(x=><span key={x} className={"seg"+(cat===x?" on":"")} onClick={()=>setCat(x)}>{x}</span>)}
     </div>
@@ -1250,7 +1271,7 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
 /* ============================ AUTH / PAYWALL UI =========================== */
 function AccountButton({me,onClick}){
   const label=entitlementLabel(me);
-  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?`◉ ${label}`:"Sign in"}</button>);
+  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?label:"Sign in"}</button>);
 }
 function AlertPrefs(){
   const [p,setP]=useState(null);
@@ -1282,7 +1303,7 @@ function AuthModal({me,onClose,onAuth}){
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"88vh",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:20,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>{signedIn?"Your account":mode==="signup"?"Create account":"Sign in"}</div>
-        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,fontSize:20}}>✕</button>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={20}/></button>
       </div>
       {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
       {signedIn ? (<div style={{marginTop:12}}>
@@ -1314,7 +1335,7 @@ function Locked({premium,onUpgrade,children,label="Upgrade to unlock"}){
   return (<div style={{position:"relative"}}>
     <div style={{filter:"blur(4px)",pointerEvents:"none",userSelect:"none",opacity:0.7}} aria-hidden="true">{children}</div>
     <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <button onClick={onUpgrade} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,padding:"9px 16px",boxShadow:"0 3px 12px rgba(0,0,0,.25)"}}>🔒 {label}</button>
+      <button onClick={onUpgrade} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:13,fontWeight:700,borderRadius:9,cursor:"pointer",borderStyle:"solid",borderWidth:1,borderColor:C.brick,background:C.brick,color:C.bone,padding:"10px 16px",boxShadow:"0 3px 12px rgba(0,0,0,.25)"}}><Icon name="lock" size={15}/>{label}</button>
     </div>
   </div>);
 }
@@ -1322,8 +1343,8 @@ function Locked({premium,onUpgrade,children,label="Upgrade to unlock"}){
 /* ============================ SUB-COMPONENTS =============================== */
 function SectionTitle({n,t}){
   return (<div style={{display:"flex",alignItems:"center",gap:10,margin:"6px 0 14px"}}>
-    <span style={{color:C.brass,fontSize:11}}>◆</span>
-    <span style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine,letterSpacing:0.2}}>{t}</span>
+    <span style={{width:6,height:6,borderRadius:2,background:C.brass,transform:"rotate(45deg)",flexShrink:0}}/>
+    <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,letterSpacing:0.2}}>{t}</span>
     <span style={{flex:1,borderTop:`2px dotted ${C.line}`,height:0}}/></div>);
 }
 function MiniStat({label,value,sub}){
@@ -1377,8 +1398,8 @@ function Advisor({ev,m,premium=true,onUpgrade}){
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
-    <button onClick={()=> premium ? setOpen(o=>!o) : (onUpgrade&&onUpgrade())} style={{fontFamily:sans,fontSize:11,letterSpacing:0.5,fontWeight:700,padding:"6px 11px",borderRadius:4,
-      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}>{premium?`🪶 Strategy & flies ${open?"▴":"▾"}`:"🔒 Strategy & flies · Upgrade"}</button>
+    <button onClick={()=> premium ? setOpen(o=>!o) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
+      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
     {open && premium && (<div style={{marginTop:12}}>
       <AdvHead t="Recommended techniques"/>
       <ul style={{margin:"0 0 14px",paddingLeft:18}}>
@@ -1391,7 +1412,7 @@ function Advisor({ev,m,premium=true,onUpgrade}){
             <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
             {tag(f.size,true)}{tag(f.color)}
             <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
-              style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}>🔍 See it</a>
+              style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>
           </div>
           <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
         </div>))}
@@ -1408,9 +1429,9 @@ function Advisor({ev,m,premium=true,onUpgrade}){
   </div>);
 }
 function SaveButton({saved,onClick}){
-  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.5,padding:"4px 9px",borderRadius:4,cursor:"pointer",
-    border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:C.bone,color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
-    {saved?"★ Saved":"☆ Save"}</button>);
+  return (<button onClick={onClick} style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:11.5,fontWeight:700,letterSpacing:0.3,padding:"5px 11px",borderRadius:20,cursor:"pointer",
+    border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:"#fff",color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
+    <Icon name="save" size={13}/>{saved?"Saved":"Save"}</button>);
 }
 function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade}){
   const sec=ev.sec, cd=ev.cond;
