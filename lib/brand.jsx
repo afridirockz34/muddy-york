@@ -1,0 +1,121 @@
+import React from "react";
+
+/* =============================================================================
+   BRAND — single source of truth for the crest and the icon set.
+   To swap the logo later, replace ONLY the markup inside <Crest/>.
+   No emoji anywhere in the app: every glyph comes from <Icon name=…/>.
+   ============================================================================= */
+
+/* --- icon registry: inner SVG markup on a 0 0 24 24 grid, 1.9px stroke --- */
+const ICONS = {
+  rivers: '<path d="M2 17c2.6-3.4 5.2 1.7 7.8-1.7s5.2 1.7 7.8-1.7 3.5.6 4.4.6"/><path d="M2 10.5c2.6-3.4 5.2 1.7 7.8-1.7"/>',
+  news: '<rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 9h6M6 12.5h9M6 16h5"/>',
+  notes: '<path d="M5.5 3.5h9l4.5 4.5v12h-13.5z"/><path d="M14.5 3.5v4.5H19"/><path d="M8.5 12.5h7M8.5 16h5"/>',
+  fly: '<path d="M17 4.5c-4 .6-7.5 3.4-9 7"/><path d="M17 4.5c.7 3.9-1.2 7.6-4.6 9.3"/><path d="M8 11.5 4.5 15a3 3 0 0 0 4.2 4.2L12 15.8"/><path d="M12.4 13.8 8 11.5"/>',
+  drive: '<path d="M6 20V8.5a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V20"/><path d="M4.5 20h15"/><circle cx="9" cy="16" r="1.3"/><circle cx="15" cy="16" r="1.3"/><path d="M6 11.5h12"/>',
+  walk: '<path d="M13 3.8a1.6 1.6 0 1 0 0 .1"/><path d="M11 21l1.6-5.4-2.6-2.2.9-4.4 3.1 1.6 2.4 2.6"/><path d="M10.9 9l-3.4 1.5-1.2 3.2"/><path d="M12.6 15.6 16 21"/>',
+  pin: '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>',
+  save: '<path d="m12 3.6 2.6 5.5 6 .9-4.3 4.3 1 6.1-5.3-2.9-5.3 2.9 1-6.1L3.4 10l6-.9z"/>',
+  alert: '<path d="M18 9a6 6 0 1 0-12 0c0 5-2.2 6.4-2.2 6.4h16.4S18 14 18 9z"/><path d="M10.3 19a2 2 0 0 0 3.4 0"/>',
+  radius: '<circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
+  account: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>',
+  method: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 18.5V5.5"/><path d="M8 8h7M8 11.5h5"/>',
+  map: '<path d="M9 3.5 3.5 6v14.5L9 18l6 2.5 5.5-2.5V3.5L15 6z"/><path d="M9 3.5V18M15 6v14.5"/>',
+  list: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  like: '<path d="M12 20.5s-7-4.4-7-9.6A4.4 4.4 0 0 1 12 7.7a4.4 4.4 0 0 1 7 3.2c0 5.2-7 9.6-7 9.6z"/>',
+  comment: '<path d="M4.5 5.5h15v11h-9l-4 3.2z"/>',
+  check: '<path d="m4 12.5 5 5 11-11"/>',
+  menu: '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/>',
+  widen: '<path d="M12 4v16M4 12h16"/><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/>',
+};
+export const ICON_NAMES = Object.keys(ICONS);
+export function iconPath(name) { return ICONS[name] || ""; }
+
+export function Icon({ name, size = 22, stroke = 1.9, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style}
+      aria-hidden="true" dangerouslySetInnerHTML={{ __html: iconPath(name) }} />
+  );
+}
+
+/* --- the crest: realistic salmonid anatomy. Swap this markup to rebrand. --- */
+export function Crest({ size = 40, variant = "dark" }) {
+  if (variant === "mono") {
+    const c = "#2C4C3B";
+    return (
+      <svg width={size} height={size} viewBox="0 0 200 200" aria-label="Muddy York crest">
+        <circle cx="100" cy="100" r="94" fill="#F7F3EA" stroke={c} strokeWidth="4" />
+        <circle cx="100" cy="100" r="85" fill="none" stroke={c} strokeWidth="1" opacity=".5" />
+        <path d="M55 100 L33 84 Q28 100 33 116 Z" fill="none" stroke={c} strokeWidth="2.6" strokeLinejoin="round" />
+        <path d="M98 74 Q104 58 120 62 Q114 68 112 76 Z" fill="none" stroke={c} strokeWidth="2.6" strokeLinejoin="round" />
+        <path d="M72 84 Q77 76 83 82 Q78 85 76 88 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" fill="none" stroke={c} strokeWidth="3" strokeLinejoin="round" />
+        <path d="M60 103 Q100 97 150 101" stroke={c} strokeWidth="1.4" fill="none" opacity=".8" />
+        <g fill={c} opacity=".8"><circle cx="82" cy="86" r="2.6" /><circle cx="97" cy="82" r="2.3" /><circle cx="112" cy="84" r="2.5" /><circle cx="127" cy="88" r="2.1" /><circle cx="90" cy="95" r="2" /><circle cx="106" cy="93" r="2.2" /></g>
+        <path d="M138 80 Q131 100 138 120" stroke={c} strokeWidth="2.2" fill="none" />
+        <circle cx="145" cy="95" r="4.2" fill="none" stroke={c} strokeWidth="1.6" /><circle cx="145" cy="95" r="1.9" fill={c} />
+        <path d="M126 118 Q128 130 116 131 Q120 124 121 117 Z" fill="none" stroke={c} strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M100 124 Q99 134 90 133 Q95 128 96 122 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
+        <path d="M78 118 Q76 128 68 126 Q73 122 74 115 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
+        <circle cx="100" cy="46" r="3" fill="#A8862A" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 200 200" aria-label="Muddy York crest">
+      <defs>
+        <radialGradient id="mycrestbg" cx="42%" cy="34%" r="78%">
+          <stop offset="0%" stopColor="#2F5340" /><stop offset="100%" stopColor="#16281D" />
+        </radialGradient>
+        <linearGradient id="myflank" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FBF7EE" /><stop offset="52%" stopColor="#E7DFCE" /><stop offset="100%" stopColor="#B9AE97" />
+        </linearGradient>
+        <linearGradient id="myfin" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#EFE7D6" /><stop offset="100%" stopColor="#C3B79E" />
+        </linearGradient>
+        <clipPath id="mybody">
+          <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" />
+        </clipPath>
+      </defs>
+      <circle cx="100" cy="100" r="94" fill="url(#mycrestbg)" />
+      <circle cx="100" cy="100" r="94" fill="none" stroke="#D4AF37" strokeWidth="4" />
+      <circle cx="100" cy="100" r="85" fill="none" stroke="#D4AF37" strokeWidth="1" opacity=".55" />
+      <path d="M26 132 q12 -7 24 0 t24 0 t24 0 t24 0 t24 0" stroke="#3E6650" strokeWidth="2.2" fill="none" opacity=".85" />
+      <path d="M32 142 q12 -6 24 0 t24 0 t24 0 t24 0" stroke="#37594593" strokeWidth="1.8" fill="none" />
+      <path d="M55 100 L33 84 Q28 100 33 116 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M40 89 L50 99 M40 111 L50 101" stroke="#9E937C" strokeWidth="1.2" />
+      <path d="M98 74 Q104 58 120 62 Q114 68 112 76 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2.2" strokeLinejoin="round" />
+      <path d="M104 63 L106 74 M112 62 L111 75" stroke="#9E937C" strokeWidth="1.1" />
+      <path d="M72 84 Q77 76 83 82 Q78 85 76 88 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
+      <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" fill="url(#myflank)" stroke="#F4EFE6" strokeWidth="2.6" strokeLinejoin="round" />
+      <g clipPath="url(#mybody)">
+        <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 L154 88 L55 88 Z" fill="#5C6B52" opacity=".42" />
+        <path d="M60 103 Q100 97 150 101" stroke="#9A9079" strokeWidth="1.6" fill="none" opacity=".9" />
+        <g fill="#3C4A38" opacity=".72">
+          <circle cx="82" cy="86" r="3" /><circle cx="97" cy="82" r="2.6" /><circle cx="112" cy="84" r="2.9" />
+          <circle cx="127" cy="88" r="2.4" /><circle cx="90" cy="95" r="2.3" /><circle cx="106" cy="93" r="2.5" />
+          <circle cx="122" cy="97" r="2.1" /><circle cx="137" cy="94" r="2" /><circle cx="74" cy="94" r="2.2" />
+        </g>
+        <g fill="none" stroke="#B4443C" strokeWidth="1.1" opacity=".75">
+          <circle cx="97" cy="105" r="2.6" /><circle cx="116" cy="107" r="2.4" /><circle cx="80" cy="104" r="2.2" />
+        </g>
+      </g>
+      <path d="M138 80 Q131 100 138 120" stroke="#F4EFE6" strokeWidth="2.2" fill="none" />
+      <path d="M143 84 Q137 100 143 116" stroke="#A2977F" strokeWidth="1.2" fill="none" />
+      <path d="M150 104 Q157 104 154 100" stroke="#F4EFE6" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="145" cy="95" r="4.4" fill="#F7F3EA" stroke="#2C3A2B" strokeWidth="1.4" />
+      <circle cx="145.6" cy="95" r="2.1" fill="#20241F" />
+      <circle cx="146.6" cy="93.8" r=".8" fill="#fff" />
+      <path d="M126 118 Q128 130 116 131 Q120 124 121 117 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M100 124 Q99 134 90 133 Q95 128 96 122 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
+      <path d="M78 118 Q76 128 68 126 Q73 122 74 115 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
+      <circle cx="100" cy="46" r="3.2" fill="#D4AF37" />
+      <path d="M100 52 q0 6 0 8" stroke="#D4AF37" strokeWidth="1.6" fill="none" />
+    </svg>
+  );
+}
