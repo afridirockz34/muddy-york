@@ -1,0 +1,12 @@
+# Proxy backend calls through the Netlify origin so the session cookie is
+# first-party (fixes Safari/strict-Chrome third-party-cookie blocking).
+# The app calls /bk/... (same-origin); Netlify forwards to the Render backend.
+[build]
+  command = "npm run build"
+  publish = "."
+
+[[redirects]]
+  from = "/bk/*"
+  to = "https://muddy-york.onrender.com/:splat"
+  status = 200
+  force = true
