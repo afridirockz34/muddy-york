@@ -24,5 +24,19 @@ export function buildApp(opts = {}) {
   app.register(proxyRoutes(opts.proxyFetch));
   app.get("/health", async () => ({ ok: true }));
   app.get("/premium/ping", { preHandler: requirePremium }, async () => ({ ok: true, premium: true }));
+
+  // Thrown/unhandled errors otherwise emit `Access-Control-Allow-Origin: *`,
+  // which browsers reject on credentialed requests. Force the real origin so
+  // error responses are readable by the frontend instead of "Failed to fetch".
+  app.setErrorHandler((err, req, reply) => {
+    if (req.headers.origin && req.headers.origin === config.frontendOrigin) {
+      reply.header("access-control-allow-origin", config.frontendOrigin);
+      reply.header("access-control-allow-credentials", "true");
+      reply.header("vary", "Origin");
+    }
+    const status = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
+    req.log.error(err);
+    reply.code(status).send({ error: err.message || "Internal Server Error" });
+  });
   return app;
 }
