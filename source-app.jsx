@@ -13,6 +13,7 @@ import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
+import { catchNudge } from "./lib/catch-nudge.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -590,7 +591,7 @@ function SeasonStrip({sec,m}){
 /* ============================== MAP VIEW ================================== */
 /* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
    is an online feature; offline it shows a graceful note and the other tabs work. */
-function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade}){
+function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
   const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
   const [sel,setSel]=useState(null);
@@ -714,6 +715,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
       <ConditionsStrip cond={ev.cond}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <DepthFish sec={ev.sec}/>
+      <CatchForm sec={ev.sec} signedIn={signedIn}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & route"/>
         <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & routes">
@@ -914,6 +916,7 @@ export default function App(){
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
+  const [catchActivity,setCatchActivity]=useState({});
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
@@ -1012,6 +1015,7 @@ export default function App(){
       }
       const vs=await dbGet("visits"); if(Array.isArray(vs)) setVisits(vs);
       const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
+      if(API_BASE) proxyJSON("/api/catch-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
     loadWeather();
@@ -1062,11 +1066,13 @@ export default function App(){
     return best; },[userLoc]);
 
   const ranked=useMemo(()=>{
-    const curated=RIVERS.map(s=>({...evaluate(s,month,condFor(s),now),source:"verified"}));
-    const auto=discovered.map(s=>{ const ev=evaluate(s,month,condFor(s),now);
-      return {...ev,source:"auto",confidence:applySourcePenalty(ev.confidence,"auto")}; });
+    const nudge=(ref)=>catchNudge((catchActivity[ref]||{}).momentum);
+    const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified"}; const n=nudge(s.id);
+      return {...ev,opportunity:Math.min(100,ev.opportunity+n),confidence:Math.min(98,ev.confidence+Math.round(n/2))}; });
+    const auto=discovered.map(s=>{ const ev=evaluate(s,month,condFor(s),now); const n=nudge(s.id);
+      return {...ev,source:"auto",confidence:Math.min(70,applySourcePenalty(ev.confidence,"auto")+Math.round(n/2)),opportunity:Math.min(100,ev.opportunity+n)}; });
     return [...curated,...auto].sort((a,b)=>b.opportunity-a.opportunity);
-  },[month,now,condFor,discovered]);
+  },[month,now,condFor,discovered,catchActivity]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   const top3=ranked.slice(0,3), honourable=ranked.slice(3,6);
   const warmAny=ranked.some(r=>r.warmStress);
@@ -1143,13 +1149,13 @@ export default function App(){
           </div>
 
           {riversView==="map"
-            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>
+            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>
             : (<>
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
-              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>)}
               {top3.length>1 && <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
-                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade}/>)}
+                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>)}
               </Locked>}
               <SectionTitle t="More water nearby"/>
               <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
@@ -1449,6 +1455,26 @@ function DepthFish({sec}){
     <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size are estimates that sharpen as anglers log catches.</div>
   </div>);
 }
+function CatchForm({sec, signedIn}){
+  const [open,setOpen]=useState(false); const [sp,setSp]=useState((sec.species&&sec.species[0])||"BNT");
+  const [size,setSize]=useState(""); const [done,setDone]=useState(false); const [busy,setBusy]=useState(false);
+  if(!API_BASE) return null;
+  if(!signedIn) return (<div style={{marginTop:10,fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Sign in to log a catch — it's free and helps everyone.</div>);
+  if(done) return (<div style={{marginTop:10,fontSize:13,color:C.pine,fontWeight:600}}>Logged — thanks, it helps everyone.</div>);
+  const submit=async()=>{ setBusy(true);
+    try{ await proxyJSON("/catches",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,species:SPECIES[sp]?SPECIES[sp].name:sp,sizeInches:size?+size:null}}); setDone(true); }
+    catch{ setBusy(false); } };
+  const inp={padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14};
+  if(!open) return (<button onClick={()=>setOpen(true)} style={{...btnBig,marginTop:10,borderColor:C.brass,color:C.pine}}><Icon name="plus" size={15}/>Log a catch</button>);
+  return (<div style={{marginTop:10,padding:12,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10}}>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      <select value={sp} onChange={e=>setSp(e.target.value)} style={inp}>{(sec.species&&sec.species.length?sec.species:Object.keys(SPECIES)).map(k=><option key={k} value={k}>{SPECIES[k]?SPECIES[k].name:k}</option>)}</select>
+      <input style={{...inp,width:110}} type="number" placeholder="size (in)" value={size} onChange={e=>setSize(e.target.value)}/>
+      <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}>{busy?"…":"Submit"}</button>
+    </div>
+    <div style={{fontSize:11,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Attached to this reach only — never your exact location.</div>
+  </div>);
+}
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
 function Advisor({ev,m,premium=true,onUpgrade}){
   const [open,setOpen]=useState(false);
@@ -1491,7 +1517,7 @@ function SaveButton({saved,onClick}){
     border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:"#fff",color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
     <Icon name="save" size={13}/>{saved?"Saved":"Save"}</button>);
 }
-function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade}){
+function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn}){
   const sec=ev.sec, cd=ev.cond;
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
@@ -1513,6 +1539,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade}){
     <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"14px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
     <DepthFish sec={sec}/>
+    <CatchForm sec={sec} signedIn={signedIn}/>
     <div style={{display:"flex",gap:18,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
       <MiniStat label="Overall" value={ev.overall}/>
       <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
