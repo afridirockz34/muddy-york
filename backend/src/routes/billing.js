@@ -11,6 +11,9 @@ async function ensureCustomer(user) {
 }
 
 export default async function billingRoutes(app) {
+  // Public: the frontend needs the publishable key to mount embedded checkout.
+  app.get("/billing/config", async () => ({ publishableKey: config.stripe.publishableKey }));
+
   app.post("/billing/checkout", async (req, reply) => {
     const user = await getCurrentUser(req);
     if (!user) return reply.code(401).send({ error: "not authenticated" });
@@ -18,14 +21,15 @@ export default async function billingRoutes(app) {
     const price = plan === "annual" ? config.stripe.priceAnnual : config.stripe.priceMonthly;
     const customerId = await ensureCustomer(user);
     const session = await getStripe().checkout.sessions.create({
+      ui_mode: "embedded",
       mode: "subscription",
       customer: customerId,
       line_items: [{ price, quantity: 1 }],
       client_reference_id: user.id,
-      success_url: config.stripe.successUrl,
-      cancel_url: config.stripe.cancelUrl,
+      subscription_data: { trial_period_days: 14 },
+      return_url: `${config.frontendOrigin}/?checkout=complete`,
     });
-    return { url: session.url };
+    return { clientSecret: session.client_secret };
   });
 
   app.post("/billing/portal", async (req, reply) => {

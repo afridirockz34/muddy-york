@@ -5,7 +5,7 @@ import { resetDb } from "./helpers/db.js";
 vi.mock("../src/billing/stripe.js", () => ({
   getStripe: () => ({
     customers: { create: vi.fn().mockResolvedValue({ id: "cus_test" }) },
-    checkout: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://checkout.stripe.test/abc" }) } },
+    checkout: { sessions: { create: vi.fn().mockResolvedValue({ client_secret: "cs_test_embedded_abc" }) } },
     billingPortal: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://portal.stripe.test/xyz" }) } },
   }),
 }));
@@ -23,18 +23,28 @@ describe("billing routes", () => {
   beforeEach(resetDb);
   afterAll(() => prisma.$disconnect());
 
-  it("returns a checkout url for an authed user and stores the customer id", async () => {
+  it("returns an embedded checkout clientSecret for an authed user and stores the customer id", async () => {
     const token = await signup("c@b.com");
     const res = await app.inject({ method: "POST", url: "/billing/checkout",
       cookies: { [cookieName]: token }, payload: { plan: "monthly" } });
     expect(res.statusCode).toBe(200);
-    expect(res.json().url).toContain("checkout.stripe.test");
+    expect(res.json().clientSecret).toBe("cs_test_embedded_abc");
     const user = await prisma.user.findUnique({ where: { email: "c@b.com" } });
     expect(user.stripeCustomerId).toBe("cus_test");
   });
   it("401s checkout when unauthenticated", async () => {
     const res = await app.inject({ method: "POST", url: "/billing/checkout", payload: { plan: "monthly" } });
     expect(res.statusCode).toBe(401);
+  });
+  it("exposes the publishable key at /billing/config", async () => {
+    const res = await app.inject({ method: "GET", url: "/billing/config" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toHaveProperty("publishableKey");
+  });
+  it("signup no longer grants a no-card trial", async () => {
+    await signup("notrial@b.com");
+    const user = await prisma.user.findUnique({ where: { email: "notrial@b.com" } });
+    expect(user.trialEnd).toBeNull();
   });
   it("returns a portal url once the user has a customer id", async () => {
     const token = await signup("p@b.com");

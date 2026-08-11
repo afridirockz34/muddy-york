@@ -40,9 +40,10 @@ export default async function stripeWebhookRoutes(app) {
       const userId = obj.client_reference_id;
       if (userId && obj.subscription) {
         await prisma.user.update({ where: { id: userId }, data: { stripeCustomerId: obj.customer } }).catch(() => {});
-        await upsertSubscription(userId, { id: obj.subscription, status: "active", priceId: null, currentPeriodEnd: null });
+        // Our checkout always creates a 14-day trial; subscription events fill the rest.
+        await upsertSubscription(userId, { id: obj.subscription, status: "trialing", priceId: null, currentPeriodEnd: null });
       }
-    } else if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+    } else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });
       if (user) {
         const status = event.type === "customer.subscription.deleted" ? "canceled" : obj.status;

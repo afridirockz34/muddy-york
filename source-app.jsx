@@ -916,11 +916,24 @@ export default function App(){
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
+  const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
+  const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
+  const openCheckout=useCallback((plan="annual")=>setCheckoutPlan(plan),[]);
   useEffect(()=>{ refreshMe(); },[refreshMe]);
+  // Returning from Stripe embedded checkout (return_url = /?checkout=complete).
+  useEffect(()=>{
+    const p=new URLSearchParams(window.location.search);
+    if(p.get("checkout")==="complete"){
+      setCheckoutPlan(null); refreshMe(); setFlash("Trial started — welcome aboard.");
+      p.delete("checkout"); const q=p.toString();
+      window.history.replaceState({},"",window.location.pathname+(q?"?"+q:""));
+      setTimeout(()=>setFlash(""),6000);
+    }
+  },[refreshMe]);
   const [open,setOpen]=useState(null);
   const [userLoc,setUserLoc]=useState(null);        // {lat,lon} where you are
   const [userWx,setUserWx]=useState(null);          // weather where you are
@@ -1187,7 +1200,9 @@ export default function App(){
         onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
-      {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe}/>}
+      {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
+      {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
+      {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
     </div>
   );
 }
@@ -1321,17 +1336,20 @@ function AlertPrefs(){
     <input type="range" min="50" max="95" value={p.alertThreshold} style={{width:"100%",marginTop:6}} onChange={e=>save({...p,alertThreshold:+e.target.value})}/>
   </div>);
 }
-function AuthModal({me,onClose,onAuth}){
+function AuthModal({me,onClose,onAuth,onCheckout}){
   const signedIn=me&&me.user;
+  const premium=isPremiumMe(me);
   const [mode,setMode]=useState("signin");
   const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
   const inp={width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
   const submit=async()=>{ setErr(""); setBusy(true);
-    try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); onClose(); }
+    try{ const wasSignup=mode==="signup"; await proxyJSON(wasSignup?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); onClose();
+      // Onboarding: new accounts go straight to the card-required trial checkout.
+      if(wasSignup&&onCheckout) onCheckout("annual"); }
     catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); }
     finally{ setBusy(false); } };
   const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); onClose(); };
-  const checkout=async(plan)=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan}}); if(url) window.location=url; }catch{ setErr("Couldn't start checkout — try again."); } };
+  const startCheckout=(plan)=>{ onClose(); if(onCheckout) onCheckout(plan); };
   const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.55)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"88vh",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:20,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
@@ -1343,10 +1361,10 @@ function AuthModal({me,onClose,onAuth}){
       {signedIn ? (<div style={{marginTop:12}}>
         <div style={{fontSize:13,color:C.text}}>{me.user.email}</div>
         <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
-        {me.entitlement!=="active" ? (<div style={{marginTop:14}}>
-          <div style={{fontSize:12,color:C.textDim,marginBottom:8,lineHeight:1.45}}>Unlock the full ranked list, discovery, the fly advisor, and routes.</div>
-          <button onClick={()=>checkout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Go annual — {planPrice("annual")}</button>
-          <button onClick={()=>checkout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
+        {!premium ? (<div style={{marginTop:14}}>
+          <div style={{fontSize:12,color:C.textDim,marginBottom:8,lineHeight:1.45}}>Start your 14-day free trial. Unlock the full ranked list, discovery, the fly advisor, and routes. No charge today.</div>
+          <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Start trial — annual {planPrice("annual")}</button>
+          <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
         </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
         <AlertPrefs/>
         <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"9px",marginTop:14}}>Sign out</button>
@@ -1361,6 +1379,61 @@ function AuthModal({me,onClose,onAuth}){
           <button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",textDecoration:"underline",fontSize:12}}>{mode==="signup"?"Sign in":"Create one — 14-day free trial"}</button>
         </div>
       </div>)}
+    </div>
+  </div>);
+}
+function loadStripeJs(){
+  return new Promise((resolve,reject)=>{
+    if(window.Stripe) return resolve(window.Stripe);
+    const done=()=>window.Stripe?resolve(window.Stripe):reject(new Error("stripe unavailable"));
+    const existing=document.querySelector("script[data-stripe-js]");
+    if(existing){ existing.addEventListener("load",done); existing.addEventListener("error",()=>reject(new Error("stripe load failed"))); return; }
+    const s=document.createElement("script");
+    s.src="https://js.stripe.com/v3/"; s.async=true; s.setAttribute("data-stripe-js","1");
+    s.onload=done; s.onerror=()=>reject(new Error("stripe load failed"));
+    document.head.appendChild(s);
+  });
+}
+function CheckoutModal({plan:initialPlan,onClose}){
+  const [plan,setPlan]=useState(initialPlan||"annual");
+  const [err,setErr]=useState(""),[loading,setLoading]=useState(true);
+  const mountRef=useRef(null), ecRef=useRef(null), planRef=useRef(plan);
+  planRef.current=plan;
+  const trialDate=useMemo(()=>new Date(Date.now()+14*86400000).toLocaleDateString(undefined,{month:"long",day:"numeric"}),[]);
+  const mount=useCallback(async()=>{
+    setErr(""); setLoading(true);
+    try{ ecRef.current&&ecRef.current.destroy(); }catch{} ecRef.current=null;
+    if(mountRef.current) mountRef.current.innerHTML="";
+    try{
+      const Stripe=await loadStripeJs();
+      const {publishableKey}=await proxyJSON("/billing/config");
+      if(!publishableKey) throw new Error("no key");
+      const stripe=Stripe(publishableKey);
+      const ec=await stripe.initEmbeddedCheckout({ fetchClientSecret: async()=>{
+        const {clientSecret}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan:planRef.current}});
+        return clientSecret;
+      }});
+      ecRef.current=ec;
+      if(mountRef.current){ ec.mount(mountRef.current); setLoading(false); }
+    }catch(e){ setErr("Checkout is unavailable right now — please try again. You can keep using the free plan meanwhile."); setLoading(false); }
+  },[]);
+  useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
+  const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
+  const tabBtn=(p,label)=>(<button onClick={()=>changePlan(p)} style={{flex:1,fontFamily:sans,fontSize:13,fontWeight:700,padding:"9px 8px",borderRadius:8,cursor:"pointer",border:`1px solid ${plan===p?C.brick:C.line}`,background:plan===p?C.brick:"#fff",color:plan===p?C.bone:C.pine}}>{label}</button>);
+  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:4000,display:"flex",alignItems:"stretch",justifyContent:"center",overflowY:"auto"}}>
+    <div style={{width:"100%",maxWidth:520,background:C.panel,minHeight:"100%",display:"flex",flexDirection:"column",padding:"18px 18px 40px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+        <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your free trial</div>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
+      </div>
+      <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:12}}>
+        <b>You won't be charged today.</b> Billing starts after your 14-day free trial on {trialDate} — cancel anytime before then.
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:14}}>{tabBtn("annual",`Annual · ${planPrice("annual")}`)}{tabBtn("monthly",`Monthly · ${planPrice("monthly")}`)}</div>
+      {err&&<div style={{fontSize:12.5,color:C.brick,lineHeight:1.45,marginBottom:12}}>{err}<button onClick={mount} style={{...btn,borderColor:C.brick,color:C.brick,marginLeft:8}}>Retry</button></div>}
+      {loading&&!err&&<div style={{fontFamily:sans,fontSize:13,color:C.textDim,padding:"24px 0",textAlign:"center"}}>Loading secure checkout…</div>}
+      <div ref={mountRef} style={{flex:1}}/>
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:16}}>Maybe later — continue on the free plan</button>
     </div>
   </div>);
 }
