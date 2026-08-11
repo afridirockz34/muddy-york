@@ -21,6 +21,25 @@ model User {
   sessions         Session[]
   subscription     Subscription?
   savedSpots       SavedSpot[]
+  catches          Catch[]
+}
+
+model Catch {
+  id         String   @id @default(cuid())
+  userId     String
+  ref        String
+  river      String
+  section    String
+  species    String
+  sizeInches Float?
+  technique  String?
+  flies      String?
+  caughtAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ref])
+  @@index([userId])
 }
 
 model SavedSpot {
