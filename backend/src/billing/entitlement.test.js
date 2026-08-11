@@ -11,6 +11,9 @@ describe("resolveEntitlement", () => {
   it("expired subscription but live trial is trialing", () => {
     expect(resolveEntitlement({ status: "canceled", currentPeriodEnd: past, trialEnd: future })).toBe("trialing");
   });
+  it("a Stripe trialing subscription is premium (card-on-file trial)", () => {
+    expect(resolveEntitlement({ status: "trialing", currentPeriodEnd: null, trialEnd: null })).toBe("trialing");
+  });
   it("no subscription and no live trial is free", () => {
     expect(resolveEntitlement({ status: null, currentPeriodEnd: null, trialEnd: past })).toBe("free");
   });
