@@ -20,7 +20,9 @@ export const config = {
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || "",
-    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "",
+    // Publishable keys are public by design. This test-mode default lets checkout
+    // work out of the box; set STRIPE_PUBLISHABLE_KEY (pk_live_…) to override at go-live.
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51U2aKdB7PTqJLwEiS1enHEJjU7AuhEyG24f3qi8LEITXPrcUs58nFUmiIgEIGxmOtljNtRCqlGoCojtXdI2XeqKh00Pr9uw8KG",
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
     priceMonthly: process.env.STRIPE_PRICE_MONTHLY || "",
     priceAnnual: process.env.STRIPE_PRICE_ANNUAL || "",
