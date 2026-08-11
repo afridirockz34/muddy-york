@@ -2,7 +2,7 @@
    Caches the app shell so it launches offline. Weather requests (cross-origin
    to Open-Meteo) always go to the network so data stays fresh; when offline the
    app falls back to its own on-device cache. Bump CACHE to force an update. */
-const CACHE = "river-intel-v2";
+const CACHE = "river-intel-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -34,6 +34,10 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+
+  // API proxy calls (auth/session, live data) must NEVER be cached — always
+  // hit the network, or a stale signed-out /auth/me is served after sign-in.
+  if (url.origin === self.location.origin && url.pathname.startsWith("/bk/")) return;
 
   // Same-origin app shell: stale-while-revalidate
   if (url.origin === self.location.origin) {

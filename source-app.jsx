@@ -697,7 +697,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
   const hasL = typeof window!=="undefined" && !!window.L;
   const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
 
-  return (<div style={{position:"relative",marginBottom:8}}>
+  return (<div style={{position:"relative",marginBottom:8,zIndex:0,isolation:"isolate"}}>
     <div ref={elRef} style={{height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
     {!hasL && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:24,fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine}}>Loading the map — this part needs a connection.</div>}
     <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:6,textAlign:"center"}}>Marker number = today's opportunity score · tap one for the report</div>
@@ -1108,7 +1108,7 @@ export default function App(){
       `}</style>
 
       {/* TopBar */}
-      <div style={{position:"sticky",top:0,zIndex:20,borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
+      <div style={{position:"sticky",top:0,zIndex:1100,borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
         <div style={{maxWidth:820,margin:"0 auto",padding:"calc(9px + env(safe-area-inset-top)) 16px 9px",display:"flex",alignItems:"center",gap:11}}>
           <Crest size={38}/>
           <div style={{flex:1,minWidth:0}}>
@@ -1143,7 +1143,7 @@ export default function App(){
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
           {locStatus==="denied" && <div style={hint}>Location is blocked — enable it in Settings ▸ Safari ▸ Location.</div>}
 
-          <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14,position:"sticky",top:"calc(56px + env(safe-area-inset-top))",zIndex:10}}>
+          <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14}}>
             <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
             <button onClick={()=>setRiversView("map")} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
           </div>
@@ -1177,10 +1177,10 @@ export default function App(){
       </div>
 
       {/* Bottom tab bar */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:30,background:C.ink2,borderTop:`3px solid ${C.brass}`,display:"flex",padding:"6px 4px calc(8px + env(safe-area-inset-bottom))"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1100,background:C.ink2,borderTop:`2px solid ${C.brass}`,display:"flex",padding:"3px 4px calc(4px + env(safe-area-inset-bottom))"}}>
         {[["rivers","Rivers","rivers"],["news","News","news"],["notes","Notes","notes"]].map(([id,label,icon])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",color:tab===id?C.brass:C.headDim,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 2px"}}>
-            <Icon name={icon} size={22}/><span style={{fontSize:11,fontWeight:700}}>{label}</span></button>))}
+          <button key={id} onClick={()=>setTab(id)} style={{flex:1,background:"none",border:"none",cursor:"pointer",color:tab===id?C.brass:C.headDim,display:"flex",flexDirection:"column",alignItems:"center",gap:1,padding:"4px 2px"}}>
+            <Icon name={icon} size={19}/><span style={{fontSize:10,fontWeight:700}}>{label}</span></button>))}
       </div>
 
       {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
