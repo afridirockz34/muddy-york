@@ -559,8 +559,32 @@ function buildFeed(ranked, userLoc, savedIds, now){
       title=`Low, clear water on the ${phrase}`; body=`${d}+ days since meaningful rain — downsize, lengthen the leader, and fish first and last light.`; }
     items.push({ id:"grp-"+kind, category:cat, title, body, river:rivers.join(", "), secId:top.secId, ts:now.toISOString(), relevance, saved:anySaved });
   });
+
+  // --- Region-level cards anglers care about (independent of any one reach) ---
+  const m=now.getMonth(), ts=now.toISOString();
+  const listPhrase=(a)=> a.length<=1 ? (a[0]||"") : `${a.slice(0,-1).join(", ")} & ${a[a.length-1]}`;
+  // What's in season now: species at/near peak activity this month.
+  const peaking=[...new Set(ranked.length
+    ? Object.keys(SPECIES).filter(k=>SPECIES[k].a[m]>=0.8).map(k=>SPECIES[k].name.replace(/\s*\([^)]*\)\s*$/,""))
+    : [])].slice(0,3);
+  if(peaking.length) items.push({ id:"season-peak", category:"Window",
+    title:`In season now: ${listPhrase(peaking)}`,
+    body:`${listPhrase(peaking)} ${peaking.length>1?"are":"is"} at or near peak across Southern Ontario this month — target them while the window's open.`,
+    ts, relevance:9, saved:false });
+  // Seasonal tactical tip.
+  const tip={Spring:["Spring tactics","Runoff is prime streamer and egg time — fish are aggressive as water warms into the 40s–50s°F. Swing soft edges and target the first slower water off the main push."],
+    Summer:["Beat the heat","When water pushes past ~19°C, trout stress fast. Fish spring-fed and tailwater reaches at first and last light, keep fish wet, and release quickly."],
+    Fall:["Fall run is on","Chinook and then steelhead stage in the tributaries. Watch for the first cool rains to pull fresh fish in, and drift the tailouts of holding pools."],
+    Winter:["Winter steelhead","Slow, deep and low — dead-drift small nymphs and beads through the softest water. A few degrees of warming midday can turn fish on."]}[seasonOf(m)];
+  if(tip) items.push({ id:"season-tip", category:"Water", title:tip[0], body:tip[1], ts, relevance:6, saved:false });
+  // Regulations reminder — always worth surfacing; also populates the Regs filter.
+  items.push({ id:"regs-reminder", category:"Regs",
+    title:"Check the season before you go",
+    body:"Open seasons, size and catch limits, and sanctuary closures vary by zone and by waterbody. Confirm the current Ontario fishing regulations for your zone before fishing.",
+    ts, relevance:4, saved:false });
+
   items.sort((a,b)=>b.relevance-a.relevance);
-  return items.slice(0,16);
+  return items.slice(0,18);
 }
 
 function scoreColor(v){ return v>=70?C.cyan:v>=45?C.amber:C.red; }
@@ -638,7 +662,12 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
   const [parking,setParking]=useState(undefined);   // undefined | "loading" | "error" | [ ]
   const [route,setRoute]=useState(null);             // {drive,walk}
   const [routeStatus,setRouteStatus]=useState("idle");
+  const [full,setFull]=useState(false);              // full-screen map mode
   rankedRef.current=ranked;
+  // Leaflet needs a size recalc when the container resizes (fullscreen toggle).
+  useEffect(()=>{ const map=mapRef.current; if(!map) return; const id=setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },240); return ()=>clearTimeout(id); },[full]);
+  // Lock body scroll behind the fullscreen map so only the map moves.
+  useEffect(()=>{ if(!full) return; const prev=document.body.style.overflow; document.body.style.overflow="hidden"; return ()=>{ document.body.style.overflow=prev; }; },[full]);
   const sig=ranked.map(e=>e.sec.id+":"+e.opportunity).join(",");
   const ev = sel? ranked.find(e=>e.sec.id===sel) : null;
   const sec = ev?ev.sec:null;
@@ -739,11 +768,18 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
   const hasL = typeof window!=="undefined" && !!window.L;
   const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
 
-  return (<div style={{position:"relative",marginBottom:8,zIndex:0,isolation:"isolate"}}>
-    <div ref={elRef} style={{height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
+  return (<div style={full
+      ? {position:"fixed",inset:0,zIndex:2200,background:C.panel,display:"flex",flexDirection:"column"}
+      : {position:"relative",marginBottom:8,zIndex:0,isolation:"isolate"}}>
+    <div ref={elRef} style={full
+      ? {flex:1,width:"100%",background:C.panelHi}
+      : {height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
+    {hasL && <button onClick={()=>setFull(f=>!f)} aria-label={full?"Exit full screen":"Full screen map"}
+      style={{position:"absolute",top:full?"calc(10px + env(safe-area-inset-top))":10,right:10,zIndex:1400,display:"inline-flex",alignItems:"center",gap:6,padding:"8px 12px",borderRadius:9,cursor:"pointer",fontFamily:sans,fontSize:12.5,fontWeight:700,background:C.panel,border:`1px solid ${C.line}`,color:C.pine,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
+      <Icon name={full?"close":"map"} size={15}/>{full?"Close map":"Full screen"}</button>}
     {!hasL && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:24,fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine}}>Loading the map — this part needs a connection.</div>}
-    <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:6,textAlign:"center"}}>Marker number = today's opportunity score · tap one for the report</div>
-    {ev && (<div style={{position:"absolute",left:8,right:8,bottom:30,maxHeight:"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1000}}>
+    {!full && <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:6,textAlign:"center"}}>Marker number = today's opportunity score · tap one for the report</div>}
+    {ev && (<div style={{position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
       <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
