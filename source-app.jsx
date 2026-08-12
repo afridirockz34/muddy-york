@@ -28,6 +28,34 @@ async function proxyJSON(path, opts){ const o = opts||{};
   if(o.body!=null){ init.headers["Content-Type"]="application/json"; init.body = JSON.stringify(o.body); }
   const r = await fetch(API_BASE + path, init); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
 
+/* ---- Web Push (prime-condition alerts) ---- */
+function pushSupported(){ return typeof navigator!=="undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function urlB64ToU8(base64){
+  const pad="=".repeat((4-base64.length%4)%4);
+  const b64=(base64+pad).replace(/-/g,"+").replace(/_/g,"/");
+  const raw=atob(b64); const out=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i]=raw.charCodeAt(i);
+  return out;
+}
+async function enablePush(){
+  if(!pushSupported()) throw new Error("unsupported");
+  const {publicKey,configured}=await proxyJSON("/push/config");
+  if(!configured||!publicKey) throw new Error("unconfigured");
+  const perm=await Notification.requestPermission();
+  if(perm!=="granted") throw new Error("denied");
+  const reg=await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToU8(publicKey)});
+  await proxyJSON("/push/subscribe",{method:"POST",body:sub.toJSON()});
+  return true;
+}
+async function disablePush(){
+  if(!pushSupported()) return;
+  const reg=await navigator.serviceWorker.ready;
+  const sub=await reg.pushManager.getSubscription();
+  if(sub){ try{ await proxyJSON("/push/unsubscribe",{method:"POST",body:{endpoint:sub.endpoint}}); }catch{} try{ await sub.unsubscribe(); }catch{} }
+}
+
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
    Coverage: rivers within ~2 hrs driving of Jarvis St & College St, Toronto
@@ -1626,16 +1654,36 @@ function BlockedAnglers(){
 }
 function AlertPrefs(){
   const [p,setP]=useState(null);
+  const [push,setPush]=useState("idle"); // idle|on|off|busy|denied|unsupported|unconfigured
   useEffect(()=>{ let live=true; proxyJSON("/alert-prefs").then(d=>{ if(live) setP(d); }).catch(()=>{}); return ()=>{live=false;}; },[]);
+  useEffect(()=>{ let live=true; (async()=>{
+    if(!pushSupported()){ if(live) setPush("unsupported"); return; }
+    try{ const reg=await navigator.serviceWorker.ready; const sub=await reg.pushManager.getSubscription(); if(live) setPush(sub?"on":"off"); }
+    catch{ if(live) setPush("off"); }
+  })(); return ()=>{live=false;}; },[]);
   if(!p) return null;
   const save=(next)=>{ setP(next); proxyJSON("/alert-prefs",{method:"PUT",body:next}).catch(()=>{}); };
+  const togglePush=async()=>{
+    if(push==="on"){ setPush("busy"); await disablePush().catch(()=>{}); setPush("off"); return; }
+    setPush("busy");
+    try{ await enablePush(); setPush("on"); }
+    catch(e){ const m=e&&e.message; setPush(m==="denied"?"denied":m==="unconfigured"?"unconfigured":m==="unsupported"?"unsupported":"off"); }
+  };
+  const note={fontSize:11,color:C.textDim,marginTop:6,lineHeight:1.45};
   return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
     <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:8}}>Condition alerts</div>
     <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:"pointer"}}>
       <input type="checkbox" checked={p.alertEmail} onChange={e=>save({...p,alertEmail:e.target.checked})}/> Email me when my water hits prime
     </label>
-    <div style={{marginTop:10,fontSize:11,color:C.textDim,display:"flex",justifyContent:"space-between"}}><span>Alert threshold</span><span style={{fontFamily:mono,color:C.text}}>{p.alertThreshold}/100</span></div>
+    <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:push==="busy"||push==="unsupported"||push==="unconfigured"?"default":"pointer",marginTop:10,opacity:push==="unsupported"||push==="unconfigured"?0.6:1}}>
+      <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push a notification to this device
+    </label>
+    {push==="denied" && <div style={note}>Notifications are blocked — enable them for this site in your browser settings.</div>}
+    {push==="unsupported" && <div style={note}>This browser can't do push. On iPhone, add the app to your Home Screen first, then enable it here.</div>}
+    {push==="unconfigured" && <div style={note}>Push isn't switched on for the server yet.</div>}
+    <div style={{marginTop:12,fontSize:11,color:C.textDim,display:"flex",justifyContent:"space-between"}}><span>Alert threshold</span><span style={{fontFamily:mono,color:C.text}}>{p.alertThreshold}/100</span></div>
     <input type="range" min="50" max="95" value={p.alertThreshold} style={{width:"100%",marginTop:6}} onChange={e=>save({...p,alertThreshold:+e.target.value})}/>
+    <div style={note}>Alerts fire for your saved water when its opportunity score crosses this threshold.</div>
   </div>);
 }
 function AuthModal({me,onClose,onAuth,onCheckout}){

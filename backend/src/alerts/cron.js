@@ -1,5 +1,6 @@
 import { runAlerts } from "./run.js";
 import { sendAlertEmail } from "./mailer.js";
+import { sendPushToUser } from "../push/sender.js";
 import { prisma } from "../db.js";
 
 async function fetchWeather(lat, lon) {
@@ -20,7 +21,7 @@ async function fetchWeather(lat, lon) {
   return { airMean, days, flow, wind: d.current?.wind_speed_10m, cloud: d.current?.cloud_cover, pressureTrend: null };
 }
 
-runAlerts({ fetchWeather, sendEmail: sendAlertEmail })
+runAlerts({ fetchWeather, sendEmail: sendAlertEmail, sendPush: sendPushToUser })
   .then((r) => { console.log("alerts:", r); return prisma.$disconnect(); })
   .then(() => process.exit(0))
   .catch((e) => { console.error(e); process.exit(1); });

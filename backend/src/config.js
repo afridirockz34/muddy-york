@@ -28,6 +28,13 @@ export const config = {
     from: process.env.EMAIL_FROM || "Muddy York <onboarding@resend.dev>",
     adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
   },
+  vapid: {
+    // Public key is safe to ship; private key MUST come from env (secret).
+    publicKey: cleanEnv(process.env.VAPID_PUBLIC_KEY) || "BK9MFus-Mh1cSe4OgGW-ZokA1Mn3a5Ryr5NMlEEAY4UTjKqeaGSyMhYEoWCm1NUYyNyj4iQ6CuJJb-gnLIvBZso",
+    privateKey: cleanEnv(process.env.VAPID_PRIVATE_KEY),
+    subject: cleanEnv(process.env.VAPID_SUBJECT) || "mailto:afridirockz34@gmail.com",
+    get configured() { return !!(this.publicKey && this.privateKey); },
+  },
   cloudinary: {
     // Defensive: strip surrounding quotes/whitespace and an accidental "NAME="
     // prefix (a paste mistake), so a slightly-off env value still works.
