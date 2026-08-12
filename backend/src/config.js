@@ -3,6 +3,15 @@ function required(name) {
   if (!v) throw new Error(`Missing required env var: ${name}`);
   return v;
 }
+// Trim whitespace, strip surrounding quotes, and drop an accidental leading
+// "SOMENAME=" that gets pasted into a dashboard value field by mistake.
+function cleanEnv(v) {
+  if (!v) return "";
+  let s = String(v).trim().replace(/^['"]|['"]$/g, "").trim();
+  const m = s.match(/^[A-Z0-9_]+=(.*)$/); // e.g. "CLOUDINARY_CLOUD_NAME=dabc123"
+  if (m) s = m[1].trim().replace(/^['"]|['"]$/g, "").trim();
+  return s;
+}
 export const config = {
   env: process.env.NODE_ENV || "development",
   isProd: process.env.NODE_ENV === "production",
@@ -20,10 +29,12 @@ export const config = {
     adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
   },
   cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
-    apiKey: process.env.CLOUDINARY_API_KEY || "",
-    apiSecret: process.env.CLOUDINARY_API_SECRET || "",
-    folder: process.env.CLOUDINARY_UPLOAD_FOLDER || "muddy-york/posts",
+    // Defensive: strip surrounding quotes/whitespace and an accidental "NAME="
+    // prefix (a paste mistake), so a slightly-off env value still works.
+    cloudName: cleanEnv(process.env.CLOUDINARY_CLOUD_NAME),
+    apiKey: cleanEnv(process.env.CLOUDINARY_API_KEY),
+    apiSecret: cleanEnv(process.env.CLOUDINARY_API_SECRET),
+    folder: cleanEnv(process.env.CLOUDINARY_UPLOAD_FOLDER) || "muddy-york/posts",
     get configured() { return !!(this.cloudName && this.apiKey && this.apiSecret); },
   },
   stripe: {

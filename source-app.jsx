@@ -363,11 +363,23 @@ async function fetchParking(lat,lon){
   const key=`parking:${lat.toFixed(3)},${lon.toFixed(3)}`;
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return c.list; }catch(e){}
   const q=`[out:json][timeout:20];(node["amenity"="parking"](around:1500,${lat},${lon});way["amenity"="parking"](around:1500,${lat},${lon});node["leisure"="slipway"](around:1500,${lat},${lon}););out center 25;`;
-  const directParking=async()=>{ const r=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q)}); if(!r.ok) throw 0; return r.json(); };
+  // Query Overpass straight from the browser. The user's IP isn't rate-limited the
+  // way Render's shared server IP is (which 502s), so this is the reliable path;
+  // try a couple of mirrors with a timeout.
+  const directParking=async()=>{
+    for(const h of ["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"]){
+      try{ const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),15000);
+        const r=await fetch(h,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q),signal:ctrl.signal});
+        clearTimeout(t); if(r.ok) return r.json();
+      }catch(e){}
+    }
+    throw new Error("overpass unavailable");
+  };
   try{
     let d;
-    try{ d = API_BASE ? await proxyJSON(`/api/parking?lat=${lat}&lon=${lon}`) : await directParking(); }
-    catch(e){ d = await directParking(); }
+    // Browser-direct first; fall back to the backend proxy only if that fails.
+    try{ d = await directParking(); }
+    catch(e){ if(!API_BASE) throw e; d = await proxyJSON(`/api/parking?lat=${lat}&lon=${lon}`); }
     const list=(d.elements||[]).map(e=>{
       const la=e.lat!=null?e.lat:(e.center&&e.center.lat), lo=e.lon!=null?e.lon:(e.center&&e.center.lon);
       if(la==null) return null; const tg=e.tags||{};

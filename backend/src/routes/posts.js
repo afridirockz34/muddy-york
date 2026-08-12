@@ -49,6 +49,13 @@ export default async function postRoutes(app) {
     return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName } };
   });
 
+  // Public diagnostic: is photo upload configured, and what cloud name does the
+  // server actually see? (Cloud name is public — it appears in every image URL.)
+  app.get("/media/config", async () => ({
+    configured: config.cloudinary.configured,
+    cloudName: config.cloudinary.cloudName || null,
+  }));
+
   // Cloudinary signed direct-upload params. Secret never leaves the server.
   app.post("/posts/photo-sign", { preHandler: auth }, async (req, reply) => {
     if (!config.cloudinary.configured) return reply.code(400).send({ error: "photo uploads not configured" });
