@@ -11,6 +11,7 @@ import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.j
 import { Crest, Icon } from "./lib/brand.jsx";
 import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
+import { syncNotes } from "./lib/notes-sync.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
 import { catchNudge } from "./lib/catch-nudge.js";
@@ -919,6 +920,9 @@ export default function App(){
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
+  const [noteSync,setNoteSync]=useState("off");   // off | syncing | synced
+  const signedInRef=useRef(false);
+  const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
@@ -1028,6 +1032,8 @@ export default function App(){
       }
       const vs=await dbGet("visits"); if(Array.isArray(vs)) setVisits(vs);
       const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
+      const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
+      const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
       if(API_BASE) proxyJSON("/api/catch-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
@@ -1071,8 +1077,28 @@ export default function App(){
     setVisits(prev=>{ const next=[{...entry,id:"v"+Date.now()},...prev].slice(0,200); dbSet("visits",next); return next; });
   },[]);
   const removeVisit=useCallback((id)=>{ setVisits(prev=>{ const next=prev.filter(v=>v.id!==id); dbSet("visits",next); return next; }); },[]);
-  const addNote=useCallback((fields)=>{ setNotes(prev=>{ const next=[newNote(fields),...prev].slice(0,300); dbSet("notes",next); return next; }); },[]);
-  const removeNote=useCallback((id)=>{ setNotes(prev=>{ const next=prev.filter(n=>n.id!==id); dbSet("notes",next); return next; }); },[]);
+  const addNote=useCallback((fields)=>{ setNotes(prev=>{ const n=newNote(fields); const next=[n,...prev].slice(0,300); dbSet("notes",next);
+    if(API_BASE&&signedInRef.current){ setNoteSync("syncing");
+      proxyJSON("/notes",{method:"POST",body:n}).then(()=>{ noteSyncedRef.current=[...noteSyncedRef.current,n.id]; dbSet("notesSynced",noteSyncedRef.current); setNoteSync("synced"); }).catch(()=>setNoteSync("off")); }
+    return next; }); },[]);
+  const removeNote=useCallback((id)=>{ setNotes(prev=>{ const next=prev.filter(n=>n.id!==id); dbSet("notes",next);
+    if(API_BASE&&signedInRef.current){ setNoteSync("syncing");
+      proxyJSON(`/notes/${encodeURIComponent(id)}`,{method:"DELETE"}).then(()=>setNoteSync("synced")).catch(()=>setNoteSync("off")); }
+    return next; }); },[]);
+  // Full reconcile with the server (pull-since, merge, push local-only). Runs on
+  // sign-in and app open; local-first and network-failure tolerant.
+  const runNoteSync=useCallback(async()=>{
+    if(!API_BASE||!(me&&me.user)) return;
+    setNoteSync("syncing");
+    const local=(await dbGet("notes"))||[];
+    const api={ pull:(since)=>proxyJSON("/notes"+(since?`?since=${encodeURIComponent(since)}`:"")),
+                push:(n)=>proxyJSON("/notes",{method:"POST",body:n}) };
+    const { notes, since, syncedIds }=await syncNotes({ local, since:noteSinceRef.current, syncedIds:noteSyncedRef.current, api });
+    noteSinceRef.current=since; noteSyncedRef.current=syncedIds;
+    dbSet("notes",notes); dbSet("notesSince",since); dbSet("notesSynced",syncedIds);
+    setNotes(notes); setNoteSync("synced");
+  },[me]);
+  useEffect(()=>{ signedInRef.current=!!(me&&me.user); if(API_BASE&&me&&me.user) runNoteSync(); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
   const nearest=useMemo(()=>{ if(!userLoc) return null; let best=null;
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
@@ -1186,7 +1212,7 @@ export default function App(){
         {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}/>}
 
         {/* ===================== NOTES TAB ===================== */}
-        {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]}/>}
+        {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
       </div>
 
       {/* Bottom tab bar */}
@@ -1253,7 +1279,7 @@ function RadiusSheet({current,onPick,onClose}){
     </div>
   </div>);
 }
-function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestLocation,top}){
+function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestLocation,top,signedIn,syncState}){
   const [f,setF]=useState({title:"",body:"",technique:"",flies:"",species:"",size:""});
   const [pin,setPin]=useState(false);
   const inp={width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
@@ -1277,7 +1303,7 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
         <button onClick={dropPin} style={{...btnBig,borderColor:pin?C.pine:C.line,color:pin?C.pine:C.textDim}}><Icon name="pin" size={15}/>{pin?(userLoc?"Pinned to here":"Getting GPS…"):"Drop a pin here"}</button>
         <button onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}><Icon name="plus" size={15}/>Save note</button>
       </div>
-      <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Private to you, stored on this device. A pin saves your current GPS spot so you can return to the exact place.</div>
+      <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Private to you{signedIn?", backed up to your account and synced across your devices":", stored on this device"}. A pin saves your current GPS spot so you can return to the exact place.</div>
     </div>
 
     {saved.length>0 && (<><SectionTitle t="Saved water"/>
@@ -1289,7 +1315,11 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
         </div>))}
       </div></>)}
 
-    <SectionTitle t="Your notes"/>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <SectionTitle t="Your notes"/>
+      {signedIn && syncState!=="off" && <span style={{fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:syncState==="synced"?C.pine:C.textDim,display:"inline-flex",alignItems:"center",gap:5}}>
+        {syncState==="synced" ? <><Icon name="check" size={13}/>Synced</> : "Backing up…"}</span>}
+    </div>
     {notes.length===0
       ? <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:18}}>No notes yet. Jot down what worked — technique, flies, the water read — and drop a pin at spots worth returning to. It stays private to you.</div>
       : <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18}}>

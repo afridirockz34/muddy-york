@@ -22,6 +22,26 @@ model User {
   subscription     Subscription?
   savedSpots       SavedSpot[]
   catches          Catch[]
+  notes            Note[]
+}
+
+model Note {
+  id        String    @id
+  userId    String
+  title     String    @default("")
+  body      String    @default("")
+  technique String    @default("")
+  flies     String    @default("")
+  species   String    @default("")
+  size      String    @default("")
+  lat       Float?
+  lon       Float?
+  createdAt DateTime
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
 }
 
 model Catch {
