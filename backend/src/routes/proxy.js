@@ -5,6 +5,7 @@ import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
 import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
 import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
 import { parseStocking } from "../../../lib/stocking.js";
+import { stockingNews } from "../../../lib/stocking-news.js";
 
 const DAY = 864e5;
 const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
@@ -107,6 +108,28 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       catch { return reply.code(502).send({ error: "stocking unavailable" }); }
       const payload = { stocking: parseStocking(json, { lat, lon }) };
       cache.set(key, payload, 7 * 24 * 3600 * 1000);
+      return payload;
+    });
+
+    // Region-wide recent stocking events as feed news (real, official data).
+    app.get("/api/stocking-news", async (req, reply) => {
+      const key = "stocknews:v1";
+      const hit = cache.get(key); if (hit) return hit;
+      const minYear = new Date().getFullYear() - 1; // this year + last
+      const params = new URLSearchParams({
+        where: `Stocking_Year>=${minYear}`,
+        geometry: "-81.7,43.0,-78.2,44.8", // Southern Ontario coverage box
+        geometryType: "esriGeometryEnvelope", inSR: "4326",
+        spatialRel: "esriSpatialRelIntersects",
+        outFields: "Stocking_Year,Species,Official_Waterbody_Name,Unoffcial_Waterbody_Name,Number_of_Fish_Stocked",
+        returnGeometry: "false", orderByFields: "Stocking_Year DESC",
+        f: "json", resultRecordCount: "400",
+      });
+      let json;
+      try { const res = await proxyFetch([`${STOCKING_URL}/query?${params}`], {}, { retries: 1, timeoutMs: 12000 }); json = await res.json(); }
+      catch { return reply.code(502).send({ error: "stocking unavailable" }); }
+      const payload = { items: stockingNews(json, { minYear, limit: 6 }) };
+      cache.set(key, payload, 24 * 3600 * 1000);
       return payload;
     });
   };

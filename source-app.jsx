@@ -1090,7 +1090,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
+function NewsView({derived, stockNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1108,7 +1108,13 @@ function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], post
     return ()=>{ live=false; };
   },[newsUrl]);
 
-  const derivedAll=[...(ext||[]),...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
+  // Real, official stocking events as "Reports" news.
+  const stockItems=(stockNews||[]).map((s,i)=>({
+    id:s.id||"stock"+i, category:"Reports",
+    title:`Stocking: ${s.species} in ${s.water}`,
+    body:`${s.count?s.count.toLocaleString()+" ":""}${s.species.toLowerCase()} stocked in ${s.water}${s.year?` (${s.year})`:""}. Fresh fish can mean fast action in the weeks after — mind local regulations.`,
+    relevance:20-i, external:true, source:"Ontario stocking data"}));
+  const derivedAll=[...(ext||[]),...stockItems,...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
   // Real user posts (newest-first, real timestamps) sit above the auto-intel feed.
   const all=mergeFeed(posts,derivedAll);
   const cats=["All","Weather","Water","Window","Reports","Regs"];
@@ -1155,6 +1161,7 @@ export default function App(){
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
+  const [stockNews,setStockNews]=useState([]);
   const [noteSync,setNoteSync]=useState("off");   // off | syncing | synced
   const [posts,setPosts]=useState([]);            // server social posts (newest first)
   const [postsCursor,setPostsCursor]=useState(null);
@@ -1273,6 +1280,7 @@ export default function App(){
       const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
       if(API_BASE) proxyJSON("/api/catch-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
+      if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
     loadWeather();
@@ -1478,7 +1486,7 @@ export default function App(){
         </>)}
 
         {/* ===================== NEWS TAB ===================== */}
-        {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
+        {tab==="news" && <NewsView derived={feed} stockNews={stockNews} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
           onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
           onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
