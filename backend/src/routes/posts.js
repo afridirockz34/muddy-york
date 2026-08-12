@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { cloudinarySignature } from "../../../lib/cloudinary-sign.js";
 import { sendMail } from "../alerts/mailer.js";
+import { isAdmin, blockedIdsFor } from "../social/moderation.js";
 
 const sha1 = (s) => createHash("sha1").update(s).digest("hex");
 const clamp = (s, n) => String(s || "").trim().slice(0, n);
@@ -16,9 +17,20 @@ function shapePost(p, meId) {
     id: p.id, body: p.body, photoUrl: p.photoUrl, photoW: p.photoW, photoH: p.photoH,
     river: p.river, category: p.category, createdAt: p.createdAt.toISOString(),
     author: { displayName: p.user?.displayName || "An angler" },
+    authorId: p.userId,
     likeCount: typeof p._count?.likes === "number" ? p._count.likes : likes.length,
+    commentCount: typeof p._count?.comments === "number" ? p._count.comments : 0,
     likedByMe: meId ? likes.some((l) => l.userId === meId) : false,
     mine: meId ? p.userId === meId : false,
+  };
+}
+
+function shapeComment(c, meId, admin) {
+  return {
+    id: c.id, body: c.body, createdAt: c.createdAt.toISOString(),
+    author: { displayName: c.user?.displayName || "An angler" },
+    authorId: c.userId,
+    mine: meId ? c.userId === meId || admin : false,
   };
 }
 
@@ -66,12 +78,11 @@ export default async function postRoutes(app) {
     return { post: shapePost(post, req.user.id) };
   });
 
-  // Soft-delete your own post. Idempotent.
+  // Soft-delete a post: owner, or admin (moderation). Idempotent.
   app.delete("/posts/:id", { preHandler: auth }, async (req) => {
-    await prisma.post.updateMany({
-      where: { id: req.params.id, userId: req.user.id, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
+    const where = { id: req.params.id, deletedAt: null };
+    if (!isAdmin(req.user)) where.userId = req.user.id; // non-admins: own only
+    await prisma.post.updateMany({ where, data: { deletedAt: new Date() } });
     return { ok: true };
   });
 
@@ -111,19 +122,84 @@ export default async function postRoutes(app) {
     return { ok: true };
   });
 
-  // Public feed, newest first, cursor by createdAt.
+  // Public feed, newest first, cursor by createdAt. Signed-in requesters don't
+  // see posts from anyone in a block relationship with them (either direction).
   app.get("/posts", async (req) => {
     const me = await getCurrentUser(req);
     const before = req.query?.before ? new Date(req.query.before) : null;
     const limit = Math.min(50, Math.max(1, parseInt(req.query?.limit, 10) || 20));
     const where = { deletedAt: null };
     if (before && !Number.isNaN(before.getTime())) where.createdAt = { lt: before };
+    if (me) {
+      const blocked = await blockedIdsFor(me.id);
+      if (blocked.length) where.userId = { notIn: blocked };
+    }
     const rows = await prisma.post.findMany({
       where, orderBy: { createdAt: "desc" }, take: limit,
-      include: { user: true, likes: me ? { where: { userId: me.id } } : false, _count: { select: { likes: true } } },
+      include: {
+        user: true,
+        likes: me ? { where: { userId: me.id } } : false,
+        _count: { select: { likes: true, comments: { where: { deletedAt: null } } } },
+      },
     });
     const posts = rows.map((p) => shapePost(p, me?.id));
     const nextBefore = rows.length === limit ? rows[rows.length - 1].createdAt.toISOString() : null;
     return { posts, nextBefore };
+  });
+
+  // ---- Comments ----
+  app.post("/posts/:id/comments", { preHandler: auth }, async (req, reply) => {
+    if (!req.user.displayName) return reply.code(400).send({ error: "set a display name first" });
+    const body = clamp(req.body?.body, 1000);
+    if (!body) return reply.code(400).send({ error: "write a comment" });
+    const post = await prisma.post.findFirst({ where: { id: req.params.id, deletedAt: null } });
+    if (!post) return reply.code(404).send({ error: "post not found" });
+    const c = await prisma.comment.create({
+      data: { postId: post.id, userId: req.user.id, body },
+      include: { user: true },
+    });
+    return { comment: shapeComment(c, req.user.id, false) };
+  });
+
+  app.get("/posts/:id/comments", async (req) => {
+    const me = await getCurrentUser(req);
+    const where = { postId: req.params.id, deletedAt: null };
+    if (me) {
+      const blocked = await blockedIdsFor(me.id);
+      if (blocked.length) where.userId = { notIn: blocked };
+    }
+    const rows = await prisma.comment.findMany({ where, orderBy: { createdAt: "asc" }, take: 500, include: { user: true } });
+    const admin = isAdmin(me);
+    return { comments: rows.map((c) => shapeComment(c, me?.id, admin)) };
+  });
+
+  app.delete("/comments/:id", { preHandler: auth }, async (req) => {
+    const where = { id: req.params.id, deletedAt: null };
+    if (!isAdmin(req.user)) where.userId = req.user.id;
+    await prisma.comment.updateMany({ where, data: { deletedAt: new Date() } });
+    return { ok: true };
+  });
+
+  // ---- Blocking (symmetric hide) ----
+  app.post("/users/:id/block", { preHandler: auth }, async (req, reply) => {
+    if (req.params.id === req.user.id) return reply.code(400).send({ error: "you can't block yourself" });
+    await prisma.block.upsert({
+      where: { blockerId_blockedId: { blockerId: req.user.id, blockedId: req.params.id } },
+      create: { blockerId: req.user.id, blockedId: req.params.id },
+      update: {},
+    });
+    return { ok: true };
+  });
+  app.delete("/users/:id/block", { preHandler: auth }, async (req) => {
+    await prisma.block.deleteMany({ where: { blockerId: req.user.id, blockedId: req.params.id } });
+    return { ok: true };
+  });
+  app.get("/users/blocked", { preHandler: auth }, async (req) => {
+    const rows = await prisma.block.findMany({
+      where: { blockerId: req.user.id },
+      include: { blocked: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return { blocked: rows.map((r) => ({ id: r.blockedId, displayName: r.blocked?.displayName || "An angler" })) };
   });
 }

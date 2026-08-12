@@ -13,6 +13,7 @@ import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
 import { mergeFeed } from "./lib/feed-merge.js";
+import { applyBlocks } from "./lib/blocks.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
 import { catchNudge } from "./lib/catch-nudge.js";
@@ -836,12 +837,18 @@ function FeedCard({it}){
     </div>
   </div>);
 }
-function PostCard({p,signedIn,onToggleLike,onDelete,onReport,onSignIn}){
+function PostCard({p,me,onToggleLike,onDelete,onReport,onBlock,onCommentDelta,onSetName,onSignIn}){
+  const signedIn=!!(me&&me.user);
+  const admin=!!(me&&me.isAdmin);
   const [menu,setMenu]=useState(false);
+  const [open,setOpen]=useState(false); // comments panel
   const when=new Date(p.createdAt).toLocaleDateString([], {month:"short",day:"numeric"});
   const like=()=>{ if(!signedIn) return onSignIn&&onSignIn(); onToggleLike(p.id,p.likedByMe); };
   const report=()=>{ setMenu(false); if(!signedIn) return onSignIn&&onSignIn(); if(confirm("Report this post to the moderators?")) onReport(p.id); };
+  const block=()=>{ setMenu(false); if(!signedIn) return onSignIn&&onSignIn(); if(confirm(`Block ${p.author.displayName}? You'll no longer see each other's posts or comments.`)) onBlock(p.authorId); };
   const del=()=>{ setMenu(false); if(confirm("Delete this post?")) onDelete(p.id); };
+  const modRemove=()=>{ setMenu(false); if(confirm("Remove this post as moderator?")) onDelete(p.id); };
+  const menuItem={display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13};
   return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
       <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`}}><Crest size={38}/></div>
@@ -851,10 +858,14 @@ function PostCard({p,signedIn,onToggleLike,onDelete,onReport,onSignIn}){
       </div>
       <div style={{position:"relative"}}>
         <button onClick={()=>setMenu(m=>!m)} aria-label="More" style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:4,fontSize:18,lineHeight:1}}>⋯</button>
-        {menu && <div style={{position:"absolute",right:0,top:26,background:"#fff",border:`1px solid ${C.line}`,borderRadius:9,boxShadow:"0 6px 20px rgba(0,0,0,.18)",zIndex:50,overflow:"hidden",minWidth:120}}>
+        {menu && <div style={{position:"absolute",right:0,top:26,background:"#fff",border:`1px solid ${C.line}`,borderRadius:9,boxShadow:"0 6px 20px rgba(0,0,0,.18)",zIndex:50,overflow:"hidden",minWidth:150}}>
           {p.mine
-            ? <button onClick={del} style={{display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13,color:C.brick}}>Delete</button>
-            : <button onClick={report} style={{display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13,color:C.textDim}}>Report</button>}
+            ? <button onClick={del} style={{...menuItem,color:C.brick}}>Delete</button>
+            : (<>
+                <button onClick={report} style={{...menuItem,color:C.textDim}}>Report</button>
+                <button onClick={block} style={{...menuItem,color:C.textDim}}>Block angler</button>
+                {admin && <button onClick={modRemove} style={{...menuItem,color:C.brick,borderTop:`1px solid ${C.lineSoft}`}}>Remove (admin)</button>}
+              </>)}
         </div>}
       </div>
     </div>
@@ -862,10 +873,49 @@ function PostCard({p,signedIn,onToggleLike,onDelete,onReport,onSignIn}){
     {p.photoUrl && <div style={{marginTop:10,borderRadius:11,overflow:"hidden",border:`1px solid ${C.lineSoft}`,background:C.bone}}>
       <img src={p.photoUrl} alt="" loading="lazy" style={{display:"block",width:"100%",height:"auto"}}
         {...(p.photoW&&p.photoH?{width:p.photoW,height:p.photoH}:{})}/></div>}
-    <div style={{display:"flex",gap:20,alignItems:"center",marginTop:12,paddingTop:11,borderTop:`1px solid ${C.lineSoft}`,color:C.textDim}}>
+    <div style={{display:"flex",gap:18,alignItems:"center",marginTop:12,paddingTop:11,borderTop:`1px solid ${C.lineSoft}`,color:C.textDim}}>
       <button onClick={like} style={{display:"inline-flex",alignItems:"center",gap:6,fontFamily:sans,fontSize:12.5,fontWeight:700,background:"none",border:"none",cursor:"pointer",color:p.likedByMe?C.brick:C.textDim,padding:0}}>
         <Icon name="like" size={17}/>{p.likeCount>0?p.likeCount:""} {p.likedByMe?"Liked":"Like"}</button>
+      <button onClick={()=>setOpen(o=>!o)} style={{display:"inline-flex",alignItems:"center",gap:6,fontFamily:sans,fontSize:12.5,fontWeight:700,background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:0}}>
+        <Icon name="comment" size={17}/>{p.commentCount>0?p.commentCount:""} Comment{p.commentCount===1?"":"s"}</button>
     </div>
+    {open && <CommentsPanel postId={p.id} me={me} admin={admin} onCommentDelta={onCommentDelta} onSetName={onSetName} onSignIn={onSignIn}/>}
+  </div>);
+}
+function CommentsPanel({postId,me,admin,onCommentDelta,onSetName,onSignIn}){
+  const signedIn=!!(me&&me.user);
+  const [list,setList]=useState(null);
+  const [text,setText]=useState(""),[name,setName]=useState(""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const needsName=signedIn&&!me.user.displayName;
+  useEffect(()=>{ let live=true; proxyJSON(`/posts/${encodeURIComponent(postId)}/comments`).then(d=>{ if(live) setList(d.comments||[]); }).catch(()=>{ if(live) setList([]); }); return ()=>{live=false;}; },[postId]);
+  const inp={width:"100%",padding:"8px 11px",borderRadius:7,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:13};
+  const submit=async()=>{ setErr(""); if(!signedIn) return onSignIn&&onSignIn();
+    if(needsName&&!name.trim()){ setErr("Pick a display name first."); return; }
+    if(!text.trim()) return; setBusy(true);
+    try{ if(needsName) await onSetName(name.trim());
+      const { comment }=await proxyJSON(`/posts/${encodeURIComponent(postId)}/comments`,{method:"POST",body:{body:text.trim()}});
+      setList(prev=>[...(prev||[]),comment]); setText(""); onCommentDelta&&onCommentDelta(postId,1);
+    }catch{ setErr("Couldn't post your comment — try again."); } finally{ setBusy(false); } };
+  const del=async(id)=>{ setList(prev=>prev.filter(c=>c.id!==id)); onCommentDelta&&onCommentDelta(postId,-1);
+    try{ await proxyJSON(`/comments/${encodeURIComponent(id)}`,{method:"DELETE"}); }catch{} };
+  return (<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`}}>
+    {list===null ? <div style={{fontSize:12.5,color:C.textFaint}}>Loading comments…</div>
+      : list.length===0 ? <div style={{fontSize:12.5,color:C.textFaint,marginBottom:10}}>No comments yet. Be the first.</div>
+      : <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:10}}>
+          {list.map(c=>(<div key={c.id} style={{display:"flex",gap:8,alignItems:"baseline"}}>
+            <span style={{fontFamily:sans,fontSize:12.5,fontWeight:700,color:C.pine,flexShrink:0}}>{c.author.displayName}</span>
+            <span style={{fontSize:13,color:C.text,lineHeight:1.5,flex:1,minWidth:0,whiteSpace:"pre-wrap"}}>{c.body}</span>
+            {(c.mine||admin) && <button onClick={()=>del(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,fontSize:11,textDecoration:"underline",flexShrink:0}}>delete</button>}
+          </div>))}
+        </div>}
+    {signedIn ? (<div>
+      {needsName && <input style={{...inp,marginBottom:6}} placeholder="Choose a display name" value={name} maxLength={40} onChange={e=>setName(e.target.value)}/>}
+      {err && <div style={{fontSize:11.5,color:C.brick,marginBottom:6}}>{err}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <input style={inp} placeholder="Add a comment…" value={text} maxLength={1000} onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); submit(); } }}/>
+        <button disabled={busy} onClick={submit} style={{...btnBig,padding:"8px 13px",opacity:busy?0.6:1}}>Post</button>
+      </div>
+    </div>) : <button onClick={onSignIn} style={{...btn,borderColor:C.line,color:C.pine}}>Sign in to comment</button>}
   </div>);
 }
 function Composer({me,onCreatePost,onSetName,onSignIn}){
@@ -924,7 +974,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onSetName, onSignIn}){
+function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -962,7 +1012,7 @@ function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], post
     {shown.length===0
       ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Nothing in this category right now. Conditions are quiet — try “All”.</div>
       : shown.map(it=> it.kind==="post"
-          ? <PostCard key={it.id} p={it} signedIn={!!(me&&me.user)} onToggleLike={onToggleLike} onDelete={onDeletePost} onReport={onReport} onSignIn={onSignIn}/>
+          ? <PostCard key={it.id} p={it} me={me} onToggleLike={onToggleLike} onDelete={onDeletePost} onReport={onReport} onBlock={onBlock} onCommentDelta={onCommentDelta} onSetName={onSetName} onSignIn={onSignIn}/>
           : <FeedCard key={it.id} it={it}/>)}
     {postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
 
@@ -1217,6 +1267,9 @@ export default function App(){
       setPosts(prev=>prev.map(p=>p.id===id?{...p,likedByMe:r.likedByMe,likeCount:r.likeCount}:p));
     }catch{ setPosts(prev=>prev.map(p=>p.id===id?{...p,likedByMe:liked,likeCount:p.likeCount+(liked?1:-1)}:p)); } },[]);
   const reportPost=useCallback(async(id,reason)=>{ try{ await proxyJSON(`/posts/${encodeURIComponent(id)}/report`,{method:"POST",body:{reason:reason||""}}); }catch{} },[]);
+  const blockAuthor=useCallback(async(authorId)=>{ setPosts(prev=>applyBlocks(prev,[authorId]));
+    try{ await proxyJSON(`/users/${encodeURIComponent(authorId)}/block`,{method:"POST"}); }catch{} },[]);
+  const bumpComments=useCallback((id,delta)=>{ setPosts(prev=>prev.map(p=>p.id===id?{...p,commentCount:Math.max(0,(p.commentCount||0)+delta)}:p)); },[]);
   const setDisplayName=useCallback(async(name)=>{ const { user }=await proxyJSON("/me",{method:"PATCH",body:{displayName:name}});
     setMe(prev=>prev?{...prev,user:{...prev.user,...user}}:prev); return user; },[]);
   const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
@@ -1331,7 +1384,8 @@ export default function App(){
         {/* ===================== NEWS TAB ===================== */}
         {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
-          onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
+          onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
+          onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
@@ -1487,6 +1541,21 @@ function DisplayNameEditor({me,onAuth}){
     <button disabled={busy} onClick={save} style={{...btn,borderColor:C.pine,color:C.pine,width:"100%",padding:"9px",marginTop:8,opacity:busy?0.6:1}}>{saved?"Saved ✓":busy?"Saving…":"Save name"}</button>
   </div>);
 }
+function BlockedAnglers(){
+  const [list,setList]=useState(null);
+  useEffect(()=>{ let live=true; proxyJSON("/users/blocked").then(d=>{ if(live) setList(d.blocked||[]); }).catch(()=>{ if(live) setList([]); }); return ()=>{live=false;}; },[]);
+  if(!list||list.length===0) return null;
+  const unblock=async(id)=>{ setList(prev=>prev.filter(b=>b.id!==id)); try{ await proxyJSON(`/users/${encodeURIComponent(id)}/block`,{method:"DELETE"}); }catch{} };
+  return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:8}}>Blocked anglers</div>
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {list.map(b=>(<div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:13,color:C.text}}>
+        <span>{b.displayName}</span>
+        <button onClick={()=>unblock(b.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.brick,fontSize:12,textDecoration:"underline"}}>Unblock</button>
+      </div>))}
+    </div>
+  </div>);
+}
 function AlertPrefs(){
   const [p,setP]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/alert-prefs").then(d=>{ if(live) setP(d); }).catch(()=>{}); return ()=>{live=false;}; },[]);
@@ -1532,6 +1601,7 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
           <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
         </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
         <DisplayNameEditor me={me} onAuth={onAuth}/>
+        <BlockedAnglers/>
         <AlertPrefs/>
         <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"9px",marginTop:14}}>Sign out</button>
       </div>) : (<div style={{marginTop:12}}>
