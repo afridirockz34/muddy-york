@@ -9,6 +9,7 @@ import billingRoutes from "./routes/billing.js";
 import savedRoutes from "./routes/saved.js";
 import catchRoutes from "./routes/catches.js";
 import noteRoutes from "./routes/notes.js";
+import postRoutes from "./routes/posts.js";
 import stripeWebhookRoutes from "./routes/stripe-webhook.js";
 import proxyRoutes from "./routes/proxy.js";
 import { requirePremium } from "./billing/require-premium.js";
@@ -25,6 +26,7 @@ export function buildApp(opts = {}) {
   app.register(savedRoutes);
   app.register(catchRoutes);
   app.register(noteRoutes);
+  app.register(postRoutes);
   app.register(proxyRoutes(opts.proxyFetch));
   app.get("/health", async () => ({ ok: true }));
   app.get("/premium/ping", { preHandler: requirePremium }, async () => ({ ok: true, premium: true }));
