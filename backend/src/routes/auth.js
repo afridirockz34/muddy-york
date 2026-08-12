@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "../auth/password.js";
 import { createSession, invalidateSession } from "../auth/session.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { entitlementForUser } from "../billing/user-entitlement.js";
+import { isAdmin } from "../social/moderation.js";
 
 function setSessionCookie(reply, token, expiresAt) {
   reply.setCookie(config.cookieName, token, {
@@ -45,6 +46,6 @@ export default async function authRoutes(app) {
   app.get("/auth/me", async (req) => {
     const user = await getCurrentUser(req);
     if (!user) return { user: null, entitlement: "free" };
-    return { user: publicUser(user), entitlement: await entitlementForUser(user.id) };
+    return { user: publicUser(user), entitlement: await entitlementForUser(user.id), isAdmin: isAdmin(user) };
   });
 }
