@@ -2,12 +2,13 @@
    Caches the app shell so it launches offline. Weather requests (cross-origin
    to Open-Meteo) always go to the network so data stays fresh; when offline the
    app falls back to its own on-device cache. Bump CACHE to force an update. */
-const CACHE = "river-intel-v4";
+const CACHE = "river-intel-v5";
 const SHELL = [
   "./",
   "./index.html",
   "./app.js",
   "./manifest.webmanifest",
+  "./icons/crest.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

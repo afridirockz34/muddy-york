@@ -46,78 +46,17 @@ export function Icon({ name, size = 22, stroke = 1.9, style }) {
 }
 
 /* --- the crest: realistic salmonid anatomy. Swap this markup to rebrand. --- */
-export function Crest({ size = 40, variant = "dark" }) {
-  if (variant === "mono") {
-    const c = "#2C4C3B";
-    return (
-      <svg width={size} height={size} viewBox="0 0 200 200" aria-label="Muddy York crest">
-        <circle cx="100" cy="100" r="94" fill="#F7F3EA" stroke={c} strokeWidth="4" />
-        <circle cx="100" cy="100" r="85" fill="none" stroke={c} strokeWidth="1" opacity=".5" />
-        <path d="M55 100 L33 84 Q28 100 33 116 Z" fill="none" stroke={c} strokeWidth="2.6" strokeLinejoin="round" />
-        <path d="M98 74 Q104 58 120 62 Q114 68 112 76 Z" fill="none" stroke={c} strokeWidth="2.6" strokeLinejoin="round" />
-        <path d="M72 84 Q77 76 83 82 Q78 85 76 88 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" fill="none" stroke={c} strokeWidth="3" strokeLinejoin="round" />
-        <path d="M60 103 Q100 97 150 101" stroke={c} strokeWidth="1.4" fill="none" opacity=".8" />
-        <g fill={c} opacity=".8"><circle cx="82" cy="86" r="2.6" /><circle cx="97" cy="82" r="2.3" /><circle cx="112" cy="84" r="2.5" /><circle cx="127" cy="88" r="2.1" /><circle cx="90" cy="95" r="2" /><circle cx="106" cy="93" r="2.2" /></g>
-        <path d="M138 80 Q131 100 138 120" stroke={c} strokeWidth="2.2" fill="none" />
-        <circle cx="145" cy="95" r="4.2" fill="none" stroke={c} strokeWidth="1.6" /><circle cx="145" cy="95" r="1.9" fill={c} />
-        <path d="M126 118 Q128 130 116 131 Q120 124 121 117 Z" fill="none" stroke={c} strokeWidth="2.2" strokeLinejoin="round" />
-        <path d="M100 124 Q99 134 90 133 Q95 128 96 122 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M78 118 Q76 128 68 126 Q73 122 74 115 Z" fill="none" stroke={c} strokeWidth="2" strokeLinejoin="round" />
-        <circle cx="100" cy="46" r="3" fill="#A8862A" />
-      </svg>
-    );
-  }
+export function Crest({ size = 40 }) {
+  // The brand crest is now a raster logo. Rendered as a square PNG with a
+  // transparent background so it sits cleanly on any surface; swap the file at
+  // icons/crest.png to change it everywhere.
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" aria-label="Muddy York crest">
-      <defs>
-        <radialGradient id="mycrestbg" cx="42%" cy="34%" r="78%">
-          <stop offset="0%" stopColor="#2F5340" /><stop offset="100%" stopColor="#16281D" />
-        </radialGradient>
-        <linearGradient id="myflank" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FBF7EE" /><stop offset="52%" stopColor="#E7DFCE" /><stop offset="100%" stopColor="#B9AE97" />
-        </linearGradient>
-        <linearGradient id="myfin" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#EFE7D6" /><stop offset="100%" stopColor="#C3B79E" />
-        </linearGradient>
-        <clipPath id="mybody">
-          <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" />
-        </clipPath>
-      </defs>
-      <circle cx="100" cy="100" r="94" fill="url(#mycrestbg)" />
-      <circle cx="100" cy="100" r="94" fill="none" stroke="#D4AF37" strokeWidth="4" />
-      <circle cx="100" cy="100" r="85" fill="none" stroke="#D4AF37" strokeWidth="1" opacity=".55" />
-      <path d="M26 132 q12 -7 24 0 t24 0 t24 0 t24 0 t24 0" stroke="#3E6650" strokeWidth="2.2" fill="none" opacity=".85" />
-      <path d="M32 142 q12 -6 24 0 t24 0 t24 0 t24 0" stroke="#37594593" strokeWidth="1.8" fill="none" />
-      <path d="M55 100 L33 84 Q28 100 33 116 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M40 89 L50 99 M40 111 L50 101" stroke="#9E937C" strokeWidth="1.2" />
-      <path d="M98 74 Q104 58 120 62 Q114 68 112 76 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2.2" strokeLinejoin="round" />
-      <path d="M104 63 L106 74 M112 62 L111 75" stroke="#9E937C" strokeWidth="1.1" />
-      <path d="M72 84 Q77 76 83 82 Q78 85 76 88 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
-      <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 C146 113, 133 123, 116 126 C94 130, 68 121, 55 100 Z" fill="url(#myflank)" stroke="#F4EFE6" strokeWidth="2.6" strokeLinejoin="round" />
-      <g clipPath="url(#mybody)">
-        <path d="M55 100 C68 79, 94 70, 116 74 C133 77, 146 87, 154 100 L154 88 L55 88 Z" fill="#5C6B52" opacity=".42" />
-        <path d="M60 103 Q100 97 150 101" stroke="#9A9079" strokeWidth="1.6" fill="none" opacity=".9" />
-        <g fill="#3C4A38" opacity=".72">
-          <circle cx="82" cy="86" r="3" /><circle cx="97" cy="82" r="2.6" /><circle cx="112" cy="84" r="2.9" />
-          <circle cx="127" cy="88" r="2.4" /><circle cx="90" cy="95" r="2.3" /><circle cx="106" cy="93" r="2.5" />
-          <circle cx="122" cy="97" r="2.1" /><circle cx="137" cy="94" r="2" /><circle cx="74" cy="94" r="2.2" />
-        </g>
-        <g fill="none" stroke="#B4443C" strokeWidth="1.1" opacity=".75">
-          <circle cx="97" cy="105" r="2.6" /><circle cx="116" cy="107" r="2.4" /><circle cx="80" cy="104" r="2.2" />
-        </g>
-      </g>
-      <path d="M138 80 Q131 100 138 120" stroke="#F4EFE6" strokeWidth="2.2" fill="none" />
-      <path d="M143 84 Q137 100 143 116" stroke="#A2977F" strokeWidth="1.2" fill="none" />
-      <path d="M150 104 Q157 104 154 100" stroke="#F4EFE6" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <circle cx="145" cy="95" r="4.4" fill="#F7F3EA" stroke="#2C3A2B" strokeWidth="1.4" />
-      <circle cx="145.6" cy="95" r="2.1" fill="#20241F" />
-      <circle cx="146.6" cy="93.8" r=".8" fill="#fff" />
-      <path d="M126 118 Q128 130 116 131 Q120 124 121 117 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M100 124 Q99 134 90 133 Q95 128 96 122 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
-      <path d="M78 118 Q76 128 68 126 Q73 122 74 115 Z" fill="url(#myfin)" stroke="#F4EFE6" strokeWidth="1.9" strokeLinejoin="round" />
-      <circle cx="100" cy="46" r="3.2" fill="#D4AF37" />
-      <path d="M100 52 q0 6 0 8" stroke="#D4AF37" strokeWidth="1.6" fill="none" />
-    </svg>
+    <img
+      src="icons/crest.png"
+      width={size}
+      height={size}
+      alt="Muddy York crest"
+      style={{ display: "block", objectFit: "contain" }}
+    />
   );
 }
