@@ -1,0 +1,23 @@
+name: Keep backend warm
+
+# Render's free tier spins the service down after ~15 min idle; the cold-start
+# page (deploy logs / "starting service") is what looked alarming during login.
+# Pinging /health every ~10 min keeps it warm so users never hit that page.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 40 https://muddy-york.onrender.com/health) || code=000
+            echo "attempt $i -> $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "health check did not return 200 (service may be waking) — not failing the job"

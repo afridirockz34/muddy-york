@@ -39,7 +39,12 @@ export default async function authRoutes(app) {
 
   app.post("/auth/logout", async (req, reply) => {
     await invalidateSession(req.cookies?.[config.cookieName]);
-    reply.clearCookie(config.cookieName, { path: "/" });
+    // Must clear with the SAME attributes the cookie was set with, or Safari
+    // (SameSite=None; Secure) silently keeps it and the user stays "signed in".
+    reply.clearCookie(config.cookieName, {
+      path: "/", httpOnly: true,
+      sameSite: config.isProd ? "none" : "lax", secure: config.isProd,
+    });
     return { ok: true };
   });
 

@@ -6,7 +6,7 @@ import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
 import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
-import { gmapsDirections, gmapsPin, gImages } from "./lib/deeplinks.js";
+import { gmapsDirections, directionsUrl, gmapsPin, gImages } from "./lib/deeplinks.js";
 import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.js";
 import { Crest, Icon } from "./lib/brand.jsx";
 import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
@@ -498,30 +498,66 @@ function advise(ev,m){
 /* ===================== HYPERLOCAL FEED (client-side) =====================
    Generates a ranked, personalized feed from live conditions + forecasts +
    scoring + the angler's saved water and location. No backend needed. */
+// Turn river names into one readable phrase: single → "Credit River",
+// multiple → "Credit, Nottawasaga & Grand rivers".
+function joinRivers(rivers){
+  if(rivers.length===1) return rivers[0];
+  // Only collapse to "… rivers" when every name is a "… River"; otherwise (Creek,
+  // tributaries, mixed) keep the full names to avoid "… Creek rivers".
+  const allRiver=rivers.every(r=>/\bRiver$/i.test(r));
+  const names=allRiver?rivers.map(r=>r.replace(/\s+River$/i,"")):rivers.slice();
+  const last=names.pop();
+  const joined=`${names.join(", ")} & ${last}`;
+  return allRiver?`${joined} rivers`:joined;
+}
 function buildFeed(ranked, userLoc, savedIds, now){
-  const items=[]; const todayStr=now.toISOString().slice(0,10);
+  const todayStr=now.toISOString().slice(0,10);
+  // 1) Collect per-reach candidates, each tagged with a grouping `kind`.
+  const cands=[];
   ranked.forEach(ev=>{
-    const sec=ev.sec, c=ev.cond, sp=SPECIES[ev.target];
+    const sec=ev.sec, c=ev.cond;
     const isSaved=savedIds.includes(sec.id);
     const dist=userLoc?haversineKm(userLoc.lat,userLoc.lon,sec.lat,sec.lon):null;
     const rel = ev.opportunity/6 + (isSaved?40:0) + (dist!=null?Math.max(0,22-dist/6):0);
-    const cand=[];
+    const add=(kind,cat,u,extra={})=>cands.push({kind,cat,u,river:sec.river,secId:sec.id,isSaved,rel,...extra});
     if(Array.isArray(c.forecast)){
       const wet=c.forecast.find(f=>f&&f.precip>=5);
       if(wet){ const dd=(new Date(wet.date)-new Date(todayStr))/864e5;
         const when = wet.date===todayStr?"today": dd<=1.5?"tomorrow":"in a couple of days";
-        cand.push({cat:"Weather",u:15,title:`Rain coming to the ${sec.river} ${when}`,
-          body:`About ${Math.round(wet.precip)} mm forecast${isSaved?" in your saved water":""} — flows will bump and colour up. Time a trip to the back of the rise.`}); }
+        add("rain-"+when,"Weather",15,{when,precip:Math.round(wet.precip)}); }
     }
-    if(c.flow==="Blown out") cand.push({cat:"Water",u:11,title:`${sec.river} is blown out`,body:`High, dirty water on the ${sec.section.toLowerCase()} — likely unfishable until it drops and clears.`});
-    else if(c.flow==="High / stained") cand.push({cat:"Water",u:8,title:`High, stained flows on the ${sec.river}`,body:`Good streamer and run water right now — work the soft edges and seams.`});
-    else if(c.flow==="Low / clear"&&c.days>=6) cand.push({cat:"Water",u:5,title:`Low, clear water on the ${sec.river}`,body:`${c.days} days since meaningful rain — downsize, lengthen the leader, fish first and last light.`});
-    if(ev.warmStress) cand.push({cat:"Water",u:13,title:`Warm water on the ${sec.river} (${c.temp.toFixed(0)}°C)`,body:`Trout are stressed at this temperature — best to rest them, or fish the coldest water early and release fast.`});
-    if(ev.opportunity>=78) cand.push({cat:"Window",u:10,title:`Prime window on the ${sec.river}`,body:`Opportunity ${ev.opportunity}/100 — ${sp.name.toLowerCase()} active. ${ev.explanation.replace(/^Score:[^.]*\.\s*/,"")}`});
-    cand.sort((a,b)=>b.u-a.u);
-    cand.slice(0,isSaved?2:1).forEach((x,i)=>items.push({
-      id:sec.id+"-"+x.cat+i, category:x.cat, title:x.title, body:x.body,
-      river:sec.river, secId:sec.id, ts:now.toISOString(), relevance:rel+x.u, saved:isSaved, dist}));
+    if(c.flow==="Blown out") add("blown","Water",11);
+    else if(c.flow==="High / stained") add("stained","Water",8);
+    else if(c.flow==="Low / clear"&&c.days>=6) add("low","Water",5,{days:c.days});
+    if(ev.warmStress) add("warm","Water",13,{temp:c.temp});
+    if(ev.opportunity>=78) add("prime","Window",10,{opp:ev.opportunity});
+  });
+  // 2) Group same-kind candidates across rivers into a single combined post.
+  const groups={};
+  cands.forEach(x=>{ (groups[x.kind]=groups[x.kind]||[]).push(x); });
+  const items=[];
+  Object.keys(groups).forEach(kind=>{
+    const g=groups[kind].sort((a,b)=>b.rel-a.rel);
+    const rivers=[...new Set(g.map(x=>x.river))].slice(0,4);
+    const phrase=joinRivers(rivers);
+    const anySaved=g.some(x=>x.isSaved);
+    const top=g[0];
+    const relevance=Math.max(...g.map(x=>x.rel))+top.u+(rivers.length>1?5:0);
+    let cat=top.cat,title="",body="";
+    if(kind.startsWith("rain-")){ const mm=Math.max(...g.map(x=>x.precip||0));
+      title=`Rain ${top.when} on the ${phrase}`;
+      body=`Up to ${mm} mm forecast${anySaved?", including your saved water":""} — flows will bump and colour up. Time a trip to the back of the rise.`; }
+    else if(kind==="prime"){ const mo=Math.max(...g.map(x=>x.opp||0));
+      title=`Prime window on the ${phrase}`;
+      body=`Conditions are lining up${rivers.length>1?` across ${rivers.length} rivers`:""} — up to ${mo}/100. Fish are active; time your session to the best light.`; }
+    else if(kind==="warm"){ const t=Math.max(...g.map(x=>x.temp||0));
+      title=`Warm water on the ${phrase}`;
+      body=`Water is pushing ${t.toFixed(0)}°C on these reaches — trout are heat-stressed. Rest them, or fish the coldest water at first light and release fast.`; }
+    else if(kind==="blown"){ title=`Blown out: the ${phrase}`; body=`High, dirty water — likely unfishable until it drops and clears.`; }
+    else if(kind==="stained"){ title=`High, stained flows on the ${phrase}`; body=`Good streamer and run water right now — work the soft edges and seams.`; }
+    else if(kind==="low"){ const d=Math.max(...g.map(x=>x.days||0));
+      title=`Low, clear water on the ${phrase}`; body=`${d}+ days since meaningful rain — downsize, lengthen the leader, and fish first and last light.`; }
+    items.push({ id:"grp-"+kind, category:cat, title, body, river:rivers.join(", "), secId:top.secId, ts:now.toISOString(), relevance, saved:anySaved });
   });
   items.sort((a,b)=>b.relevance-a.relevance);
   return items.slice(0,16);
@@ -615,6 +651,9 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
     const map=L.map(elRef.current,{zoomControl:true}).setView([43.9,-79.4],8);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
       {maxZoom:19,subdomains:"abcd",attribution:"© OpenStreetMap, © CARTO"}).addTo(map);
+    // Tapping empty map (not a marker — marker clicks don't propagate) closes the
+    // open location panel, so users don't have to hunt for the ✕.
+    map.on("click",()=>setSel(null));
     mapRef.current=map;
     setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },220);
     return ()=>{ try{map.remove();}catch(e){} mapRef.current=null; clusterRef.current=null; userRef.current=null; overlayRef.current=null; routeRef.current=null; };
@@ -729,7 +768,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
           <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
             {userLoc && <button onClick={routeFromMe} style={{...btnBig,borderColor:C.brick,color:C.brick,fontSize:12.5,padding:"8px 12px"}}><Icon name="drive" size={15}/>{routeStatus==="loading"?"Plotting…":"Route from me"}</button>}
-            <a href={gmapsDirections(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
+            <a href={directionsUrl(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
             <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.line,color:C.textDim,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="pin" size={15}/>Access</a>
           </div>
           {!userLoc && <div style={{...small,marginTop:8}}>Use your location (Rivers tab) to plot a route from where you are.</div>}
@@ -942,7 +981,8 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     const fd=new FormData(); fd.append("file",photo.file); fd.append("api_key",sign.apiKey);
     fd.append("timestamp",sign.timestamp); fd.append("folder",sign.folder); fd.append("signature",sign.signature);
     const r=await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`,{method:"POST",body:fd});
-    if(!r.ok) throw new Error("Photo upload failed."); const j=await r.json();
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error((j&&j.error&&j.error.message)?`Photo upload failed: ${j.error.message}`:"Photo upload failed.");
     return { url:j.secure_url, w:j.width, h:j.height }; };
   const submit=async()=>{ setErr("");
     if(needsName && !name.trim()){ setErr("Pick a display name first."); return; }
@@ -1015,26 +1055,6 @@ function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], post
           ? <PostCard key={it.id} p={it} me={me} onToggleLike={onToggleLike} onDelete={onDeletePost} onReport={onReport} onBlock={onBlock} onCommentDelta={onCommentDelta} onSetName={onSetName} onSignIn={onSignIn}/>
           : <FeedCard key={it.id} it={it}/>)}
     {postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
-
-    <div style={{marginTop:16,padding:14,background:`${C.cyanDeep}14`,border:`1px solid ${C.cyanDeep}44`,borderRadius:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.pine,fontWeight:700}}>External news, reports &amp; regulations</div>
-        <button onClick={()=>setShowCfg(s=>!s)} style={{...btn,borderColor:C.line,color:C.pine}}>{showCfg?"Close":newsUrl?"Edit source":"Connect a source"}</button>
-      </div>
-      <p style={{fontSize:12,color:C.text,lineHeight:1.5,margin:"8px 0 0"}}>
-        {newsUrl
-          ? (extStatus==="loading"?"Loading from your news source…":extStatus==="ok"?`Connected · pulling reports, events and regulations from your source.`:"Couldn't reach your news source — showing the live conditions feed only.")
-          : "Conservation-authority reports, stocking updates, tournaments and regulation notices come from sources you choose. Browsers can't pull those feeds directly, so the download includes a small aggregator (server/news-worker.js) you deploy once, then paste its URL here."}
-      </p>
-      {showCfg && (<div style={{marginTop:10}}>
-        <input style={inp} placeholder="https://your-aggregator.workers.dev/news" value={url} onChange={e=>setUrl(e.target.value)}/>
-        <div style={{display:"flex",gap:8,marginTop:8}}>
-          <button onClick={()=>onSaveUrl(url.trim())} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone}}>Save source</button>
-          {newsUrl && <button onClick={()=>{ setUrl(""); onSaveUrl(""); }} style={{...btn,borderColor:C.line,color:C.textDim}}>Disconnect</button>}
-        </div>
-        <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:8,lineHeight:1.45}}>Deploy guide: server/README.md in the download. The endpoint must return JSON items with title, summary, category, source, url, published.</div>
-      </div>)}
-    </div>
   </div>);
 }
 
@@ -1426,8 +1446,8 @@ function segBtn(on){ return {flex:1,display:"flex",alignItems:"center",justifyCo
 function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod}){
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
-  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex"}}>
-    <div onClick={e=>e.stopPropagation()} style={{width:280,maxWidth:"82%",background:C.cyanDeep,padding:"16px 12px calc(20px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
+  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:280,maxWidth:"82%",background:C.cyanDeep,padding:"calc(16px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
       <div style={{display:"flex",gap:11,alignItems:"center",padding:"4px 8px 14px"}}><Crest size={44}/><div><div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:"#EFE9DB"}}>Muddy York</div><div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div></div></div>
       {link("rivers","Rivers",tab==="rivers",()=>onNav("rivers"))}
       {link("news","News & catches",tab==="news",()=>onNav("news"))}
@@ -1656,8 +1676,8 @@ function CheckoutModal({plan:initialPlan,onClose}){
   useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
   const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
   const tabBtn=(p,label)=>(<button onClick={()=>changePlan(p)} style={{flex:1,fontFamily:sans,fontSize:13,fontWeight:700,padding:"9px 8px",borderRadius:8,cursor:"pointer",border:`1px solid ${plan===p?C.brick:C.line}`,background:plan===p?C.brick:"#fff",color:plan===p?C.bone:C.pine}}>{label}</button>);
-  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:4000,display:"flex",alignItems:"stretch",justifyContent:"center",overflowY:"auto"}}>
-    <div style={{width:"100%",maxWidth:520,background:C.panel,minHeight:"100%",display:"flex",flexDirection:"column",padding:"18px 18px 40px"}}>
+  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:9000,display:"flex",alignItems:"stretch",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+    <div style={{width:"100%",maxWidth:520,background:C.panel,minHeight:"100%",display:"flex",flexDirection:"column",padding:"calc(18px + env(safe-area-inset-top)) 18px calc(48px + env(safe-area-inset-bottom))"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your free trial</div>
         <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
@@ -1750,7 +1770,10 @@ function DepthFish({sec}){
   },[sec.lat,sec.lon]);
   if(d===undefined) return null;
   const {hw,bathy,fish,stock}=d;
-  const spNames=fish.species.map(s=>SPECIES[s.key]?SPECIES[s.key].name:s.key);
+  // Collapse to base common name (drop "(resident)"/"(lake-run)"/…) and de-dupe,
+  // so a reach with both resident and lake-run browns doesn't list "Brown trout"
+  // twice.
+  const spNames=[...new Set(fish.species.map(s=>(SPECIES[s.key]?SPECIES[s.key].name:s.key).replace(/\s*\([^)]*\)\s*$/,"")))];
   return (<div style={{marginTop:10,padding:"10px 12px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:10}}>
     <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine,marginBottom:5}}>Depth &amp; likely fish · estimate</div>
     <div style={{fontSize:13.5,color:C.text,lineHeight:1.5}}>
@@ -1777,7 +1800,11 @@ function CatchForm({sec, signedIn}){
   if(!open) return (<button onClick={()=>setOpen(true)} style={{...btnBig,marginTop:10,borderColor:C.brass,color:C.pine}}><Icon name="plus" size={15}/>Log a catch</button>);
   return (<div style={{marginTop:10,padding:12,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10}}>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-      <select value={sp} onChange={e=>setSp(e.target.value)} style={inp}>{(sec.species&&sec.species.length?sec.species:Object.keys(SPECIES)).map(k=><option key={k} value={k}>{SPECIES[k]?SPECIES[k].name:k}</option>)}</select>
+      <select value={sp} onChange={e=>setSp(e.target.value)} style={inp}>{
+        // Offer every species (you can catch anything), with this reach's likely
+        // fish listed first. De-duplicated so the full list is always available.
+        [...new Set([...(sec.species||[]),...Object.keys(SPECIES)])].map(k=><option key={k} value={k}>{SPECIES[k]?SPECIES[k].name:k}</option>)
+      }</select>
       <input style={{...inp,width:110}} type="number" placeholder="size (in)" value={size} onChange={e=>setSize(e.target.value)}/>
       <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}>{busy?"…":"Submit"}</button>
     </div>
@@ -1787,13 +1814,17 @@ function CatchForm({sec, signedIn}){
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
 function Advisor({ev,m,premium=true,onUpgrade}){
   const [open,setOpen]=useState(false);
+  const panelRef=useRef(null);
   const a=useMemo(()=>advise(ev,m),[ev,m]);
+  // When the panel opens, scroll it into view so it's obvious it expanded (long
+  // cards otherwise expand below the fold and look like nothing happened).
+  useEffect(()=>{ if(open&&panelRef.current) panelRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[open]);
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
     <button onClick={()=> premium ? setOpen(o=>!o) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
       cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
-    {open && premium && (<div style={{marginTop:12}}>
+    {open && premium && (<div ref={panelRef} style={{marginTop:12}}>
       <AdvHead t="Recommended techniques"/>
       <ul style={{margin:"0 0 14px",paddingLeft:18}}>
         {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
