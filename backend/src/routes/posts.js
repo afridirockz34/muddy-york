@@ -1,0 +1,129 @@
+import { createHash } from "node:crypto";
+import { prisma } from "../db.js";
+import { config } from "../config.js";
+import { getCurrentUser } from "../auth/current-user.js";
+import { cloudinarySignature } from "../../../lib/cloudinary-sign.js";
+import { sendMail } from "../alerts/mailer.js";
+
+const sha1 = (s) => createHash("sha1").update(s).digest("hex");
+const clamp = (s, n) => String(s || "").trim().slice(0, n);
+
+// Shape a Post row + its like info for the public feed. Only displayName is
+// ever exposed about the author — never email.
+function shapePost(p, meId) {
+  const likes = p.likes || [];
+  return {
+    id: p.id, body: p.body, photoUrl: p.photoUrl, photoW: p.photoW, photoH: p.photoH,
+    river: p.river, category: p.category, createdAt: p.createdAt.toISOString(),
+    author: { displayName: p.user?.displayName || "An angler" },
+    likeCount: typeof p._count?.likes === "number" ? p._count.likes : likes.length,
+    likedByMe: meId ? likes.some((l) => l.userId === meId) : false,
+    mine: meId ? p.userId === meId : false,
+  };
+}
+
+export default async function postRoutes(app) {
+  const auth = async (req, reply) => {
+    const u = await getCurrentUser(req);
+    if (!u) { reply.code(401).send({ error: "sign in first" }); return; }
+    req.user = u;
+  };
+
+  // Set/update the public display name.
+  app.patch("/me", { preHandler: auth }, async (req, reply) => {
+    const name = clamp(req.body?.displayName, 40);
+    if (!name) return reply.code(400).send({ error: "display name required" });
+    const u = await prisma.user.update({ where: { id: req.user.id }, data: { displayName: name } });
+    return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName } };
+  });
+
+  // Cloudinary signed direct-upload params. Secret never leaves the server.
+  app.post("/posts/photo-sign", { preHandler: auth }, async (req, reply) => {
+    if (!config.cloudinary.configured) return reply.code(400).send({ error: "photo uploads not configured" });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = config.cloudinary.folder;
+    const signature = cloudinarySignature({ folder, timestamp }, config.cloudinary.apiSecret, sha1);
+    return { cloudName: config.cloudinary.cloudName, apiKey: config.cloudinary.apiKey, timestamp, folder, signature };
+  });
+
+  // Create a post. Requires a display name; needs body or photo.
+  app.post("/posts", { preHandler: auth }, async (req, reply) => {
+    if (!req.user.displayName) return reply.code(400).send({ error: "set a display name first" });
+    const b = req.body || {};
+    const body = clamp(b.body, 2000);
+    const photoUrl = b.photoUrl ? clamp(b.photoUrl, 500) : null;
+    if (!body && !photoUrl) return reply.code(400).send({ error: "write something or add a photo" });
+    const int = (v) => (Number.isFinite(+v) ? Math.round(+v) : null);
+    const post = await prisma.post.create({
+      data: {
+        userId: req.user.id, body, photoUrl,
+        photoW: photoUrl ? int(b.photoW) : null, photoH: photoUrl ? int(b.photoH) : null,
+        river: b.river ? clamp(b.river, 80) : null,
+        category: clamp(b.category, 24) || "Report",
+      },
+      include: { user: true, likes: true },
+    });
+    return { post: shapePost(post, req.user.id) };
+  });
+
+  // Soft-delete your own post. Idempotent.
+  app.delete("/posts/:id", { preHandler: auth }, async (req) => {
+    await prisma.post.updateMany({
+      where: { id: req.params.id, userId: req.user.id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return { ok: true };
+  });
+
+  // Like / unlike. Both idempotent; return the fresh count + likedByMe.
+  const likeCounts = async (postId, meId) => {
+    const [likeCount, mine] = await Promise.all([
+      prisma.like.count({ where: { postId } }),
+      prisma.like.findUnique({ where: { postId_userId: { postId, userId: meId } } }),
+    ]);
+    return { likeCount, likedByMe: !!mine };
+  };
+  app.post("/posts/:id/like", { preHandler: auth }, async (req, reply) => {
+    const post = await prisma.post.findFirst({ where: { id: req.params.id, deletedAt: null } });
+    if (!post) return reply.code(404).send({ error: "post not found" });
+    await prisma.like.upsert({
+      where: { postId_userId: { postId: post.id, userId: req.user.id } },
+      create: { postId: post.id, userId: req.user.id },
+      update: {},
+    });
+    return likeCounts(post.id, req.user.id);
+  });
+  app.delete("/posts/:id/like", { preHandler: auth }, async (req) => {
+    await prisma.like.deleteMany({ where: { postId: req.params.id, userId: req.user.id } });
+    return likeCounts(req.params.id, req.user.id);
+  });
+
+  // Report a post to the admin (email only; no persistence).
+  app.post("/posts/:id/report", { preHandler: auth }, async (req) => {
+    const reason = clamp(req.body?.reason, 500);
+    if (config.resend.adminEmail) {
+      await sendMail({
+        to: config.resend.adminEmail,
+        subject: `Post reported: ${req.params.id}`,
+        text: `Post ${req.params.id} was reported by ${req.user.email}.${reason ? "\n\nReason: " + reason : ""}`,
+      }).catch(() => {});
+    }
+    return { ok: true };
+  });
+
+  // Public feed, newest first, cursor by createdAt.
+  app.get("/posts", async (req) => {
+    const me = await getCurrentUser(req);
+    const before = req.query?.before ? new Date(req.query.before) : null;
+    const limit = Math.min(50, Math.max(1, parseInt(req.query?.limit, 10) || 20));
+    const where = { deletedAt: null };
+    if (before && !Number.isNaN(before.getTime())) where.createdAt = { lt: before };
+    const rows = await prisma.post.findMany({
+      where, orderBy: { createdAt: "desc" }, take: limit,
+      include: { user: true, likes: me ? { where: { userId: me.id } } : false, _count: { select: { likes: true } } },
+    });
+    const posts = rows.map((p) => shapePost(p, me?.id));
+    const nextBefore = rows.length === limit ? rows[rows.length - 1].createdAt.toISOString() : null;
+    return { posts, nextBefore };
+  });
+}

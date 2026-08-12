@@ -11,6 +11,7 @@ model User {
   id               String        @id @default(cuid())
   email            String        @unique
   emailVerified    Boolean       @default(false)
+  displayName      String?
   passwordHash     String?
   googleId         String?       @unique
   stripeCustomerId String?       @unique
@@ -23,6 +24,36 @@ model User {
   savedSpots       SavedSpot[]
   catches          Catch[]
   notes            Note[]
+  posts            Post[]
+  likes            Like[]
+}
+
+model Post {
+  id        String    @id @default(cuid())
+  userId    String
+  body      String    @default("")
+  photoUrl  String?
+  photoW    Int?
+  photoH    Int?
+  river     String?
+  category  String    @default("Report")
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes     Like[]
+
+  @@index([createdAt])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
 }
 
 model Note {

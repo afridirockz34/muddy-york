@@ -12,6 +12,7 @@ import { Crest, Icon } from "./lib/brand.jsx";
 import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
+import { mergeFeed } from "./lib/feed-merge.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
 import { catchNudge } from "./lib/catch-nudge.js";
@@ -835,7 +836,95 @@ function FeedCard({it}){
     </div>
   </div>);
 }
-function NewsView({derived, newsUrl, onSaveUrl, personalized}){
+function PostCard({p,signedIn,onToggleLike,onDelete,onReport,onSignIn}){
+  const [menu,setMenu]=useState(false);
+  const when=new Date(p.createdAt).toLocaleDateString([], {month:"short",day:"numeric"});
+  const like=()=>{ if(!signedIn) return onSignIn&&onSignIn(); onToggleLike(p.id,p.likedByMe); };
+  const report=()=>{ setMenu(false); if(!signedIn) return onSignIn&&onSignIn(); if(confirm("Report this post to the moderators?")) onReport(p.id); };
+  const del=()=>{ setMenu(false); if(confirm("Delete this post?")) onDelete(p.id); };
+  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+      <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`}}><Crest size={38}/></div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontFamily:sans,fontSize:13.5,fontWeight:700,color:C.pine}}>{p.author.displayName}</div>
+        <div style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{p.river?`${p.river} · `:""}{when}</div>
+      </div>
+      <div style={{position:"relative"}}>
+        <button onClick={()=>setMenu(m=>!m)} aria-label="More" style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:4,fontSize:18,lineHeight:1}}>⋯</button>
+        {menu && <div style={{position:"absolute",right:0,top:26,background:"#fff",border:`1px solid ${C.line}`,borderRadius:9,boxShadow:"0 6px 20px rgba(0,0,0,.18)",zIndex:50,overflow:"hidden",minWidth:120}}>
+          {p.mine
+            ? <button onClick={del} style={{display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13,color:C.brick}}>Delete</button>
+            : <button onClick={report} style={{display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13,color:C.textDim}}>Report</button>}
+        </div>}
+      </div>
+    </div>
+    {p.body && <div style={{fontSize:14,color:C.text,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{p.body}</div>}
+    {p.photoUrl && <div style={{marginTop:10,borderRadius:11,overflow:"hidden",border:`1px solid ${C.lineSoft}`,background:C.bone}}>
+      <img src={p.photoUrl} alt="" loading="lazy" style={{display:"block",width:"100%",height:"auto"}}
+        {...(p.photoW&&p.photoH?{width:p.photoW,height:p.photoH}:{})}/></div>}
+    <div style={{display:"flex",gap:20,alignItems:"center",marginTop:12,paddingTop:11,borderTop:`1px solid ${C.lineSoft}`,color:C.textDim}}>
+      <button onClick={like} style={{display:"inline-flex",alignItems:"center",gap:6,fontFamily:sans,fontSize:12.5,fontWeight:700,background:"none",border:"none",cursor:"pointer",color:p.likedByMe?C.brick:C.textDim,padding:0}}>
+        <Icon name="like" size={17}/>{p.likeCount>0?p.likeCount:""} {p.likedByMe?"Liked":"Like"}</button>
+    </div>
+  </div>);
+}
+function Composer({me,onCreatePost,onSetName,onSignIn}){
+  const signedIn=!!(me&&me.user);
+  const [name,setName]=useState("");
+  const [body,setBody]=useState(""),[river,setRiver]=useState("");
+  const [photo,setPhoto]=useState(null); // {file,preview,w,h}
+  const [busy,setBusy]=useState(false),[err,setErr]=useState(""),[phDisabled,setPhDisabled]=useState(false);
+  const fileRef=useRef(null);
+  const rivers=useMemo(()=>[...new Set(RIVERS.map(r=>r.river))].sort(),[]);
+  const inp={width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14};
+  if(!signedIn) return (<div style={{display:"flex",alignItems:"center",gap:10,background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:12,marginBottom:14}}>
+    <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",border:`1px solid ${C.line}`,flexShrink:0}}><Crest size={38}/></div>
+    <div style={{flex:1,fontSize:13.5,color:C.textDim}}>Sign in to share a catch, a technique, or a report.</div>
+    <button onClick={onSignIn} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone}}>Sign in</button>
+  </div>);
+  const needsName=!me.user.displayName;
+  const pickPhoto=e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; setErr("");
+    const img=new Image(); const url=URL.createObjectURL(f);
+    img.onload=()=>setPhoto({file:f,preview:url,w:img.naturalWidth,h:img.naturalHeight});
+    img.onerror=()=>setErr("That image couldn't be read."); img.src=url; };
+  const uploadPhoto=async()=>{ // returns {url,w,h}
+    const sign=await proxyJSON("/posts/photo-sign",{method:"POST"}).catch(()=>{ setPhDisabled(true); throw new Error("Photo uploads aren't configured yet."); });
+    const fd=new FormData(); fd.append("file",photo.file); fd.append("api_key",sign.apiKey);
+    fd.append("timestamp",sign.timestamp); fd.append("folder",sign.folder); fd.append("signature",sign.signature);
+    const r=await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`,{method:"POST",body:fd});
+    if(!r.ok) throw new Error("Photo upload failed."); const j=await r.json();
+    return { url:j.secure_url, w:j.width, h:j.height }; };
+  const submit=async()=>{ setErr("");
+    if(needsName && !name.trim()){ setErr("Pick a display name first."); return; }
+    if(!body.trim() && !photo){ setErr("Write something or add a photo."); return; }
+    setBusy(true);
+    try{ if(needsName) await onSetName(name.trim());
+      let ph=null; if(photo) ph=await uploadPhoto();
+      await onCreatePost({ body:body.trim(), river:river||null, photo:ph });
+      setBody(""); setRiver(""); if(photo){ URL.revokeObjectURL(photo.preview); setPhoto(null); }
+    }catch(e){ setErr(e.message||"Couldn't post — try again."); }
+    finally{ setBusy(false); } };
+  return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:14,marginBottom:16}}>
+    {needsName && <input style={{...inp,marginBottom:8}} placeholder="Choose a display name (public)" value={name} onChange={e=>setName(e.target.value)} maxLength={40}/>}
+    <textarea style={{...inp,minHeight:64,resize:"vertical"}} placeholder="Share a catch, a technique, a report…" value={body} onChange={e=>setBody(e.target.value)} maxLength={2000}/>
+    {photo && <div style={{position:"relative",marginTop:10}}>
+      <img src={photo.preview} alt="" style={{display:"block",width:"100%",height:"auto",borderRadius:10,border:`1px solid ${C.lineSoft}`}}/>
+      <button onClick={()=>{ URL.revokeObjectURL(photo.preview); setPhoto(null); }} aria-label="Remove photo" style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.6)",color:"#fff",border:"none",borderRadius:"50%",width:28,height:28,cursor:"pointer",fontSize:15}}>×</button>
+    </div>}
+    <input ref={fileRef} type="file" accept="image/*" onChange={pickPhoto} style={{display:"none"}}/>
+    {err && <div style={{fontSize:12,color:C.brick,marginTop:9,lineHeight:1.4}}>{err}</div>}
+    <div style={{display:"flex",gap:8,marginTop:11,flexWrap:"wrap",alignItems:"center"}}>
+      <select value={river} onChange={e=>setRiver(e.target.value)} style={{...inp,width:"auto",padding:"8px 10px",fontSize:13}}>
+        <option value="">Tag a river (optional)</option>
+        {rivers.map(r=><option key={r} value={r}>{r}</option>)}
+      </select>
+      {!phDisabled && <button onClick={()=>fileRef.current&&fileRef.current.click()} style={{...btnBig,padding:"8px 12px"}}><Icon name="pin" size={15}/>{photo?"Change photo":"Photo"}</button>}
+      <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine,marginLeft:"auto",opacity:busy?0.6:1}}><Icon name="plus" size={15}/>{busy?"Posting…":"Post"}</button>
+    </div>
+    <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
+  </div>);
+}
+function NewsView({derived, newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onSetName, onSignIn}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -853,29 +942,29 @@ function NewsView({derived, newsUrl, onSaveUrl, personalized}){
     return ()=>{ live=false; };
   },[newsUrl]);
 
-  const all=[...(ext||[]),...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
+  const derivedAll=[...(ext||[]),...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
+  // Real user posts (newest-first, real timestamps) sit above the auto-intel feed.
+  const all=mergeFeed(posts,derivedAll);
   const cats=["All","Weather","Water","Window","Reports","Regs"];
   const match=it=>{ if(cat==="All") return true;
-    if(cat==="Reports") return /report|event|stock|catch|tournament|community/i.test(it.category);
+    if(cat==="Reports") return it.kind==="post"||/report|event|stock|catch|tournament|community/i.test(it.category);
     if(cat==="Regs") return /regulat|closure|licen|season/i.test(it.category);
-    return it.category===cat; };
+    return it.kind!=="post"&&it.category===cat; };
   const shown=all.filter(match);
   const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:12.5};
 
   return (<div>
     <SectionTitle t="The Feed"/>
-    <div style={{display:"flex",alignItems:"center",gap:10,background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:12,marginBottom:14}}>
-      <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",border:`1px solid ${C.line}`,flexShrink:0}}><Crest size={38}/></div>
-      <div style={{flex:1,fontSize:13.5,color:C.textFaint}}>Share your catch or a technique…</div>
-      <span style={{fontFamily:sans,fontSize:10,fontWeight:700,color:C.textFaint,border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px"}}>Soon</span>
-    </div>
-    <div style={{fontSize:12,color:C.textFaint,lineHeight:1.5,margin:"0 0 14px"}}>Posting catches, photos and comments arrives soon. Catch locations always stay hidden.</div>
+    <Composer me={me} onCreatePost={onCreatePost} onSetName={onSetName} onSignIn={onSignIn}/>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {cats.map(x=><span key={x} className={"seg"+(cat===x?" on":"")} onClick={()=>setCat(x)}>{x}</span>)}
     </div>
     {shown.length===0
       ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Nothing in this category right now. Conditions are quiet — try “All”.</div>
-      : shown.map(it=><FeedCard key={it.id} it={it}/>)}
+      : shown.map(it=> it.kind==="post"
+          ? <PostCard key={it.id} p={it} signedIn={!!(me&&me.user)} onToggleLike={onToggleLike} onDelete={onDeletePost} onReport={onReport} onSignIn={onSignIn}/>
+          : <FeedCard key={it.id} it={it}/>)}
+    {postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
 
     <div style={{marginTop:16,padding:14,background:`${C.cyanDeep}14`,border:`1px solid ${C.cyanDeep}44`,borderRadius:10}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -921,6 +1010,9 @@ export default function App(){
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
   const [noteSync,setNoteSync]=useState("off");   // off | syncing | synced
+  const [posts,setPosts]=useState([]);            // server social posts (newest first)
+  const [postsCursor,setPostsCursor]=useState(null);
+  const [postsLoaded,setPostsLoaded]=useState(false);
   const signedInRef=useRef(false);
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
@@ -1099,6 +1191,34 @@ export default function App(){
     setNotes(notes); setNoteSync("synced");
   },[me]);
   useEffect(()=>{ signedInRef.current=!!(me&&me.user); if(API_BASE&&me&&me.user) runNoteSync(); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- Social feed (Phase C slice 1) ----
+  const loadPosts=useCallback(async(cursor)=>{
+    if(!API_BASE) return;
+    try{ const { posts:pg=[], nextBefore }=await proxyJSON("/posts"+(cursor?`?before=${encodeURIComponent(cursor)}`:""));
+      setPosts(prev=> cursor ? [...prev,...pg] : pg); setPostsCursor(nextBefore); setPostsLoaded(true);
+    }catch{ setPostsLoaded(true); }
+  },[]);
+  useEffect(()=>{ if(API_BASE) loadPosts(); },[loadPosts]);
+  // Re-shape likedByMe when auth changes (a fresh sign-in should reflect my likes).
+  useEffect(()=>{ if(API_BASE&&postsLoaded) loadPosts(); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const createPost=useCallback(async(fields)=>{ // {body,river,photo:{url,w,h}?}
+    const body={ body:fields.body||"", river:fields.river||null };
+    if(fields.photo){ body.photoUrl=fields.photo.url; body.photoW=fields.photo.w; body.photoH=fields.photo.h; }
+    const { post }=await proxyJSON("/posts",{method:"POST",body});
+    setPosts(prev=>[post,...prev]); return post;
+  },[]);
+  const deletePost=useCallback(async(id)=>{ setPosts(prev=>prev.filter(p=>p.id!==id));
+    try{ await proxyJSON(`/posts/${encodeURIComponent(id)}`,{method:"DELETE"}); }catch{} },[]);
+  const toggleLike=useCallback(async(id,liked)=>{
+    setPosts(prev=>prev.map(p=>p.id===id?{...p,likedByMe:!liked,likeCount:p.likeCount+(liked?-1:1)}:p));
+    try{ const r=await proxyJSON(`/posts/${encodeURIComponent(id)}/like`,{method:liked?"DELETE":"POST"});
+      setPosts(prev=>prev.map(p=>p.id===id?{...p,likedByMe:r.likedByMe,likeCount:r.likeCount}:p));
+    }catch{ setPosts(prev=>prev.map(p=>p.id===id?{...p,likedByMe:liked,likeCount:p.likeCount+(liked?1:-1)}:p)); } },[]);
+  const reportPost=useCallback(async(id,reason)=>{ try{ await proxyJSON(`/posts/${encodeURIComponent(id)}/report`,{method:"POST",body:{reason:reason||""}}); }catch{} },[]);
+  const setDisplayName=useCallback(async(name)=>{ const { user }=await proxyJSON("/me",{method:"PATCH",body:{displayName:name}});
+    setMe(prev=>prev?{...prev,user:{...prev.user,...user}}:prev); return user; },[]);
   const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
   const nearest=useMemo(()=>{ if(!userLoc) return null; let best=null;
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
@@ -1209,7 +1329,9 @@ export default function App(){
         </>)}
 
         {/* ===================== NEWS TAB ===================== */}
-        {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}/>}
+        {tab==="news" && <NewsView derived={feed} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
+          me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
+          onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
@@ -1352,6 +1474,19 @@ function AccountButton({me,onClick}){
   const label=entitlementLabel(me);
   return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?label:"Sign in"}</button>);
 }
+function DisplayNameEditor({me,onAuth}){
+  const [name,setName]=useState((me&&me.user&&me.user.displayName)||"");
+  const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false);
+  const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:13.5,marginTop:8};
+  const save=async()=>{ const n=name.trim(); if(!n) return; setBusy(true);
+    try{ await proxyJSON("/me",{method:"PATCH",body:{displayName:n}}); setSaved(true); await onAuth(); setTimeout(()=>setSaved(false),2000); }catch{} finally{ setBusy(false); } };
+  return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:2}}>Display name</div>
+    <div style={{fontSize:11,color:C.textDim}}>Shown publicly on your posts. Your email is never shown.</div>
+    <input style={inp} placeholder="e.g. Riverdog" value={name} maxLength={40} onChange={e=>setName(e.target.value)}/>
+    <button disabled={busy} onClick={save} style={{...btn,borderColor:C.pine,color:C.pine,width:"100%",padding:"9px",marginTop:8,opacity:busy?0.6:1}}>{saved?"Saved ✓":busy?"Saving…":"Save name"}</button>
+  </div>);
+}
 function AlertPrefs(){
   const [p,setP]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/alert-prefs").then(d=>{ if(live) setP(d); }).catch(()=>{}); return ()=>{live=false;}; },[]);
@@ -1396,6 +1531,7 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
           <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Start trial — annual {planPrice("annual")}</button>
           <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
         </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
+        <DisplayNameEditor me={me} onAuth={onAuth}/>
         <AlertPrefs/>
         <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"9px",marginTop:14}}>Sign out</button>
       </div>) : (<div style={{marginTop:12}}>

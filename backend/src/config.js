@@ -17,6 +17,14 @@ export const config = {
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "Muddy York <onboarding@resend.dev>",
+    adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
+  },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
+    apiKey: process.env.CLOUDINARY_API_KEY || "",
+    apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+    folder: process.env.CLOUDINARY_UPLOAD_FOLDER || "muddy-york/posts",
+    get configured() { return !!(this.cloudName && this.apiKey && this.apiSecret); },
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || "",
