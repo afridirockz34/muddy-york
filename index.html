@@ -26,6 +26,9 @@
   <style>
     html,body{margin:0;padding:0;background:#F4EFE6;}
     #root{min-height:100vh;}
+    /* iOS Safari zooms in when a focused field's font-size is < 16px. Force 16px
+       on all form controls (overriding inline styles) so focusing never zooms. */
+    input,select,textarea{font-size:16px !important;}
     .boot{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#2C4C3B;
       color:#EFE9DB;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:16px;padding:24px;text-align:center;}
     noscript{display:block;padding:40px;color:#2A2A2A;font-family:Helvetica,Arial,sans-serif;text-align:center;}

@@ -12,6 +12,7 @@ model User {
   email            String        @unique
   emailVerified    Boolean       @default(false)
   displayName      String?
+  avatarUrl        String?
   passwordHash     String?
   googleId         String?       @unique
   stripeCustomerId String?       @unique
@@ -30,6 +31,22 @@ model User {
   blocking         Block[]       @relation("blocker")
   blockedBy        Block[]       @relation("blocked")
   pushSubs         PushSubscription[]
+  notifications    Notification[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String                        // recipient (post owner)
+  type      String                        // "like" | "comment"
+  actorId   String
+  actorName String   @default("An angler")
+  postId    String
+  preview   String   @default("")         // comment snippet
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model PushSubscription {

@@ -11,7 +11,7 @@ function setSessionCookie(reply, token, expiresAt) {
     httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt,
   });
 }
-const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null });
+const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null, avatarUrl: u.avatarUrl || null });
 
 export default async function authRoutes(app) {
   app.post("/auth/signup", async (req, reply) => {

@@ -5,6 +5,7 @@ import { getCurrentUser } from "../auth/current-user.js";
 import { cloudinarySignature } from "../../../lib/cloudinary-sign.js";
 import { sendMail } from "../alerts/mailer.js";
 import { isAdmin, blockedIdsFor } from "../social/moderation.js";
+import { notify } from "../social/notify.js";
 
 const sha1 = (s) => createHash("sha1").update(s).digest("hex");
 const clamp = (s, n) => String(s || "").trim().slice(0, n);
@@ -16,7 +17,7 @@ function shapePost(p, meId) {
   return {
     id: p.id, body: p.body, photoUrl: p.photoUrl, photoW: p.photoW, photoH: p.photoH,
     river: p.river, category: p.category, createdAt: p.createdAt.toISOString(),
-    author: { displayName: p.user?.displayName || "An angler" },
+    author: { displayName: p.user?.displayName || "An angler", avatarUrl: p.user?.avatarUrl || null },
     authorId: p.userId,
     likeCount: typeof p._count?.likes === "number" ? p._count.likes : likes.length,
     commentCount: typeof p._count?.comments === "number" ? p._count.comments : 0,
@@ -28,7 +29,7 @@ function shapePost(p, meId) {
 function shapeComment(c, meId, admin) {
   return {
     id: c.id, body: c.body, createdAt: c.createdAt.toISOString(),
-    author: { displayName: c.user?.displayName || "An angler" },
+    author: { displayName: c.user?.displayName || "An angler", avatarUrl: c.user?.avatarUrl || null },
     authorId: c.userId,
     mine: meId ? c.userId === meId || admin : false,
   };
@@ -41,12 +42,19 @@ export default async function postRoutes(app) {
     req.user = u;
   };
 
-  // Set/update the public display name.
+  // Set/update the public display name and/or avatar.
   app.patch("/me", { preHandler: auth }, async (req, reply) => {
-    const name = clamp(req.body?.displayName, 40);
-    if (!name) return reply.code(400).send({ error: "display name required" });
-    const u = await prisma.user.update({ where: { id: req.user.id }, data: { displayName: name } });
-    return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName } };
+    const b = req.body || {};
+    const data = {};
+    if (b.displayName !== undefined) {
+      const name = clamp(b.displayName, 40);
+      if (!name) return reply.code(400).send({ error: "display name required" });
+      data.displayName = name;
+    }
+    if (b.avatarUrl !== undefined) data.avatarUrl = b.avatarUrl ? clamp(b.avatarUrl, 500) : null;
+    if (!Object.keys(data).length) return reply.code(400).send({ error: "nothing to update" });
+    const u = await prisma.user.update({ where: { id: req.user.id }, data });
+    return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName, avatarUrl: u.avatarUrl } };
   });
 
   // Public diagnostic: is photo upload configured, and what cloud name does the
@@ -104,11 +112,14 @@ export default async function postRoutes(app) {
   app.post("/posts/:id/like", { preHandler: auth }, async (req, reply) => {
     const post = await prisma.post.findFirst({ where: { id: req.params.id, deletedAt: null } });
     if (!post) return reply.code(404).send({ error: "post not found" });
+    const already = await prisma.like.findUnique({ where: { postId_userId: { postId: post.id, userId: req.user.id } } });
     await prisma.like.upsert({
       where: { postId_userId: { postId: post.id, userId: req.user.id } },
       create: { postId: post.id, userId: req.user.id },
       update: {},
     });
+    // Notify the owner only on a genuinely new like (not repeat taps).
+    if (!already) notify({ recipientId: post.userId, actorId: req.user.id, actorName: req.user.displayName, type: "like", postId: post.id });
     return likeCounts(post.id, req.user.id);
   });
   app.delete("/posts/:id/like", { preHandler: auth }, async (req) => {
@@ -165,6 +176,7 @@ export default async function postRoutes(app) {
       data: { postId: post.id, userId: req.user.id, body },
       include: { user: true },
     });
+    notify({ recipientId: post.userId, actorId: req.user.id, actorName: req.user.displayName, type: "comment", postId: post.id, preview: body });
     return { comment: shapeComment(c, req.user.id, false) };
   });
 
@@ -201,6 +213,25 @@ export default async function postRoutes(app) {
     await prisma.block.deleteMany({ where: { blockerId: req.user.id, blockedId: req.params.id } });
     return { ok: true };
   });
+  // ---- Notifications (likes/comments on your posts) ----
+  app.get("/notifications", { preHandler: auth }, async (req) => {
+    const [rows, unread] = await Promise.all([
+      prisma.notification.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: "desc" }, take: 30 }),
+      prisma.notification.count({ where: { userId: req.user.id, read: false } }),
+    ]);
+    return {
+      unread,
+      notifications: rows.map((n) => ({
+        id: n.id, type: n.type, actorName: n.actorName, postId: n.postId,
+        preview: n.preview, read: n.read, createdAt: n.createdAt.toISOString(),
+      })),
+    };
+  });
+  app.post("/notifications/read", { preHandler: auth }, async (req) => {
+    await prisma.notification.updateMany({ where: { userId: req.user.id, read: false }, data: { read: true } });
+    return { ok: true };
+  });
+
   app.get("/users/blocked", { preHandler: auth }, async (req) => {
     const rows = await prisma.block.findMany({
       where: { blockerId: req.user.id },

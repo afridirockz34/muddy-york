@@ -986,7 +986,7 @@ function PostCard({p,me,onToggleLike,onDelete,onReport,onBlock,onCommentDelta,on
   const menuItem={display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13};
   return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-      <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`}}><Crest size={38}/></div>
+      <Avatar src={p.author.avatarUrl} size={38}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontFamily:sans,fontSize:13.5,fontWeight:700,color:C.pine}}>{p.author.displayName}</div>
         <div style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{p.river?`${p.river} · `:""}{when}</div>
@@ -1072,14 +1072,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     const img=new Image(); const url=URL.createObjectURL(f);
     img.onload=()=>setPhoto({file:f,preview:url,w:img.naturalWidth,h:img.naturalHeight});
     img.onerror=()=>setErr("That image couldn't be read."); img.src=url; };
-  const uploadPhoto=async()=>{ // returns {url,w,h}
-    const sign=await proxyJSON("/posts/photo-sign",{method:"POST"}).catch(()=>{ setPhDisabled(true); throw new Error("Photo uploads aren't configured yet."); });
-    const fd=new FormData(); fd.append("file",photo.file); fd.append("api_key",sign.apiKey);
-    fd.append("timestamp",sign.timestamp); fd.append("folder",sign.folder); fd.append("signature",sign.signature);
-    const r=await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`,{method:"POST",body:fd});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error((j&&j.error&&j.error.message)?`Photo upload failed: ${j.error.message}`:"Photo upload failed.");
-    return { url:j.secure_url, w:j.width, h:j.height }; };
+  const uploadPhoto=()=>cloudinaryUpload(photo.file).catch(e=>{ if(/configured|4\d\d/i.test(e.message||"")) setPhDisabled(true); throw e; });
   const submit=async()=>{ setErr("");
     if(needsName && !name.trim()){ setErr("Pick a display name first."); return; }
     if(!body.trim() && !photo){ setErr("Write something or add a photo."); return; }
@@ -1105,7 +1098,9 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
         {rivers.map(r=><option key={r} value={r}>{r}</option>)}
       </select>
       {!phDisabled && <button onClick={()=>fileRef.current&&fileRef.current.click()} style={{...btnBig,padding:"8px 12px"}}><Icon name="pin" size={15}/>{photo?"Change photo":"Photo"}</button>}
-      <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine,marginLeft:"auto",opacity:busy?0.6:1}}><Icon name="plus" size={15}/>{busy?"Posting…":"Post"}</button>
+    </div>
+    <div style={{marginTop:10}}>
+      <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine,opacity:busy?0.6:1}}><Icon name="plus" size={15}/>{busy?"Posting…":"Post"}</button>
     </div>
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
@@ -1136,11 +1131,16 @@ function NewsView({derived, stockNews=[], newsUrl, onSaveUrl, personalized, me, 
     relevance:20-i, external:true, source:"Ontario stocking data"}));
   const derivedAll=[...(ext||[]),...stockItems,...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
   // Real user posts (newest-first, real timestamps) sit above the auto-intel feed.
-  const all=mergeFeed(posts,derivedAll);
-  const cats=["All","Weather","Water","Window","Reports","Regs"];
+  // De-dupe defensively so no repeated news slips through (posts by id, derived
+  // items by normalized title).
+  const seenFeed=new Set();
+  const all=mergeFeed(posts,derivedAll).filter(it=>{
+    const key=it.kind==="post"?("p:"+it.id):("d:"+String(it.title||"").toLowerCase().trim());
+    if(seenFeed.has(key)) return false; seenFeed.add(key); return true;
+  });
+  const cats=["All","Posts","Weather","Water","Window"];
   const match=it=>{ if(cat==="All") return true;
-    if(cat==="Reports") return it.kind==="post"||/report|event|stock|catch|tournament|community/i.test(it.category);
-    if(cat==="Regs") return /regulat|closure|licen|season/i.test(it.category);
+    if(cat==="Posts") return it.kind==="post";
     return it.kind!=="post"&&it.category===cat; };
   const shown=all.filter(match);
   const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:12.5};
@@ -1186,6 +1186,8 @@ export default function App(){
   const [posts,setPosts]=useState([]);            // server social posts (newest first)
   const [postsCursor,setPostsCursor]=useState(null);
   const [postsLoaded,setPostsLoaded]=useState(false);
+  const [notifs,setNotifs]=useState({notifications:[],unread:0});
+  const [notifOpen,setNotifOpen]=useState(false);
   const signedInRef=useRef(false);
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
@@ -1396,6 +1398,10 @@ export default function App(){
   const bumpComments=useCallback((id,delta)=>{ setPosts(prev=>prev.map(p=>p.id===id?{...p,commentCount:Math.max(0,(p.commentCount||0)+delta)}:p)); },[]);
   const setDisplayName=useCallback(async(name)=>{ const { user }=await proxyJSON("/me",{method:"PATCH",body:{displayName:name}});
     setMe(prev=>prev?{...prev,user:{...prev.user,...user}}:prev); return user; },[]);
+  // ---- Notifications (likes/comments on your posts) ----
+  const loadNotifs=useCallback(async()=>{ if(!API_BASE||!(me&&me.user)) return; try{ setNotifs(await proxyJSON("/notifications")); }catch{} },[me]);
+  useEffect(()=>{ if(!(API_BASE&&me&&me.user)) return; loadNotifs(); const id=setInterval(loadNotifs,60000); return ()=>clearInterval(id); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openNotifs=useCallback(async()=>{ setNotifOpen(true); try{ await proxyJSON("/notifications/read",{method:"POST"}); setNotifs(n=>({...n,unread:0})); }catch{} },[]);
   const onSaveUrl=useCallback((u)=>{ setNewsUrl(u); dbSet("newsEndpoint",u); },[]);
   const nearest=useMemo(()=>{ if(!userLoc) return null; let best=null;
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
@@ -1451,6 +1457,10 @@ export default function App(){
             <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
             <div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div>
           </div>
+          {API_BASE && me && me.user && <button aria-label="Notifications" onClick={openNotifs} style={{position:"relative",background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}>
+            <Icon name="alert" size={22}/>
+            {notifs.unread>0 && <span style={{position:"absolute",top:1,right:1,minWidth:16,height:16,padding:"0 4px",borderRadius:9,background:C.brick,color:"#fff",fontFamily:sans,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{notifs.unread>9?"9+":notifs.unread}</span>}
+          </button>}
           {API_BASE && <AccountButton me={me} onClick={()=>setAuthOpen(true)}/>}
           <button aria-label="Menu" onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="menu" size={23}/></button>
         </div>
@@ -1526,6 +1536,7 @@ export default function App(){
         onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
+      {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
@@ -1652,6 +1663,27 @@ function AccountButton({me,onClick}){
   const label=entitlementLabel(me);
   return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?label:"Sign in"}</button>);
 }
+function AvatarEditor({me,onAuth}){
+  const [busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const fileRef=useRef(null);
+  const cur=me&&me.user&&me.user.avatarUrl;
+  const pick=async(e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; setErr(""); setBusy(true);
+    try{ const { url }=await cloudinaryUpload(f); await proxyJSON("/me",{method:"PATCH",body:{avatarUrl:url}}); await onAuth(); }
+    catch(ex){ setErr(ex.message||"Couldn't upload — try again."); } finally{ setBusy(false); if(fileRef.current) fileRef.current.value=""; } };
+  const remove=async()=>{ setBusy(true); try{ await proxyJSON("/me",{method:"PATCH",body:{avatarUrl:""}}); await onAuth(); }catch{} finally{ setBusy(false); } };
+  return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:8}}>Profile picture</div>
+    <div style={{display:"flex",alignItems:"center",gap:12}}>
+      <Avatar src={cur} size={52}/>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <input ref={fileRef} type="file" accept="image/*" onChange={pick} style={{display:"none"}}/>
+        <button disabled={busy} onClick={()=>fileRef.current&&fileRef.current.click()} style={{...btn,borderColor:C.pine,color:C.pine,padding:"8px 12px",opacity:busy?0.6:1}}>{busy?"Uploading…":cur?"Change":"Upload"}</button>
+        {cur && <button disabled={busy} onClick={remove} style={{...btn,borderColor:C.line,color:C.textDim,padding:"8px 12px"}}>Remove</button>}
+      </div>
+    </div>
+    {err && <div style={{fontSize:12,color:C.brick,marginTop:8,lineHeight:1.4}}>{err}</div>}
+  </div>);
+}
 function DisplayNameEditor({me,onAuth}){
   const [name,setName]=useState((me&&me.user&&me.user.displayName)||"");
   const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false);
@@ -1744,6 +1776,7 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
           <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Start trial — annual {planPrice("annual")}</button>
           <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
         </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
+        <AvatarEditor me={me} onAuth={onAuth}/>
         <DisplayNameEditor me={me} onAuth={onAuth}/>
         <BlockedAnglers/>
         <AlertPrefs/>
@@ -1760,6 +1793,43 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
         </div>
       </div>)}
     </div>
+  </div>);
+}
+function NotifPanel({data,onClose,onGoNews}){
+  const list=(data&&data.notifications)||[];
+  const when=(iso)=>{ const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
+    if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
+  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:3200,display:"flex",justifyContent:"flex-end",alignItems:"flex-start"}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"84vh",marginTop:"calc(8px + env(safe-area-inset-top))",marginRight:8,overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",borderBottom:`1px solid ${C.lineSoft}`}}>
+        <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>Notifications</div>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={20}/></button>
+      </div>
+      {list.length===0
+        ? <div style={{padding:"22px 16px",fontSize:13.5,color:C.textDim,lineHeight:1.5}}>No notifications yet. When someone likes or comments on your posts, you'll see it here.</div>
+        : list.map(n=>(<button key={n.id} onClick={onGoNews} style={{display:"flex",gap:11,alignItems:"flex-start",width:"100%",textAlign:"left",padding:"12px 16px",background:n.read?"transparent":`${C.brass}12`,border:"none",borderBottom:`1px solid ${C.lineSoft}`,cursor:"pointer"}}>
+            <div style={{marginTop:1,color:n.type==="like"?C.brick:C.pine,display:"flex"}}><Icon name={n.type==="like"?"like":"comment"} size={18}/></div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13.5,color:C.text,lineHeight:1.45}}><b style={{color:C.pine}}>{n.actorName}</b> {n.type==="like"?"liked your post":"commented on your post"}{n.preview?`: "${n.preview}"`:""}</div>
+              <div style={{fontFamily:sans,fontSize:11,color:C.textFaint,marginTop:2}}>{when(n.createdAt)}</div>
+            </div>
+          </button>))}
+    </div>
+  </div>);
+}
+// Shared Cloudinary signed direct-upload → returns { url, w, h }.
+async function cloudinaryUpload(file){
+  const sign=await proxyJSON("/posts/photo-sign",{method:"POST"});
+  const fd=new FormData(); fd.append("file",file); fd.append("api_key",sign.apiKey);
+  fd.append("timestamp",sign.timestamp); fd.append("folder",sign.folder); fd.append("signature",sign.signature);
+  const r=await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`,{method:"POST",body:fd});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error((j&&j.error&&j.error.message)?`Photo upload failed: ${j.error.message}`:"Photo upload failed.");
+  return { url:j.secure_url, w:j.width, h:j.height };
+}
+function Avatar({src,size=38}){
+  return (<div style={{width:size,height:size,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`,background:C.bone}}>
+    {src ? <img src={src} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/> : <Crest size={size}/>}
   </div>);
 }
 function loadStripeJs(){
@@ -1894,10 +1964,16 @@ function DepthFish({sec}){
   },[sec.lat,sec.lon]);
   if(d===undefined) return null;
   const {hw,bathy,fish,stock}=d;
-  // Collapse to base common name (drop "(resident)"/"(lake-run)"/…) and de-dupe,
-  // so a reach with both resident and lake-run browns doesn't list "Brown trout"
-  // twice.
-  const spNames=[...new Set(fish.species.map(s=>(SPECIES[s.key]?SPECIES[s.key].name:s.key).replace(/\s*\([^)]*\)\s*$/,"")))];
+  // Collapse to base common name (drop "(resident)"/"(lake-run)"/…) and de-dupe
+  // case-insensitively — stocking data gives "Brown Trout" while reach species
+  // give "Brown trout", which must count as the same fish.
+  const spSeen=new Set(); const spNames=[];
+  for(const s of fish.species){
+    const base=(SPECIES[s.key]?SPECIES[s.key].name:String(s.key)).replace(/\s*\([^)]*\)\s*$/,"").trim();
+    const norm=base.toLowerCase();
+    if(!base||spSeen.has(norm)) continue; spSeen.add(norm);
+    spNames.push(norm.charAt(0).toUpperCase()+norm.slice(1)); // consistent sentence case
+  }
   return (<div style={{marginTop:10,padding:"10px 12px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:10}}>
     <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine,marginBottom:5}}>Depth &amp; likely fish · estimate</div>
     <div style={{fontSize:13.5,color:C.text,lineHeight:1.5}}>
