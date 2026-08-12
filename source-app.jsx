@@ -1736,8 +1736,9 @@ function AlertPrefs(){
       <input type="checkbox" checked={p.alertEmail} onChange={e=>save({...p,alertEmail:e.target.checked})}/> Email me when my water hits prime
     </label>
     <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:push==="busy"||push==="unsupported"||push==="unconfigured"?"default":"pointer",marginTop:10,opacity:push==="unsupported"||push==="unconfigured"?0.6:1}}>
-      <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push a notification to this device
+      <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push notifications to this device
     </label>
+    {push!=="unsupported"&&push!=="unconfigured" && <div style={note}>Covers prime-condition alerts and when someone likes or comments on your posts.</div>}
     {push==="denied" && <div style={note}>Notifications are blocked — enable them for this site in your browser settings.</div>}
     {push==="unsupported" && <div style={note}>This browser can't do push. On iPhone, add the app to your Home Screen first, then enable it here.</div>}
     {push==="unconfigured" && <div style={note}>Push isn't switched on for the server yet.</div>}
