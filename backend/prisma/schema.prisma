@@ -36,6 +36,18 @@ model User {
   followers        Follow[]      @relation("followers")
 }
 
+model Event {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String                        // view_reach | save | discover | radius | open_map | open_profile | …
+  ref       String?                       // reach id when relevant
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([ref, createdAt])
+}
+
 model Follow {
   id         String   @id @default(cuid())
   followerId String

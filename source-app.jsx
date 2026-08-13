@@ -28,6 +28,22 @@ async function proxyJSON(path, opts){ const o = opts||{};
   if(o.body!=null){ init.headers["Content-Type"]="application/json"; init.body = JSON.stringify(o.body); }
   const r = await fetch(API_BASE + path, init); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
 
+/* ---- Usage telemetry: batch interaction events and flush to the backend ---- */
+const evQueue=[]; let evTimer=null;
+function flushEvents(){
+  if(evTimer){ clearTimeout(evTimer); evTimer=null; }
+  if(!API_BASE || !evQueue.length) return;
+  const events=evQueue.splice(0,50);
+  try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({events}),keepalive:true}).catch(()=>{}); }catch{}
+}
+function logEvent(type,ref,meta){
+  if(!API_BASE||!type) return;
+  evQueue.push({type,ref:ref||null,meta:meta||undefined});
+  if(evQueue.length>=20) flushEvents();
+  else if(!evTimer) evTimer=setTimeout(flushEvents,10000);
+}
+if(typeof window!=="undefined") window.addEventListener("pagehide",flushEvents);
+
 /* ---- Web Push (prime-condition alerts) ---- */
 function pushSupported(){ return typeof navigator!=="undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
 function urlB64ToU8(base64){
@@ -773,7 +789,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
       const col=scoreColor(e.opportunity);
       const icon=L.divIcon({className:"",iconSize:[32,32],iconAnchor:[16,16],
         html:`<div style="width:30px;height:30px;border-radius:50%;background:${C.bone};border:2.5px solid ${col};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:12.5px;color:${C.pine};box-shadow:0 1px 4px rgba(0,0,0,.35)">${e.opportunity}</div>`});
-      const mk=L.marker([lat,lon],{icon}); mk.on("click",()=>setSel(e.sec.id)); grp.addLayer(mk); pts.push([lat,lon]);
+      const mk=L.marker([lat,lon],{icon}); mk.on("click",()=>{ setSel(e.sec.id); logEvent("view_reach",e.sec.id,{via:"map"}); }); grp.addLayer(mk); pts.push([lat,lon]);
     });
     map.addLayer(grp); clusterRef.current=grp;
     if(pts.length){ try{ map.fitBounds(pts,{padding:[45,45],maxZoom:10}); }catch(e){} }
@@ -1217,6 +1233,7 @@ export default function App(){
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
+  const [trending,setTrending]=useState({});
   const [stockNews,setStockNews]=useState([]);
   const [flowNewsItems,setFlowNewsItems]=useState([]);
   const [noteSync,setNoteSync]=useState("off");   // off | syncing | synced
@@ -1308,6 +1325,7 @@ export default function App(){
 
   const discoverNearby=useCallback(async(r)=>{
     if(!userLoc){ requestLocation(); return; }
+    logEvent("discover",null,{radiusM:r||radiusM});
     setDiscoStatus("loading");
     const out=await discoverSecs(userLoc, r||radiusM);
     if(out==null){ setDiscoStatus("error"); return; }
@@ -1340,6 +1358,7 @@ export default function App(){
       const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
       if(API_BASE) proxyJSON("/api/reach-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
+      if(API_BASE) proxyJSON("/api/reach-trending").then(d=>setTrending(d.trending||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       if(API_BASE) proxyJSON("/api/flow-news").then(d=>setFlowNewsItems(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
@@ -1376,7 +1395,7 @@ export default function App(){
       dbSet("saved",next);
       if(API_BASE){
         if(ex) proxyJSON(`/saved-spots/${encodeURIComponent(sec.id)}`,{method:"DELETE"}).catch(()=>{});
-        else proxyJSON("/saved-spots",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,source:rec.source,habitat:sec.h,species:sec.species,history:sec.history}}).catch(()=>{});
+        else { proxyJSON("/saved-spots",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,source:rec.source,habitat:sec.h,species:sec.species,history:sec.history}}).catch(()=>{}); logEvent("save",sec.id); }
       }
       return next; });
   },[]);
@@ -1538,7 +1557,7 @@ export default function App(){
 
           <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14}}>
             <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
-            <button onClick={()=>setRiversView("map")} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
+            <button onClick={()=>{setRiversView("map");logEvent("open_map");}} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
           </div>
 
           {riversView==="map"
@@ -1546,9 +1565,9 @@ export default function App(){
             : (<>
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
-              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]}/>)}
+              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
               {top3.length>1 && <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
-                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]}/>)}
+                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
               </Locked>}
               <SectionTitle t="More water nearby"/>
               <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
@@ -2135,7 +2154,7 @@ function Advisor({ev,m,premium=true,onUpgrade}){
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
-    <button onClick={()=> premium ? setOpen(o=>!o) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
+    <button onClick={()=> premium ? setOpen(o=>{ if(!o) logEvent("view_reach",ev.sec.id,{via:"advisor"}); return !o; }) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
       cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
     {open && premium && (<div ref={panelRef} style={{marginTop:12}}>
       <AdvHead t="Recommended techniques"/>
@@ -2170,7 +2189,7 @@ function SaveButton({saved,onClick}){
     border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:"#fff",color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
     <Icon name="save" size={13}/>{saved?"Saved":"Save"}</button>);
 }
-function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged}){
+function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged,trend}){
   const sec=ev.sec, cd=ev.cond;
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
@@ -2184,6 +2203,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         <div style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:ev.source==="auto"?C.textDim:C.pine,marginTop:4}}>{sourceBadge(ev.source)}</div>
         <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
           <Pill k={ev.target}/>{sec.species.filter(k=>k!==ev.target).slice(0,2).map(k=><Pill key={k} k={k} dim/>)}
+          {trend && trend.score>=0.6 && <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",color:C.brick,border:`1px solid ${C.brick}55`,background:`${C.brick}12`,borderRadius:20,padding:"2px 8px"}}><Icon name="fly" size={11}/>Trending</span>}
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
         </div>
       </div>
