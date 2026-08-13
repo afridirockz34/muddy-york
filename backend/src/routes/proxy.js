@@ -6,6 +6,7 @@ import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
 import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
 import { parseStocking } from "../../../lib/stocking.js";
 import { stockingNews } from "../../../lib/stocking-news.js";
+import { flowNews } from "../../../lib/flow-news.js";
 
 const DAY = 864e5;
 const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
@@ -130,6 +131,32 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       catch { return reply.code(502).send({ error: "stocking unavailable" }); }
       const payload = { items: stockingNews(json, { minYear, limit: 6 }) };
       cache.set(key, payload, 24 * 3600 * 1000);
+      return payload;
+    });
+
+    // Live flow-trend news from Water Survey of Canada realtime gauges.
+    const FLOW_RIVERS = [
+      "Grand River", "Credit River", "Ganaraska River", "Nottawasaga River", "Beaver River",
+      "Twelve Mile Creek", "Bronte Creek", "Sixteen Mile Creek", "Duffins Creek", "Wilmot Creek",
+      "Niagara River", "Saugeen River", "Maitland River", "Boyne River", "Humber River",
+      "Conestogo River", "Bighead River", "Sydenham River",
+    ];
+    app.get("/api/flow-news", async (req, reply) => {
+      const key = "flownews:v1";
+      const hit = cache.get(key); if (hit) return hit;
+      const end = new Date(), start = new Date(end.getTime() - 30 * 3600 * 1000);
+      const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+      const params = new URLSearchParams({
+        bbox: "-81.7,43.0,-78.2,44.8",
+        datetime: `${iso(start)}/${iso(end)}`,
+        properties: "STATION_NUMBER,STATION_NAME,DISCHARGE,DATETIME",
+        limit: "10000", sortby: "DATETIME", f: "json",
+      });
+      let json;
+      try { const res = await proxyFetch([`https://api.weather.gc.ca/collections/hydrometric-realtime/items?${params}`], {}, { retries: 1, timeoutMs: 15000 }); json = await res.json(); }
+      catch { return reply.code(502).send({ error: "flow data unavailable" }); }
+      const payload = { items: flowNews(json, { rivers: FLOW_RIVERS, minPct: 12, limit: 5 }) };
+      cache.set(key, payload, 90 * 60 * 1000);
       return payload;
     });
   };

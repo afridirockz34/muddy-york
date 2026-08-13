@@ -1105,7 +1105,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, stockNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
+function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1129,7 +1129,14 @@ function NewsView({derived, stockNews=[], newsUrl, onSaveUrl, personalized, me, 
     title:`Stocking: ${s.species} in ${s.water}`,
     body:`${s.count?s.count.toLocaleString()+" ":""}${s.species.toLowerCase()} stocked in ${s.water}${s.year?` (${s.year})`:""}. Fresh fish can mean fast action in the weeks after — mind local regulations.`,
     relevance:20-i, external:true, source:"Ontario stocking data"}));
-  const derivedAll=[...(ext||[]),...stockItems,...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
+  // Live flow-trend from official Water Survey of Canada gauges.
+  const titleCase=s=>String(s).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  const flowItems=(flowNews||[]).map((fl,i)=>{ const rising=fl.pct>0;
+    return { id:"flow-"+fl.river.replace(/\s+/g,"_"), category:"Water",
+      title:`Flow ${rising?"rising":"dropping"} on the ${fl.river}`,
+      body:`The ${titleCase(fl.station)} gauge is ${rising?"up":"down"} ${Math.abs(fl.pct)}% over the last day (now ~${fl.discharge} m³/s). ${rising?"Expect higher, coloured water — fish the softer edges and seams.":"Dropping and clearing — it should be coming into shape."}`,
+      relevance:24-i, external:true, source:"Water Survey of Canada" }; });
+  const derivedAll=[...(ext||[]),...flowItems,...stockItems,...derived].sort((a,b)=>(b.relevance||0)-(a.relevance||0));
   // Real user posts (newest-first, real timestamps) sit above the auto-intel feed.
   // De-dupe defensively so no repeated news slips through (posts by id, derived
   // items by normalized title).
@@ -1182,6 +1189,7 @@ export default function App(){
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
   const [stockNews,setStockNews]=useState([]);
+  const [flowNewsItems,setFlowNewsItems]=useState([]);
   const [noteSync,setNoteSync]=useState("off");   // off | syncing | synced
   const [posts,setPosts]=useState([]);            // server social posts (newest first)
   const [postsCursor,setPostsCursor]=useState(null);
@@ -1303,6 +1311,7 @@ export default function App(){
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
       if(API_BASE) proxyJSON("/api/catch-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
+      if(API_BASE) proxyJSON("/api/flow-news").then(d=>setFlowNewsItems(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
     loadWeather();
@@ -1516,7 +1525,7 @@ export default function App(){
         </>)}
 
         {/* ===================== NEWS TAB ===================== */}
-        {tab==="news" && <NewsView derived={feed} stockNews={stockNews} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
+        {tab==="news" && <NewsView derived={feed} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
           onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
           onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
