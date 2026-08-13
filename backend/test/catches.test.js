@@ -38,4 +38,14 @@ describe("catches", () => {
     expect(a.momentum).toBeGreaterThan(0);
     expect(JSON.stringify(act.json())).not.toMatch(/userId|@b\.com|lat|lon/);
   });
+  it("leaderboard ranks recent catches by size, anonymized", async () => {
+    const c = { [cookieName]: await signup("lb@b.com") };
+    await app.inject({ method: "POST", url: "/catches", cookies: c, payload: { ...body, species: "Brown trout", sizeInches: 12 } });
+    await app.inject({ method: "POST", url: "/catches", cookies: c, payload: { ...body, species: "Rainbow trout", sizeInches: 20 } });
+    const lb = (await app.inject({ method: "GET", url: "/api/catch-leaderboard" })).json();
+    expect(lb.catches.map((x) => x.sizeInches)).toEqual([20, 12]); // biggest first
+    expect(lb.catches[0]).toMatchObject({ species: "Rainbow trout", river: "Grand River" });
+    expect(lb.catches[0].daysAgo).toBe(0);
+    expect(JSON.stringify(lb)).not.toMatch(/userId|@b\.com|lat|lon/);
+  });
 });

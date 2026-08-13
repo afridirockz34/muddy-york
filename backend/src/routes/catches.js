@@ -48,4 +48,22 @@ export default async function catchRoutes(app) {
     }
     return { activity };
   });
+
+  // Anonymized leaderboard: the biggest recent catches by reach. No angler
+  // identity or exact location — keeps the reach-level privacy model.
+  app.get("/api/catch-leaderboard", async () => {
+    const since = new Date(Date.now() - 60 * 86400000);
+    const rows = await prisma.catch.findMany({
+      where: { caughtAt: { gte: since }, sizeInches: { not: null } },
+      orderBy: { sizeInches: "desc" }, take: 20,
+      select: { species: true, sizeInches: true, river: true, section: true, caughtAt: true },
+    });
+    const now = Date.now();
+    return {
+      catches: rows.map((r) => ({
+        species: r.species, sizeInches: r.sizeInches, river: r.river, section: r.section,
+        daysAgo: Math.round((now - r.caughtAt.getTime()) / 86400000),
+      })),
+    };
+  });
 }

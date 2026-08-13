@@ -1210,6 +1210,7 @@ export default function App(){
   const [riversView,setRiversView]=useState("list");
   const [radiusOpen,setRadiusOpen]=useState(false);
   const [methodOpen,setMethodOpen]=useState(false);
+  const [boardOpen,setBoardOpen]=useState(false);
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
@@ -1571,7 +1572,9 @@ export default function App(){
       </div>
 
       {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
-        onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}/>}
+        onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}
+        onBoard={API_BASE?()=>{setDrawerOpen(false);setBoardOpen(true);}:null}/>}
+      {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
@@ -1597,7 +1600,31 @@ const sheetOverlay={position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zInd
 const sheetPanel={width:"100%",maxWidth:520,maxHeight:"84vh",overflowY:"auto",background:C.panel,borderRadius:"18px 18px 0 0",padding:"14px 18px calc(20px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 30px rgba(0,0,0,.25)"};
 function segBtn(on){ return {flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"9px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:600,background:on?C.pine:"transparent",color:on?C.headText:C.textDim}; }
 
-function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod}){
+function LeaderboardSheet({onClose}){
+  const [rows,setRows]=useState(null);
+  useEffect(()=>{ let live=true; proxyJSON("/api/catch-leaderboard").then(d=>{ if(live) setRows(d.catches||[]); }).catch(()=>{ if(live) setRows([]); }); return ()=>{live=false;}; },[]);
+  const when=d=>d<=0?"today":d===1?"yesterday":`${d}d ago`;
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
+      <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine,marginBottom:4}}>Recent catches</div>
+      <div style={{fontSize:12.5,color:C.textDim,marginBottom:14,lineHeight:1.5}}>The biggest catches logged across the network over the last 60 days. Anonymous and reach-level — exact spots stay private.</div>
+      {rows===null ? <div style={{fontSize:13,color:C.textFaint}}>Loading…</div>
+        : rows.length===0 ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5}}>No catches logged yet. Be the first — log a catch from any river card.</div>
+        : <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {rows.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:11,padding:"10px 12px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+              <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:i<3?C.brick:C.textFaint,width:22,textAlign:"center",flexShrink:0}}>{i+1}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:sans,fontSize:14,fontWeight:700,color:C.pine}}>{r.species}{r.sizeInches?` · ${r.sizeInches}"`:""}</div>
+                <div style={{fontSize:12,color:C.textDim,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.river} · {when(r.daysAgo)}</div>
+              </div>
+            </div>))}
+          </div>}
+      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:16}}>Close</button>
+    </div>
+  </div>);
+}
+function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard}){
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
@@ -1606,6 +1633,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod}){
       {link("rivers","Rivers",tab==="rivers",()=>onNav("rivers"))}
       {link("news","News & catches",tab==="news",()=>onNav("news"))}
       {link("notes","My notes",tab==="notes",()=>onNav("notes"))}
+      {onBoard && link("save","Recent catches",false,onBoard)}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
       {API_BASE && link("account",`Account${me&&me.user?" · "+entitlementLabel(me):""}`,false,onAccount)}
       {link("radius","Search radius",false,onRadius)}
