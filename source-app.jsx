@@ -1227,6 +1227,7 @@ export default function App(){
   const [radiusOpen,setRadiusOpen]=useState(false);
   const [methodOpen,setMethodOpen]=useState(false);
   const [boardOpen,setBoardOpen]=useState(false);
+  const [adminOpen,setAdminOpen]=useState(false);
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
@@ -1600,8 +1601,10 @@ export default function App(){
 
       {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
         onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}
-        onBoard={API_BASE?()=>{setDrawerOpen(false);setBoardOpen(true);}:null}/>}
+        onBoard={API_BASE?()=>{setDrawerOpen(false);setBoardOpen(true);}:null}
+        onAdmin={(me&&me.isAdmin)?()=>{setDrawerOpen(false);setAdminOpen(true);}:null}/>}
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
+      {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
@@ -1651,7 +1654,63 @@ function LeaderboardSheet({onClose}){
     </div>
   </div>);
 }
-function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard}){
+function AdminSheet({onClose}){
+  const [d,setD]=useState(null);
+  useEffect(()=>{ let live=true; proxyJSON("/api/admin/overview").then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); }); return ()=>{live=false;}; },[]);
+  const card=(label,val,sub)=>(<div style={{flex:"1 1 30%",minWidth:96,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,padding:"11px 12px"}}>
+    <div style={{fontFamily:serif,fontSize:22,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:4}}>{label}</div>
+    {sub!=null && <div style={{fontSize:11,color:C.textDim,marginTop:3}}>{sub}</div>}
+  </div>);
+  const head=(t)=>(<div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,margin:"18px 0 8px"}}>{t}</div>);
+  const dt=(iso)=>new Date(iso).toLocaleDateString([], {month:"short",day:"numeric"});
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:600}}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
+      <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine,marginBottom:2}}>Admin dashboard</div>
+      <div style={{fontSize:12,color:C.textDim,marginBottom:6}}>Live business overview. Visible only to you.</div>
+      {!d ? <div style={{fontSize:13,color:C.textFaint,padding:"14px 0"}}>Loading…</div>
+        : d.error ? <div style={{fontSize:13,color:C.brick,padding:"14px 0"}}>Couldn't load — are you signed in as the admin?</div>
+        : (<div>
+          {head("Members & signups")}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {card("Users",d.users.total,`+${d.users.new7d} this week`)}
+            {card("Active members",d.members.active)}
+            {card("On trial",d.members.trialing)}
+            {card("New (30d)",d.users.new30d)}
+          </div>
+          {head("Content logged")}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {card("Catches",d.content.catches)}
+            {card("Notes",d.content.notes)}
+            {card("Posts",d.content.posts)}
+            {card("Comments",d.content.comments)}
+          </div>
+          {head("Usage (last 7 days)")}
+          <div style={{fontSize:13,color:C.text,marginBottom:6}}>{d.events7d} interactions tracked.</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {(d.topEvents||[]).slice(0,8).map(e=><span key={e.type} style={{...notePill}}>{e.type} · {e.count}</span>)}
+          </div>
+          {head("Recent signups")}
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {(d.recentSignups||[]).map((u,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text}}>
+              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}{u.displayName?` · ${u.displayName}`:""}</span>
+              <span style={{color:C.textFaint,flexShrink:0}}>{dt(u.createdAt)}</span>
+            </div>))}
+          </div>
+          {(d.recentCatches||[]).length>0 && <>{head("Recent catches")}
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {d.recentCatches.map((c,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text}}>
+                <span>{c.species}{c.sizeInches?` · ${c.sizeInches}"`:""} — {c.river}</span>
+                <span style={{color:C.textFaint,flexShrink:0}}>{dt(c.caughtAt)}</span>
+              </div>))}
+            </div></>}
+        </div>)}
+      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
+    </div>
+  </div>);
+}
+function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onAdmin}){
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
@@ -1663,6 +1722,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard}){
       {onBoard && link("save","Recent catches",false,onBoard)}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
       {API_BASE && link("account",`Account${me&&me.user?" · "+entitlementLabel(me):""}`,false,onAccount)}
+      {onAdmin && link("account","Admin dashboard",false,onAdmin)}
       {link("radius","Search radius",false,onRadius)}
       {link("method","Method & sources",false,onMethod)}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>

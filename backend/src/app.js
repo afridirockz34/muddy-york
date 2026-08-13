@@ -9,6 +9,7 @@ import billingRoutes from "./routes/billing.js";
 import savedRoutes from "./routes/saved.js";
 import catchRoutes from "./routes/catches.js";
 import eventRoutes from "./routes/events.js";
+import adminRoutes from "./routes/admin.js";
 import noteRoutes from "./routes/notes.js";
 import postRoutes from "./routes/posts.js";
 import pushRoutes from "./routes/push.js";
@@ -28,6 +29,7 @@ export function buildApp(opts = {}) {
   app.register(savedRoutes);
   app.register(catchRoutes);
   app.register(eventRoutes);
+  app.register(adminRoutes);
   app.register(noteRoutes);
   app.register(postRoutes);
   app.register(pushRoutes);
