@@ -151,6 +151,14 @@ export default async function postRoutes(app) {
     if (me) {
       const blocked = await blockedIdsFor(me.id);
       if (blocked.length) where.userId = { notIn: blocked };
+      // "Following" feed: only posts from anglers the user follows.
+      if (req.query?.following === "1") {
+        const follows = await prisma.follow.findMany({ where: { followerId: me.id }, select: { followedId: true } });
+        const ids = follows.map((f) => f.followedId).filter((id) => !blocked.includes(id));
+        where.userId = { in: ids };
+      }
+    } else if (req.query?.following === "1") {
+      return { posts: [], nextBefore: null };
     }
     const rows = await prisma.post.findMany({
       where, orderBy: { createdAt: "desc" }, take: limit,
@@ -222,7 +230,7 @@ export default async function postRoutes(app) {
     return {
       unread,
       notifications: rows.map((n) => ({
-        id: n.id, type: n.type, actorName: n.actorName, postId: n.postId,
+        id: n.id, type: n.type, actorId: n.actorId, actorName: n.actorName, postId: n.postId,
         preview: n.preview, read: n.read, createdAt: n.createdAt.toISOString(),
       })),
     };
@@ -230,6 +238,50 @@ export default async function postRoutes(app) {
   app.post("/notifications/read", { preHandler: auth }, async (req) => {
     await prisma.notification.updateMany({ where: { userId: req.user.id, read: false }, data: { read: true } });
     return { ok: true };
+  });
+
+  // ---- Following ----
+  app.post("/users/:id/follow", { preHandler: auth }, async (req, reply) => {
+    if (req.params.id === req.user.id) return reply.code(400).send({ error: "you can't follow yourself" });
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) return reply.code(404).send({ error: "user not found" });
+    const before = await prisma.follow.findUnique({ where: { followerId_followedId: { followerId: req.user.id, followedId: req.params.id } } });
+    await prisma.follow.upsert({
+      where: { followerId_followedId: { followerId: req.user.id, followedId: req.params.id } },
+      create: { followerId: req.user.id, followedId: req.params.id },
+      update: {},
+    });
+    if (!before) notify({ recipientId: req.params.id, actorId: req.user.id, actorName: req.user.displayName, type: "follow" });
+    return { ok: true, following: true };
+  });
+  app.delete("/users/:id/follow", { preHandler: auth }, async (req) => {
+    await prisma.follow.deleteMany({ where: { followerId: req.user.id, followedId: req.params.id } });
+    return { ok: true, following: false };
+  });
+
+  // Public angler profile: identity + counts + recent posts (block-aware).
+  app.get("/users/:id/profile", async (req, reply) => {
+    const me = await getCurrentUser(req);
+    const u = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!u) return reply.code(404).send({ error: "user not found" });
+    const [postCount, followerCount, followingCount, isFollowing, rows] = await Promise.all([
+      prisma.post.count({ where: { userId: u.id, deletedAt: null } }),
+      prisma.follow.count({ where: { followedId: u.id } }),
+      prisma.follow.count({ where: { followerId: u.id } }),
+      me ? prisma.follow.findUnique({ where: { followerId_followedId: { followerId: me.id, followedId: u.id } } }) : null,
+      prisma.post.findMany({
+        where: { userId: u.id, deletedAt: null }, orderBy: { createdAt: "desc" }, take: 20,
+        include: { user: true, likes: me ? { where: { userId: me.id } } : false, _count: { select: { likes: true, comments: { where: { deletedAt: null } } } } },
+      }),
+    ]);
+    return {
+      profile: {
+        id: u.id, displayName: u.displayName || "An angler", avatarUrl: u.avatarUrl || null,
+        postCount, followerCount, followingCount,
+        isFollowing: !!isFollowing, isMe: !!(me && me.id === u.id),
+      },
+      posts: rows.map((p) => shapePost(p, me?.id)),
+    };
   });
 
   app.get("/users/blocked", { preHandler: auth }, async (req) => {

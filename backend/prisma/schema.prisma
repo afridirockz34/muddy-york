@@ -32,15 +32,29 @@ model User {
   blockedBy        Block[]       @relation("blocked")
   pushSubs         PushSubscription[]
   notifications    Notification[]
+  following        Follow[]      @relation("following")
+  followers        Follow[]      @relation("followers")
+}
+
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+  follower   User     @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User     @relation("followers", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
+  @@index([followedId])
 }
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String                        // recipient (post owner)
-  type      String                        // "like" | "comment"
+  type      String                        // "like" | "comment" | "follow"
   actorId   String
   actorName String   @default("An angler")
-  postId    String
+  postId    String?                        // null for follows
   preview   String   @default("")         // comment snippet
   read      Boolean  @default(false)
   createdAt DateTime @default(now())

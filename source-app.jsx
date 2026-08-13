@@ -987,7 +987,7 @@ function FeedCard({it}){
     </div>
   </div>);
 }
-function PostCard({p,me,onToggleLike,onDelete,onReport,onBlock,onCommentDelta,onSetName,onSignIn}){
+function PostCard({p,me,onToggleLike,onDelete,onReport,onBlock,onCommentDelta,onSetName,onSignIn,onOpenProfile}){
   const signedIn=!!(me&&me.user);
   const admin=!!(me&&me.isAdmin);
   const [menu,setMenu]=useState(false);
@@ -1001,11 +1001,13 @@ function PostCard({p,me,onToggleLike,onDelete,onReport,onBlock,onCommentDelta,on
   const menuItem={display:"block",width:"100%",textAlign:"left",padding:"9px 13px",background:"none",border:"none",cursor:"pointer",fontFamily:sans,fontSize:13};
   return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-      <Avatar src={p.author.avatarUrl} size={38}/>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontFamily:sans,fontSize:13.5,fontWeight:700,color:C.pine}}>{p.author.displayName}</div>
-        <div style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{p.river?`${p.river} · `:""}{when}</div>
-      </div>
+      <button onClick={()=>onOpenProfile&&onOpenProfile(p.authorId)} style={{background:"none",border:"none",padding:0,cursor:onOpenProfile?"pointer":"default",display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0,textAlign:"left"}}>
+        <Avatar src={p.author.avatarUrl} size={38}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:sans,fontSize:13.5,fontWeight:700,color:C.pine}}>{p.author.displayName}</div>
+          <div style={{fontFamily:sans,fontSize:11,color:C.textFaint}}>{p.river?`${p.river} · `:""}{when}</div>
+        </div>
+      </button>
       <div style={{position:"relative"}}>
         <button onClick={()=>setMenu(m=>!m)} aria-label="More" style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:4,fontSize:18,lineHeight:1}}>⋯</button>
         {menu && <div style={{position:"absolute",right:0,top:26,background:"#fff",border:`1px solid ${C.line}`,borderRadius:9,boxShadow:"0 6px 20px rgba(0,0,0,.18)",zIndex:50,overflow:"hidden",minWidth:150}}>
@@ -1120,7 +1122,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn}){
+function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1160,12 +1162,19 @@ function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, perso
     const key=it.kind==="post"?("p:"+it.id):("d:"+String(it.title||"").toLowerCase().trim());
     if(seenFeed.has(key)) return false; seenFeed.add(key); return true;
   });
-  const cats=["All","Posts","Weather","Water","Window"];
+  const signedIn=!!(me&&me.user);
+  const cats=signedIn?["All","Following","Posts","Weather","Water","Window"]:["All","Posts","Weather","Water","Window"];
   const match=it=>{ if(cat==="All") return true;
     if(cat==="Posts") return it.kind==="post";
     return it.kind!=="post"&&it.category===cat; };
   const shown=all.filter(match);
+  // "Following" pulls a separate followed-only feed on demand.
+  const [followFeed,setFollowFeed]=useState(null);
+  useEffect(()=>{ if(cat!=="Following"||!signedIn){ return; } let live=true; setFollowFeed(null);
+    proxyJSON("/posts?following=1").then(d=>{ if(live) setFollowFeed(d.posts||[]); }).catch(()=>{ if(live) setFollowFeed([]); });
+    return ()=>{live=false;}; },[cat,signedIn]);
   const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:12.5};
+  const postProps={me,onToggleLike,onDelete:onDeletePost,onReport,onBlock,onCommentDelta,onSetName,onSignIn,onOpenProfile};
 
   return (<div>
     <SectionTitle t="The Feed"/>
@@ -1173,12 +1182,16 @@ function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, perso
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {cats.map(x=><span key={x} className={"seg"+(cat===x?" on":"")} onClick={()=>setCat(x)}>{x}</span>)}
     </div>
-    {shown.length===0
-      ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Nothing in this category right now. Conditions are quiet — try “All”.</div>
-      : shown.map(it=> it.kind==="post"
-          ? <PostCard key={it.id} p={it} me={me} onToggleLike={onToggleLike} onDelete={onDeletePost} onReport={onReport} onBlock={onBlock} onCommentDelta={onCommentDelta} onSetName={onSetName} onSignIn={onSignIn}/>
-          : <FeedCard key={it.id} it={it}/>)}
-    {postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
+    {cat==="Following"
+      ? (followFeed===null ? <div style={{fontSize:13,color:C.textFaint,marginBottom:12}}>Loading…</div>
+         : followFeed.length===0 ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>You're not following anyone yet, or they haven't posted. Tap an angler's name to view their profile and follow them.</div>
+         : followFeed.map(p=><PostCard key={p.id} p={p} {...postProps}/>))
+      : shown.length===0
+        ? <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Nothing in this category right now. Conditions are quiet — try “All”.</div>
+        : shown.map(it=> it.kind==="post"
+            ? <PostCard key={it.id} p={it} {...postProps}/>
+            : <FeedCard key={it.id} it={it}/>)}
+    {cat!=="Following" && postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
   </div>);
 }
 
@@ -1211,6 +1224,7 @@ export default function App(){
   const [postsLoaded,setPostsLoaded]=useState(false);
   const [notifs,setNotifs]=useState({notifications:[],unread:0});
   const [notifOpen,setNotifOpen]=useState(false);
+  const [profileId,setProfileId]=useState(null);
   const signedInRef=useRef(false);
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
@@ -1543,7 +1557,7 @@ export default function App(){
         {tab==="news" && <NewsView derived={feed} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
           onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
-          onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade}/>}
+          onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
@@ -1560,7 +1574,8 @@ export default function App(){
         onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
-      {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
+      {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
+      {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
@@ -1820,10 +1835,43 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
     </div>
   </div>);
 }
-function NotifPanel({data,onClose,onGoNews}){
+function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
+  const [data,setData]=useState(null),[busy,setBusy]=useState(false);
+  const load=useCallback(()=>{ setData(null); proxyJSON(`/users/${encodeURIComponent(userId)}/profile`).then(setData).catch(()=>setData({error:true})); },[userId]);
+  useEffect(()=>{ load(); },[load]);
+  const prof=data&&data.profile;
+  const signedIn=!!(me&&me.user);
+  const toggleFollow=async()=>{ if(!signedIn) return postProps.onSignIn&&postProps.onSignIn(); if(!prof) return; setBusy(true);
+    try{ await proxyJSON(`/users/${encodeURIComponent(userId)}/follow`,{method:prof.isFollowing?"DELETE":"POST"});
+      setData(d=>({...d,profile:{...d.profile,isFollowing:!d.profile.isFollowing,followerCount:d.profile.followerCount+(d.profile.isFollowing?-1:1)}}));
+    }catch{} finally{ setBusy(false); } };
+  const stat=(n,l)=>(<div style={{textAlign:"center"}}><div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{n}</div><div style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,textTransform:"uppercase",color:C.textFaint,fontWeight:700}}>{l}</div></div>);
+  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.55)",zIndex:3400,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"calc(20px + env(safe-area-inset-top)) 12px 12px",overflowY:"auto"}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:520,background:C.bg||C.bone,borderRadius:16,overflow:"hidden",boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
+      <div style={{background:C.panel,padding:"16px 16px 18px",borderBottom:`1px solid ${C.lineSoft}`}}>
+        <div style={{display:"flex",justifyContent:"flex-end"}}><button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={20}/></button></div>
+        {!prof ? <div style={{padding:"10px 0",fontSize:13,color:C.textFaint,textAlign:"center"}}>{data&&data.error?"Couldn't load this angler.":"Loading…"}</div>
+          : (<div style={{display:"flex",alignItems:"center",gap:14}}>
+            <Avatar src={prof.avatarUrl} size={64}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine}}>{prof.displayName}</div>
+              <div style={{display:"flex",gap:18,marginTop:8}}>{stat(prof.postCount,"Posts")}{stat(prof.followerCount,"Followers")}{stat(prof.followingCount,"Following")}</div>
+            </div>
+            {!prof.isMe && <button disabled={busy} onClick={toggleFollow} style={{...btn,padding:"9px 16px",borderColor:prof.isFollowing?C.line:C.brick,background:prof.isFollowing?"#fff":C.brick,color:prof.isFollowing?C.pine:C.bone,opacity:busy?0.6:1}}>{prof.isFollowing?"Following":"Follow"}</button>}
+          </div>)}
+      </div>
+      <div style={{padding:"14px 14px 20px",maxHeight:"60vh",overflowY:"auto"}}>
+        {data&&data.posts&&data.posts.length===0 && <div style={{fontSize:13,color:C.textDim,textAlign:"center",padding:"16px 0"}}>No posts yet.</div>}
+        {data&&data.posts&&data.posts.map(p=><PostCard key={p.id} p={p} me={me} {...postProps} onOpenProfile={onOpenProfile}/>)}
+      </div>
+    </div>
+  </div>);
+}
+function NotifPanel({data,onClose,onGoNews,onOpenProfile}){
   const list=(data&&data.notifications)||[];
   const when=(iso)=>{ const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
     if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
+  const act=(n)=>{ if(n.type==="follow"&&n.actorId&&onOpenProfile) onOpenProfile(n.actorId); else onGoNews&&onGoNews(); };
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:3200,display:"flex",justifyContent:"flex-end",alignItems:"flex-start"}}>
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"84vh",marginTop:"calc(8px + env(safe-area-inset-top))",marginRight:8,overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",borderBottom:`1px solid ${C.lineSoft}`}}>
@@ -1832,10 +1880,10 @@ function NotifPanel({data,onClose,onGoNews}){
       </div>
       {list.length===0
         ? <div style={{padding:"22px 16px",fontSize:13.5,color:C.textDim,lineHeight:1.5}}>No notifications yet. When someone likes or comments on your posts, you'll see it here.</div>
-        : list.map(n=>(<button key={n.id} onClick={onGoNews} style={{display:"flex",gap:11,alignItems:"flex-start",width:"100%",textAlign:"left",padding:"12px 16px",background:n.read?"transparent":`${C.brass}12`,border:"none",borderBottom:`1px solid ${C.lineSoft}`,cursor:"pointer"}}>
-            <div style={{marginTop:1,color:n.type==="like"?C.brick:C.pine,display:"flex"}}><Icon name={n.type==="like"?"like":"comment"} size={18}/></div>
+        : list.map(n=>(<button key={n.id} onClick={()=>act(n)} style={{display:"flex",gap:11,alignItems:"flex-start",width:"100%",textAlign:"left",padding:"12px 16px",background:n.read?"transparent":`${C.brass}12`,border:"none",borderBottom:`1px solid ${C.lineSoft}`,cursor:"pointer"}}>
+            <div style={{marginTop:1,color:n.type==="like"?C.brick:C.pine,display:"flex"}}><Icon name={n.type==="like"?"like":n.type==="follow"?"account":"comment"} size={18}/></div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13.5,color:C.text,lineHeight:1.45}}><b style={{color:C.pine}}>{n.actorName}</b> {n.type==="like"?"liked your post":"commented on your post"}{n.preview?`: "${n.preview}"`:""}</div>
+              <div style={{fontSize:13.5,color:C.text,lineHeight:1.45}}><b style={{color:C.pine}}>{n.actorName}</b> {n.type==="like"?"liked your post":n.type==="follow"?"started following you":"commented on your post"}{n.type==="comment"&&n.preview?`: "${n.preview}"`:""}</div>
               <div style={{fontFamily:sans,fontSize:11,color:C.textFaint,marginTop:2}}>{when(n.createdAt)}</div>
             </div>
           </button>))}
