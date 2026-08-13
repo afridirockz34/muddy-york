@@ -139,7 +139,8 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       "Grand River", "Credit River", "Ganaraska River", "Nottawasaga River", "Beaver River",
       "Twelve Mile Creek", "Bronte Creek", "Sixteen Mile Creek", "Duffins Creek", "Wilmot Creek",
       "Niagara River", "Saugeen River", "Maitland River", "Boyne River", "Humber River",
-      "Conestogo River", "Bighead River", "Sydenham River",
+      "Conestogo River", "Bighead River", "Sydenham River", "Rouge River", "Bowmanville Creek",
+      "Sauble River",
     ];
     app.get("/api/flow-news", async (req, reply) => {
       const key = "flownews:v1";

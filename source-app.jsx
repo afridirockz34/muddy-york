@@ -254,6 +254,21 @@ const RIVERS = [
     species:["STL","CHN"], lat:44.567, lon:-80.943,
     h:{hold:76,struct:72,spawn:74,cold:52,ox:78,gw:50}, history:80, report:66, reportAge:3, conf:78,
     note:"Georgian Bay river through Owen Sound with a year-round section below the dam — spring and fall steelhead and a fall chinook run, plus resident smallmouth." },
+  { id:"rouge-lower", river:"Rouge River", section:"Lower — Twyn Rivers to the mouth (Toronto)",
+    region:"Lake Ontario tributary", zone:"FMZ 16", water:"Mid-size urban tributary",
+    species:["STL","CHN","BNTr"], lat:43.803, lon:-79.140,
+    h:{hold:72,struct:70,spawn:74,cold:46,ox:74,gw:44}, history:78, report:74, reportAge:2, conf:78,
+    note:"East-GTA Lake Ontario tributary with spring and fall steelhead, a strong fall chinook run, and lake-run browns. Fishes best a day or two after rain; warms and thins in high summer." },
+  { id:"bowmanville", river:"Bowmanville Creek", section:"Lower — Bowmanville to the lake",
+    region:"Lake Ontario tributary", zone:"FMZ 17", water:"Small-mid tributary",
+    species:["STL","CHN"], lat:43.905, lon:-78.688,
+    h:{hold:74,struct:72,spawn:78,cold:54,ox:78,gw:52}, history:80, report:70, reportAge:3, conf:78,
+    note:"Accessible east-Durham steelhead-and-salmon creek — strong spring steelhead and a fall chinook run. Low summer flows; a cold-season fishery." },
+  { id:"sauble", river:"Sauble River", section:"Sauble Falls to the mouth",
+    region:"Lake Huron tributary", zone:"FMZ 13", water:"Tributary with a falls barrier",
+    species:["STL","CHN"], lat:44.660, lon:-81.253,
+    h:{hold:76,struct:74,spawn:80,cold:54,ox:78,gw:50}, history:82, report:72, reportAge:3, conf:80,
+    note:"Lake Huron steelhead river centred on Sauble Falls — strong spring and fall lake-run rainbows and a smaller fall chinook run, with pike and bass through summer." },
 ];
 
 const W = { habitat:0.25, seasonal:0.20, current:0.20, history:0.15, report:0.10, water:0.10 };
