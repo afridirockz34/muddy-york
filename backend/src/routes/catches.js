@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { momentumFrom } from "../../../lib/catch-nudge.js";
+import { reachActivity } from "../../../lib/reach-activity.js";
 
 export default async function catchRoutes(app) {
   const auth = async (req, reply) => {
@@ -47,6 +48,18 @@ export default async function catchRoutes(app) {
       };
     }
     return { activity };
+  });
+
+  // Enriched per-reach intelligence from customer logs (catches + note pins):
+  // recent activity/momentum that boosts the opportunity score, plus the species
+  // and sizes actually being logged, which sharpen the fish estimate.
+  app.get("/api/reach-activity", async () => {
+    const since = new Date(Date.now() - 90 * 86400000);
+    const [catches, notes] = await Promise.all([
+      prisma.catch.findMany({ where: { caughtAt: { gte: since } }, select: { ref: true, species: true, sizeInches: true, caughtAt: true } }),
+      prisma.note.findMany({ where: { deletedAt: null, ref: { not: null }, createdAt: { gte: since } }, select: { ref: true, species: true, createdAt: true } }),
+    ]);
+    return { activity: reachActivity({ catches, notes }) };
   });
 
   // Anonymized leaderboard: the biggest recent catches by reach. No angler

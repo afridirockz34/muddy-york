@@ -7,7 +7,7 @@ import { getCurrentUser } from "../auth/current-user.js";
 function publicNote(n) {
   return {
     id: n.id, title: n.title, body: n.body, technique: n.technique, flies: n.flies,
-    species: n.species, size: n.size, lat: n.lat, lon: n.lon,
+    species: n.species, size: n.size, lat: n.lat, lon: n.lon, ref: n.ref || null,
     createdAt: n.createdAt.toISOString(),
   };
 }
@@ -30,6 +30,7 @@ export default async function noteRoutes(app) {
       technique: String(b.technique || ""), flies: String(b.flies || ""),
       species: String(b.species || ""), size: String(b.size || ""),
       lat: num(b.lat), lon: num(b.lon),
+      ref: b.ref ? String(b.ref).slice(0, 60) : null,
       createdAt: b.createdAt ? new Date(b.createdAt) : new Date(),
     };
     // Check ownership BEFORE writing — an id is a global PK, so a blind upsert

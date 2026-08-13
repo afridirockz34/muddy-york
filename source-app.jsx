@@ -729,7 +729,7 @@ function SeasonStrip({sec,m}){
 /* ============================== MAP VIEW ================================== */
 /* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
    is an online feature; offline it shows a graceful note and the other tabs work. */
-function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn}){
+function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,activity={}}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
   const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
   const [sel,setSel]=useState(null);
@@ -867,7 +867,7 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
       <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
       <ConditionsStrip cond={ev.cond}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
-      <DepthFish sec={ev.sec}/>
+      <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
       <CatchForm sec={ev.sec} signedIn={signedIn}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & route"/>
@@ -1339,7 +1339,7 @@ export default function App(){
       const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
       const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
-      if(API_BASE) proxyJSON("/api/catch-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
+      if(API_BASE) proxyJSON("/api/reach-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       if(API_BASE) proxyJSON("/api/flow-news").then(d=>setFlowNewsItems(Array.isArray(d.items)?d.items:[])).catch(()=>{});
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
@@ -1384,7 +1384,15 @@ export default function App(){
     setVisits(prev=>{ const next=[{...entry,id:"v"+Date.now()},...prev].slice(0,200); dbSet("visits",next); return next; });
   },[]);
   const removeVisit=useCallback((id)=>{ setVisits(prev=>{ const next=prev.filter(v=>v.id!==id); dbSet("visits",next); return next; }); },[]);
-  const addNote=useCallback((fields)=>{ setNotes(prev=>{ const n=newNote(fields); const next=[n,...prev].slice(0,300); dbSet("notes",next);
+  const addNote=useCallback((fields)=>{ setNotes(prev=>{
+    // Attribute a pinned note to the nearest reach (≤20 km) so it feeds the
+    // per-reach intel that tunes recommendations.
+    let ref=fields.ref||null;
+    if(!ref && typeof fields.lat==="number" && typeof fields.lon==="number"){
+      let best=null; RIVERS.forEach(s=>{ const d=haversineKm(fields.lat,fields.lon,s.lat,s.lon); if(!best||d<best.d) best={id:s.id,d}; });
+      if(best && best.d<=20) ref=best.id;
+    }
+    const n=newNote({...fields,ref}); const next=[n,...prev].slice(0,300); dbSet("notes",next);
     if(API_BASE&&signedInRef.current){ setNoteSync("syncing");
       proxyJSON("/notes",{method:"POST",body:n}).then(()=>{ noteSyncedRef.current=[...noteSyncedRef.current,n.id]; dbSet("notesSynced",noteSyncedRef.current); setNoteSync("synced"); }).catch(()=>setNoteSync("off")); }
     return next; }); },[]);
@@ -1534,13 +1542,13 @@ export default function App(){
           </div>
 
           {riversView==="map"
-            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>
+            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
             : (<>
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
-              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>)}
+              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]}/>)}
               {top3.length>1 && <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
-                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)}/>)}
+                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]}/>)}
               </Locked>}
               <SectionTitle t="More water nearby"/>
               <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
@@ -1681,7 +1689,7 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
         <button onClick={dropPin} style={{...btnBig,borderColor:pin?C.pine:C.line,color:pin?C.pine:C.textDim}}><Icon name="pin" size={15}/>{pin?(userLoc?"Pinned to here":"Getting GPS…"):"Drop a pin here"}</button>
         <button onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}><Icon name="plus" size={15}/>Save note</button>
       </div>
-      <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Private to you{signedIn?", backed up to your account and synced across your devices":", stored on this device"}. A pin saves your current GPS spot so you can return to the exact place.</div>
+      <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>{signedIn?"Backed up to your account and synced across your devices":"Saved to this device"}. A pin saves your current GPS spot so you can return to the exact place — and helps sharpen the app's spot suggestions.</div>
     </div>
 
     {saved.length>0 && (<><SectionTitle t="Saved water"/>
@@ -1699,7 +1707,7 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
         {syncState==="synced" ? <><Icon name="check" size={13}/>Synced</> : "Backing up…"}</span>}
     </div>
     {notes.length===0
-      ? <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:18}}>No notes yet. Jot down what worked — technique, flies, the water read — and drop a pin at spots worth returning to. It stays private to you.</div>
+      ? <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:18}}>No notes yet. Jot down what worked — technique, flies, the water read — and drop a pin at spots worth returning to. Your logs help tune the app's recommendations.</div>
       : <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18}}>
           {notes.map(n=>(<div key={n.id} style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,padding:14}}>
             <div style={{display:"flex",alignItems:"baseline",gap:8}}><div style={{flex:1,fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine}}>{n.title||"Untitled"}</div><span style={{fontSize:11.5,color:C.textFaint}}>{new Date(n.createdAt).toLocaleDateString([], {month:"short",day:"numeric"})}</span></div>
@@ -2049,7 +2057,7 @@ function MeasuredGauge({lat,lon}){
     <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:3}}>Live reading from Water Survey of Canada. Water temperature remains modeled.</div>
   </div>);
 }
-function DepthFish({sec}){
+function DepthFish({sec,logged}){
   const [d,setD]=useState(undefined);
   useEffect(()=>{ let live=true; setD(undefined);
     const jobs=[ API_BASE?proxyJSON(`/api/bathymetry?lat=${sec.lat}&lon=${sec.lon}`).catch(()=>({bathy:null})):Promise.resolve({bathy:null}),
@@ -2059,10 +2067,10 @@ function DepthFish({sec}){
       const w=(sec.water||"").toLowerCase();
       const hw=holdingWater({ isTailwater:/tailwater|below the dam|below a dam|fishway/i.test((sec.section||"")+" "+(sec.water||"")), waterType:w.includes("lake")?"lake":w.includes("stream")?"stream":"river", gradientPct:1, sinuosity:1.15, nearConfluence:false, belowLake:false, soundedMaxDepthM:sounded });
       const stock=s.stocking&&s.stocking.events&&s.stocking.events[0];
-      const fish=estimateFish({ species:sec.species||[], holding:hw, stocking:stock?{species:stock.species,yearsAgo:stock.yearsAgo}:null, coldRetention:sec.h?sec.h.cold:60, month:new Date().getMonth() });
+      const fish=estimateFish({ species:sec.species||[], holding:hw, stocking:stock?{species:stock.species,yearsAgo:stock.yearsAgo}:null, coldRetention:sec.h?sec.h.cold:60, month:new Date().getMonth(), logged });
       setD({hw,bathy:b.bathy,fish,stock}); });
     return ()=>{live=false;};
-  },[sec.lat,sec.lon]);
+  },[sec.lat,sec.lon,logged]);
   if(d===undefined) return null;
   const {hw,bathy,fish,stock}=d;
   // Collapse to base common name (drop "(resident)"/"(lake-run)"/…) and de-dupe
@@ -2085,7 +2093,11 @@ function DepthFish({sec}){
       Likely: <b>{spNames.slice(0,3).join(", ")}</b>. Fish size: <b>{fish.sizeClass}</b> · {fish.ageEstimate}.
       {stock && <span style={{color:C.textDim}}> Stocked {stock.species} ~{stock.yearsAgo} yr ago ({stock.distanceKm} km).</span>}
     </div>
-    <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size are estimates that sharpen as anglers log catches.</div>
+    {logged && Array.isArray(logged.topSpecies) && logged.topSpecies.length>0 && (()=>{
+      const parts=logged.topSpecies.map(t=>{ const sz=logged.sizeBySpecies&&logged.sizeBySpecies[t.species]; return sz?`${t.species} to ${sz.max}"`:t.species; });
+      return (<div style={{fontSize:12.5,color:C.pine,fontWeight:600,marginTop:6,lineHeight:1.45}}>
+        <Icon name="save" size={12}/> Anglers logging here: {parts.slice(0,3).join(", ")}{logged.count30d>0?` · ${logged.count30d} recent`:""}.</div>); })()}
+    <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size sharpen as anglers log catches and notes.</div>
   </div>);
 }
 function CatchForm({sec, signedIn}){
@@ -2158,7 +2170,7 @@ function SaveButton({saved,onClick}){
     border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:"#fff",color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
     <Icon name="save" size={13}/>{saved?"Saved":"Save"}</button>);
 }
-function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn}){
+function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged}){
   const sec=ev.sec, cd=ev.cond;
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
@@ -2179,7 +2191,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     </div>
     <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"14px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
-    <DepthFish sec={sec}/>
+    <DepthFish sec={sec} logged={logged}/>
     <CatchForm sec={sec} signedIn={signedIn}/>
     <div style={{display:"flex",gap:18,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
       <MiniStat label="Overall" value={ev.overall}/>

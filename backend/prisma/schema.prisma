@@ -139,12 +139,14 @@ model Note {
   size      String    @default("")
   lat       Float?
   lon       Float?
+  ref       String?                       // nearest reach (client-computed) for intel
   createdAt DateTime
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, updatedAt])
+  @@index([ref])
 }
 
 model Catch {
