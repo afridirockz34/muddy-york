@@ -2265,6 +2265,8 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
           <Pill k={ev.target}/>{sec.species.filter(k=>k!==ev.target).slice(0,2).map(k=><Pill key={k} k={k} dim/>)}
           {trend && trend.score>=0.6 && <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",color:C.brick,border:`1px solid ${C.brick}55`,background:`${C.brick}12`,borderRadius:20,padding:"2px 8px"}}><Icon name="fly" size={11}/>Trending</span>}
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
+          <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
+            style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"3px 10px",background:C.bone}}><Icon name="map" size={13}/>Directions</a>
         </div>
       </div>
       <Gauge value={ev.opportunity} label="Opportunity"/>
