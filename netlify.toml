@@ -1,8 +1,11 @@
 # Proxy backend calls through the Netlify origin so the session cookie is
 # first-party (fixes Safari/strict-Chrome third-party-cookie blocking).
 # The app calls /bk/... (same-origin); Netlify forwards to the Render backend.
+# app.js is prebuilt and committed, so Netlify only needs to publish the files —
+# no build step (keeps deploys within the free-tier build-minute limit).
+# IMPORTANT: run `npm run build` locally and commit app.js before pushing UI
+# changes, or the deploy will serve a stale bundle.
 [build]
-  command = "npm run build"
   publish = "."
 
 [[redirects]]
