@@ -29,7 +29,7 @@ export async function sendAlertEmail(to, spot, opportunity, opts = {}) {
         from: config.resend.from,
         to,
         subject: `Prime conditions on the ${spot.river}`,
-        text: `${spot.river} — ${spot.section} is showing prime conditions right now (opportunity ${opportunity}/100). Tight lines.\n\n— Muddy York Angling Co.`,
+        text: `${spot.river} — ${spot.section} is showing prime conditions right now (opportunity ${opportunity}/100). Tight lines.\n\n— Muddy York Fishing`,
       }),
     });
     return !!(res && res.ok);

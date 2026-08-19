@@ -33,7 +33,7 @@ export const config = {
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
-    from: process.env.EMAIL_FROM || "Muddy York <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "Muddy York Fishing <onboarding@resend.dev>",
     adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
     // Where membership/trial/cancel notifications are sent.
     billingEmail: process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",

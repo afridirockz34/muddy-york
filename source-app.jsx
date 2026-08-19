@@ -92,7 +92,7 @@ async function disablePush(){
    ============================================================================= */
 
 /* ------------------------------- PALETTE ---------------------------------- */
-/* ------- PALETTE — Muddy York Angling Co. (heritage / Canvas Bone) -------- */
+/* ------- PALETTE — Muddy York Fishing (heritage / Canvas Bone) -------- */
 const C = {
   ink:"#F4EFE6",   ink2:"#2C4C3B",  panel:"#FBF8F0", panelHi:"#F1E8D6",
   line:"#D8CBB3",  lineSoft:"#E5DAC4", text:"#2A2A2A", textDim:"#6E6253",
@@ -1536,7 +1536,7 @@ export default function App(){
           <Crest size={38}/>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
-            <div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div>
+            <div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Fishing</div>
           </div>
           {API_BASE && me && me.user && <button aria-label="Notifications" onClick={openNotifs} style={{position:"relative",background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}>
             <Icon name="alert" size={22}/>
@@ -1728,7 +1728,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onAdmi
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
     <div onClick={e=>e.stopPropagation()} style={{width:280,maxWidth:"82%",background:C.cyanDeep,padding:"calc(16px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom))",display:"flex",flexDirection:"column",gap:2,overflowY:"auto"}}>
-      <div style={{display:"flex",gap:11,alignItems:"center",padding:"4px 8px 14px"}}><Crest size={44}/><div><div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:"#EFE9DB"}}>Muddy York</div><div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Angling Co.</div></div></div>
+      <div style={{display:"flex",gap:11,alignItems:"center",padding:"4px 8px 14px"}}><Crest size={44}/><div><div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:"#EFE9DB"}}>Muddy York</div><div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Fishing</div></div></div>
       {link("rivers","Rivers",tab==="rivers",()=>onNav("rivers"))}
       {link("news","News & catches",tab==="news",()=>onNav("news"))}
       {link("notes","My notes",tab==="notes",()=>onNav("notes"))}
@@ -2008,7 +2008,7 @@ function SignInGate({onAuth,providers={}}){
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:22}}>
         <Avatar src="icons/crest.png" size={84}/>
-        <div style={{fontFamily:serif,fontSize:23,fontWeight:700,color:"#EFE9DB",marginTop:12}}>Muddy York Angling Co.</div>
+        <div style={{fontFamily:serif,fontSize:23,fontWeight:700,color:"#EFE9DB",marginTop:12}}>Muddy York Fishing</div>
         <div style={{fontFamily:sans,fontSize:13,color:"#B7C7B7",marginTop:6,lineHeight:1.5}}>Sign in to find the right water, morning by morning.</div>
       </div>
       {providers.google!==false && <button onClick={()=>oauth("google")} style={{...gateBtn,background:"#fff",color:"#2A2A2A"}}>Continue with Google</button>}

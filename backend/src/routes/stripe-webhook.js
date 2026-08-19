@@ -6,7 +6,7 @@ import { sendMail } from "../alerts/mailer.js";
 // Notify the business owner about membership lifecycle events.
 function notifyBilling(subject, text) {
   if (!config.resend.billingEmail) return;
-  sendMail({ to: config.resend.billingEmail, subject: `[Muddy York] ${subject}`, text }).catch(() => {});
+  sendMail({ to: config.resend.billingEmail, subject: `[Muddy York Fishing] ${subject}`, text }).catch(() => {});
 }
 
 async function upsertSubscription(userId, { id, status, priceId, currentPeriodEnd }) {
