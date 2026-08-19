@@ -5,6 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
 import authRoutes from "./routes/auth.js";
 import googleRoutes from "./routes/google.js";
+import appleRoutes from "./routes/apple.js";
 import billingRoutes from "./routes/billing.js";
 import savedRoutes from "./routes/saved.js";
 import catchRoutes from "./routes/catches.js";
@@ -25,6 +26,7 @@ export function buildApp(opts = {}) {
   app.register(stripeWebhookRoutes);
   app.register(authRoutes);
   app.register(googleRoutes);
+  app.register(appleRoutes);
   app.register(billingRoutes);
   app.register(savedRoutes);
   app.register(catchRoutes);

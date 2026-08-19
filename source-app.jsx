@@ -1246,10 +1246,24 @@ export default function App(){
   const [profileId,setProfileId]=useState(null);
   const signedInRef=useRef(false);
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
+  const [providers,setProviders]=useState({google:true,apple:false});
+  const gateArmedRef=useRef(false);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
+  useEffect(()=>{ if(API_BASE) proxyJSON("/auth/providers").then(setProviders).catch(()=>{}); },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
   const openCheckout=useCallback((plan="annual")=>setCheckoutPlan(plan),[]);
+  // Mandatory sign-in gate: arm while signed out, so that once the user signs in
+  // (here or via OAuth redirect) we show the subscription option once. They can
+  // cancel it and continue on the free plan.
+  useEffect(()=>{ if(API_BASE && me && !me.user) gateArmedRef.current=true; },[me&&!!(me&&me.user)]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{
+    if(!(API_BASE && me && me.user)) return;
+    let armed=gateArmedRef.current;
+    try{ if(sessionStorage.getItem("mkGate")==="1"){ armed=true; sessionStorage.removeItem("mkGate"); } }catch{}
+    gateArmedRef.current=false;
+    if(armed && !isPremiumMe(me)) openCheckout("annual");
+  },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ refreshMe(); },[refreshMe]);
   // Returning from Stripe embedded checkout (return_url = /?checkout=complete).
   useEffect(()=>{
@@ -1558,18 +1572,16 @@ export default function App(){
 
           <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14}}>
             <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
-            <button onClick={()=>{setRiversView("map");logEvent("open_map");}} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
+            <button onClick={()=> isPremium ? (setRiversView("map"),logEvent("open_map")) : openUpgrade()} style={segBtn(riversView==="map"&&isPremium)}><Icon name={isPremium?"map":"lock"} size={16}/>Map</button>
           </div>
 
-          {riversView==="map"
+          {riversView==="map" && isPremium
             ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
             : (<>
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
-              {top3.slice(0,1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
-              {top3.length>1 && <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade for the full ranked list">
-                {top3.slice(1).map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+2} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
-              </Locked>}
+              {/* Free tier: the top 3 ranked reaches are open; deeper water is locked. */}
+              {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
               <SectionTitle t="More water nearby"/>
               <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
                 <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
@@ -1607,6 +1619,7 @@ export default function App(){
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
+      {API_BASE && me && !me.user && <SignInGate onAuth={refreshMe} providers={providers}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
@@ -1979,6 +1992,37 @@ function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
         {data&&data.posts&&data.posts.length===0 && <div style={{fontSize:13,color:C.textDim,textAlign:"center",padding:"16px 0"}}>No posts yet.</div>}
         {data&&data.posts&&data.posts.map(p=><PostCard key={p.id} p={p} me={me} {...postProps} onOpenProfile={onOpenProfile}/>)}
       </div>
+    </div>
+  </div>);
+}
+const gateBtn={width:"100%",padding:"13px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:sans,fontSize:15,fontWeight:700,display:"block",boxSizing:"border-box"};
+function SignInGate({onAuth,providers={}}){
+  const [mode,setMode]=useState("signup");
+  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false);
+  const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
+  const oauth=(p)=>{ try{ sessionStorage.setItem("mkGate","1"); }catch{} window.location=`${API_BASE}/auth/${p}`; };
+  const submit=async()=>{ setErr(""); setBusy(true);
+    try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); }
+    catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); setBusy(false); } };
+  return (<div style={{position:"fixed",inset:0,zIndex:8000,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto"}}>
+    <div style={{width:"100%",maxWidth:380}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:22}}>
+        <Avatar src="icons/crest.png" size={84}/>
+        <div style={{fontFamily:serif,fontSize:23,fontWeight:700,color:"#EFE9DB",marginTop:12}}>Muddy York Angling Co.</div>
+        <div style={{fontFamily:sans,fontSize:13,color:"#B7C7B7",marginTop:6,lineHeight:1.5}}>Sign in to find the right water, morning by morning.</div>
+      </div>
+      {providers.google!==false && <button onClick={()=>oauth("google")} style={{...gateBtn,background:"#fff",color:"#2A2A2A"}}>Continue with Google</button>}
+      {providers.apple && <button onClick={()=>oauth("apple")} style={{...gateBtn,background:"#000",color:"#fff",marginTop:10}}> Continue with Apple</button>}
+      {!showEmail
+        ? <button onClick={()=>setShowEmail(true)} style={{...gateBtn,background:"transparent",color:"#EFE9DB",border:"1px solid rgba(255,255,255,.3)",marginTop:10}}>Continue with email</button>
+        : (<div style={{marginTop:14}}>
+            {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4}}>{err}</div>}
+            <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+            <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
+            <button disabled={busy} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
+            <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={{background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5}}>{mode==="signup"?"Sign in":"Create one"}</button></div>
+          </div>)}
+      <div style={{textAlign:"center",fontSize:11,color:"#8FA394",marginTop:18,lineHeight:1.5}}>Free to use. A membership unlocks the map, the full ranked list, discovery, the fly advisor and routes.</div>
     </div>
   </div>);
 }

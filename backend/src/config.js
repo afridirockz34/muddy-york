@@ -23,6 +23,14 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
   },
+  apple: {
+    clientId: process.env.APPLE_CLIENT_ID || "",       // Services ID, e.g. com.muddyyork.web
+    teamId: process.env.APPLE_TEAM_ID || "",
+    keyId: process.env.APPLE_KEY_ID || "",
+    privateKey: (process.env.APPLE_PRIVATE_KEY || "").replace(/\\n/g, "\n"), // .p8 contents
+    redirectUri: process.env.APPLE_REDIRECT_URI || "",
+    get configured() { return !!(this.clientId && this.teamId && this.keyId && this.privateKey && this.redirectUri); },
+  },
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "Muddy York <onboarding@resend.dev>",

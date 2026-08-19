@@ -48,6 +48,12 @@ export default async function authRoutes(app) {
     return { ok: true };
   });
 
+  // Which sign-in providers are available (drives the sign-in gate buttons).
+  app.get("/auth/providers", async () => ({
+    google: !!config.google.clientId,
+    apple: config.apple.configured,
+  }));
+
   app.get("/auth/me", async (req) => {
     const user = await getCurrentUser(req);
     if (!user) return { user: null, entitlement: "free" };
