@@ -2102,8 +2102,8 @@ function CheckoutModal({plan:initialPlan,onClose}){
   useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
   const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
   const tabBtn=(p,label)=>(<button onClick={()=>changePlan(p)} style={{flex:1,fontFamily:sans,fontSize:13,fontWeight:700,padding:"9px 8px",borderRadius:8,cursor:"pointer",border:`1px solid ${plan===p?C.brick:C.line}`,background:plan===p?C.brick:"#fff",color:plan===p?C.bone:C.pine}}>{label}</button>);
-  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:9000,display:"flex",alignItems:"stretch",justifyContent:"center",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-    <div style={{width:"100%",maxWidth:520,background:C.panel,minHeight:"100%",display:"flex",flexDirection:"column",padding:"calc(18px + env(safe-area-inset-top)) 18px calc(48px + env(safe-area-inset-bottom))"}}>
+  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:9000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+    <div style={{width:"100%",maxWidth:520,margin:"0 auto",minHeight:"100%",boxSizing:"border-box",background:C.panel,padding:"calc(18px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom))"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your free trial</div>
         <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
@@ -2114,8 +2114,8 @@ function CheckoutModal({plan:initialPlan,onClose}){
       <div style={{display:"flex",gap:8,marginBottom:14}}>{tabBtn("annual",`Annual · ${planPrice("annual")}`)}{tabBtn("monthly",`Monthly · ${planPrice("monthly")}`)}</div>
       {err&&<div style={{fontSize:12.5,color:C.brick,lineHeight:1.45,marginBottom:12}}>{err}<button onClick={mount} style={{...btn,borderColor:C.brick,color:C.brick,marginLeft:8}}>Retry</button></div>}
       {loading&&!err&&<div style={{fontFamily:sans,fontSize:13,color:C.textDim,padding:"24px 0",textAlign:"center"}}>Loading secure checkout…</div>}
-      <div ref={mountRef} style={{flex:1}}/>
-      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:16}}>Maybe later — continue on the free plan</button>
+      <div ref={mountRef}/>
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"12px",marginTop:16}}>Maybe later — continue on the free plan</button>
     </div>
   </div>);
 }
