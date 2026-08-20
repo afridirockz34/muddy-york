@@ -2347,7 +2347,6 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
   const sec=ev.sec, cd=ev.cond;
   const [panel,setPanel]=useState(null); // "adv" | "depth" | null
   const toggle=(p)=>setPanel(cur=>cur===p?null:p);
-  const stat=(label,val,sub)=>(<div><span style={{fontFamily:sans,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.textFaint}}>{label}</span> <b style={{fontFamily:serif,fontSize:15,color:C.pine}}>{val}</b>{sub?<span style={{fontSize:11,color:C.textDim}}> {sub}</span>:null}</div>);
   const bottomBtn=(active)=>({display:"flex",alignItems:"center",justifyContent:"center",gap:6,flex:1,fontFamily:sans,fontSize:12.5,fontWeight:700,padding:"10px",borderRadius:9,cursor:"pointer",border:`1px solid ${active?C.brass:C.line}`,background:active?`${C.brass}18`:C.bone,color:C.pine});
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
@@ -2364,17 +2363,14 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     </div>
     <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"12px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
-    {/* Score breakdown — moved directly under the conditions box */}
-    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`}}>
-      <div style={{display:"flex",gap:18,marginBottom:9,flexWrap:"wrap"}}>{stat("Overall",ev.overall)}{stat("Confidence",ev.confidence,confLabel(ev.confidence))}</div>
-      <div style={{display:"flex",flexDirection:"column",gap:5}}>
-        <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
-        <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
-        <Bar label="Habitat" value={ev.parts.habitat}/>
-      </div>
+    {/* Score breakdown — bars only, under the conditions box */}
+    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:5}}>
+      <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
+      <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
+      <Bar label="Habitat" value={ev.parts.habitat}/>
     </div>
-    {/* Three actions */}
-    <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+    {/* Actions — right-aligned */}
+    <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center",justifyContent:"flex-end"}}>
       {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
       <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
         style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,whiteSpace:"nowrap"}}><Icon name="map" size={13}/>Directions</a>
