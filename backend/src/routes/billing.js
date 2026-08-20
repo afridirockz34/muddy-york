@@ -38,7 +38,7 @@ export default async function billingRoutes(app) {
     if (!user.stripeCustomerId) return reply.code(400).send({ error: "no billing account yet" });
     const session = await getStripe().billingPortal.sessions.create({
       customer: user.stripeCustomerId,
-      return_url: config.stripe.successUrl,
+      return_url: config.frontendOrigin,
     });
     return { url: session.url };
   });
