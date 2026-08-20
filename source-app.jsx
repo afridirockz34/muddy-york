@@ -715,12 +715,14 @@ function Gauge({value,size=72,label,stroke=7}){
   </div>);
 }
 function Bar({label,value}){
-  return (<div style={{display:"flex",alignItems:"center",gap:8,fontSize:11}}>
-    <div style={{width:72,fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,textAlign:"right"}}>{label}</div>
-    <div style={{flex:1,height:6,background:C.line,borderRadius:3,overflow:"hidden"}}>
+  return (<div style={{width:"100%"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:3}}>
+      <span style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim}}>{label}</span>
+      <span style={{fontFamily:mono,fontSize:10,color:C.text,fontVariantNumeric:"tabular-nums"}}>{value}</span>
+    </div>
+    <div style={{width:"100%",height:6,background:C.line,borderRadius:3,overflow:"hidden"}}>
       <div style={{width:`${value}%`,height:"100%",background:scoreColor(value),borderRadius:3,transition:"width .5s ease"}}/>
     </div>
-    <div style={{width:26,fontFamily:mono,fontSize:10,color:C.text,fontVariantNumeric:"tabular-nums",textAlign:"right"}}>{value}</div>
   </div>);
 }
 function Pill({k,dim}){
@@ -1252,7 +1254,9 @@ export default function App(){
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
   useEffect(()=>{ if(API_BASE) proxyJSON("/auth/providers").then(setProviders).catch(()=>{}); },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
-  const openUpgrade=useCallback(()=>setAuthOpen(true),[]);
+  // A free user tapping a locked feature goes straight to the subscription page;
+  // a signed-out user (edge case) gets the account/sign-in screen.
+  const openUpgrade=useCallback(()=>{ if(signedInRef.current) setCheckoutPlan("annual"); else setAuthOpen(true); },[]);
   const openCheckout=useCallback((plan="annual")=>setCheckoutPlan(plan),[]);
   // Mandatory sign-in gate: arm while signed out, so that once the user signs in
   // (here or via OAuth redirect) we show the subscription option once. They can
@@ -1940,18 +1944,18 @@ function AuthModal({me,onClose,onAuth,onCheckout}){
   const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); onClose(); };
   const startCheckout=(plan)=>{ onClose(); if(onCheckout) onCheckout(plan); };
   const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
-  return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.55)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
-    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"88vh",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:20,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>{signedIn?"Your account":mode==="signup"?"Create account":"Sign in"}</div>
-        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={20}/></button>
+  return (<div style={{position:"fixed",inset:0,background:C.panel,zIndex:3000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+    <div style={{width:"100%",maxWidth:520,margin:"0 auto",boxSizing:"border-box",padding:"calc(16px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine}}>{signedIn?"Your account":mode==="signup"?"Create account":"Sign in"}</div>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
       </div>
       {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
       {signedIn ? (<div style={{marginTop:12}}>
         <div style={{fontSize:13,color:C.text}}>{me.user.email}</div>
         <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
         {!premium ? (<div style={{marginTop:14}}>
-          <div style={{fontSize:12,color:C.textDim,marginBottom:8,lineHeight:1.45}}>Start your 14-day free trial. Unlock the full ranked list, discovery, the fly advisor, and routes. No charge today.</div>
+          <div style={{fontSize:12.5,color:C.text,marginBottom:8,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots Ontario-wide, the full live map, fly strategies and a personal guide, from just {planPrice("monthly")}. A growing community, so your map keeps getting better. No charge today.</div>
           <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Start trial — annual {planPrice("annual")}</button>
           <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
         </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
@@ -2069,7 +2073,7 @@ function SignInGate({onAuth,providers={}}){
             {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
-      <div style={{textAlign:"center",fontSize:11,color:"#8FA394",marginTop:18,lineHeight:1.5}}>Free to use. A membership unlocks the map, the full ranked list, discovery, the fly advisor and routes.</div>
+      <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots across Ontario, fly strategies and a personal guide, growing all the time. Free to start.</div>
     </div>
   </div>);
 }
@@ -2154,6 +2158,11 @@ function CheckoutModal({plan:initialPlan,onClose}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your free trial</div>
         <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
+      </div>
+      <div style={{background:`${C.brass}14`,border:`1px solid ${C.brass}55`,borderRadius:10,padding:"13px 14px",marginBottom:12}}>
+        <div style={{fontFamily:serif,fontSize:15.5,fontWeight:700,color:C.pine,lineHeight:1.35,marginBottom:7}}>Catch your next best fish — 30+ rivers &amp; spots, Ontario-wide.</div>
+        <div style={{fontFamily:sans,fontSize:12.5,color:C.text,lineHeight:1.55}}>Unlock the full live map and ranked list, hidden spots, fly strategies, and a personal on-the-water guide — from just {planPrice("monthly")}.</div>
+        <div style={{fontFamily:sans,fontSize:11.5,color:C.textDim,lineHeight:1.55,marginTop:8}}>Muddy York Fishing is a members' club — a community that keeps growing, so new rivers and spots are added over time and your map only gets better.</div>
       </div>
       <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:12}}>
         <b>You won't be charged today.</b> Billing starts after your 14-day free trial on {trialDate} — cancel anytime before then.
@@ -2241,7 +2250,7 @@ function DepthFish({sec,logged}){
       setD({hw,bathy:b.bathy,fish,stock}); });
     return ()=>{live=false;};
   },[sec.lat,sec.lon,logged]);
-  if(d===undefined) return null;
+  if(d===undefined) return (<div style={{marginTop:10,padding:"10px 12px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:10,fontFamily:sans,fontSize:12.5,color:C.textDim}}>Reading depth &amp; likely fish…</div>);
   const {hw,bathy,fish,stock}=d;
   // Collapse to base common name (drop "(resident)"/"(lake-run)"/…) and de-dupe
   // case-insensitively — stocking data gives "Brown Trout" while reach species
@@ -2350,31 +2359,27 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
   const bottomBtn=(active)=>({display:"flex",alignItems:"center",justifyContent:"center",gap:6,flex:1,fontFamily:sans,fontSize:12.5,fontWeight:700,padding:"10px",borderRadius:9,cursor:"pointer",border:`1px solid ${active?C.brass:C.line}`,background:active?`${C.brass}18`:C.bone,color:C.pine});
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
-    {/* Header: clean — river, section, gauge (no No.X, no species pills) */}
+    {/* Header: river, section, actions right under the title; gauge on the right */}
     <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</span>
-          {trend && trend.score>=0.6 && <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",color:C.brick,border:`1px solid ${C.brick}55`,background:`${C.brick}12`,borderRadius:20,padding:"2px 8px"}}><Icon name="fly" size={11}/>Trending</span>}
-        </div>
+        <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
+        <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+          {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
+          <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
+            style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,whiteSpace:"nowrap"}}><Icon name="map" size={13}/>Directions</a>
+          <CatchForm sec={sec} signedIn={signedIn} compact/>
+        </div>
       </div>
       <Gauge value={ev.opportunity} label="Opportunity"/>
     </div>
     <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"12px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
-    {/* Score breakdown — bars only, under the conditions box */}
-    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:5}}>
+    {/* Score breakdown — full-width bars under the conditions box */}
+    <div style={{width:"100%",marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:9}}>
       <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
       <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
       <Bar label="Habitat" value={ev.parts.habitat}/>
-    </div>
-    {/* Actions — right-aligned */}
-    <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center",justifyContent:"flex-end"}}>
-      {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
-      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
-        style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,whiteSpace:"nowrap"}}><Icon name="map" size={13}/>Directions</a>
-      <CatchForm sec={sec} signedIn={signedIn} compact/>
     </div>
     {/* Two expandable sections */}
     <div style={{display:"flex",gap:8,marginTop:12}}>
