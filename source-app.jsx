@@ -1232,6 +1232,7 @@ export default function App(){
   const [me,setMe]=useState(null);
   const [authOpen,setAuthOpen]=useState(false);
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
+  const [resetToken,setResetToken]=useState(()=>{ try{ return new URLSearchParams(window.location.search).get("reset"); }catch{ return null; } });
   const [flash,setFlash]=useState("");
   const [catchActivity,setCatchActivity]=useState({});
   const [trending,setTrending]=useState({});
@@ -1513,6 +1514,15 @@ export default function App(){
     : status==="loading"?(hasData?"Refreshing…":"Updating…")
     : hasData?"Last-known (offline)":"Offline · seasonal model";
 
+  // While auth is still resolving, hold a brand splash instead of flashing the
+  // main app for a frame before the sign-in gate — makes first open feel intentional.
+  if(API_BASE && me===null) return (
+    <div style={{position:"fixed",inset:0,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
+      <Avatar src="icons/crest.png" size={96}/>
+      <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:"#EFE9DB"}}>Muddy York Fishing</div>
+    </div>
+  );
+
   return (
     <div style={{minHeight:"100vh",background:C.ink,color:C.text,fontFamily:sans}}>
       <style>{`
@@ -1619,7 +1629,8 @@ export default function App(){
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
-      {API_BASE && me && !me.user && <SignInGate onAuth={refreshMe} providers={providers}/>}
+      {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
+      {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
@@ -1996,14 +2007,39 @@ function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
   </div>);
 }
 const gateBtn={width:"100%",padding:"13px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:sans,fontSize:15,fontWeight:700,display:"block",boxSizing:"border-box"};
+function ResetModal({token,onDone}){
+  const [pw,setPw]=useState(""),[pw2,setPw2]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
+  const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
+  const submit=async()=>{ setErr("");
+    if(pw.length<8){ setErr("Use at least 8 characters."); return; }
+    if(pw!==pw2){ setErr("Those passwords don't match."); return; }
+    setBusy(true);
+    try{ await proxyJSON("/auth/reset",{method:"POST",body:{token,password:pw}}); onDone(); }
+    catch{ setErr("This reset link is invalid or has expired — request a new one."); setBusy(false); } };
+  return (<div style={{position:"fixed",inset:0,zIndex:8100,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto"}}>
+    <div style={{width:"100%",maxWidth:380}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:18}}>
+        <Avatar src="icons/crest.png" size={72}/>
+        <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:"#EFE9DB",marginTop:12}}>Set a new password</div>
+      </div>
+      {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4,textAlign:"center"}}>{err}</div>}
+      <input style={inp} type="password" placeholder="new password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)}/>
+      <input style={inp} type="password" placeholder="confirm password" value={pw2} onChange={e=>setPw2(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
+      <button disabled={busy} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:14,opacity:busy?0.6:1}}>{busy?"…":"Save & sign in"}</button>
+    </div>
+  </div>);
+}
 function SignInGate({onAuth,providers={}}){
-  const [mode,setMode]=useState("signup");
-  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false);
+  const [mode,setMode]=useState("signup"); // signup | signin | forgot
+  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
   const oauth=(p)=>{ try{ sessionStorage.setItem("mkGate","1"); }catch{} window.location=`${API_BASE}/auth/${p}`; };
   const submit=async()=>{ setErr(""); setBusy(true);
     try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); }
     catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); setBusy(false); } };
+  const sendReset=async()=>{ setErr(""); setBusy(true);
+    try{ await proxyJSON("/auth/forgot",{method:"POST",body:{email:email.trim()}}); }catch{} finally{ setSent(true); setBusy(false); } };
+  const link={background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5};
   return (<div style={{position:"fixed",inset:0,zIndex:8000,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto"}}>
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:22}}>
@@ -2015,12 +2051,23 @@ function SignInGate({onAuth,providers={}}){
       {providers.apple && <button onClick={()=>oauth("apple")} style={{...gateBtn,background:"#000",color:"#fff",marginTop:10}}> Continue with Apple</button>}
       {!showEmail
         ? <button onClick={()=>setShowEmail(true)} style={{...gateBtn,background:"transparent",color:"#EFE9DB",border:"1px solid rgba(255,255,255,.3)",marginTop:10}}>Continue with email</button>
-        : (<div style={{marginTop:14}}>
+        : mode==="forgot"
+          ? (<div style={{marginTop:14}}>
+              {sent
+                ? <div style={{fontSize:13,color:"#B7C7B7",lineHeight:1.5,textAlign:"center"}}>If an account exists for that email, we've sent a reset link. Check your inbox (and spam).</div>
+                : (<>
+                    <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+                    <button disabled={busy} onClick={sendReset} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":"Send reset link"}</button>
+                  </>)}
+              <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}><button onClick={()=>{setMode("signin");setErr("");setSent(false);}} style={link}>Back to sign in</button></div>
+            </div>)
+          : (<div style={{marginTop:14}}>
             {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4}}>{err}</div>}
             <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
             <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
             <button disabled={busy} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
-            <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={{background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5}}>{mode==="signup"?"Sign in":"Create one"}</button></div>
+            {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
+            <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
       <div style={{textAlign:"center",fontSize:11,color:"#8FA394",marginTop:18,lineHeight:1.5}}>Free to use. A membership unlocks the map, the full ranked list, discovery, the fly advisor and routes.</div>
     </div>
@@ -2223,7 +2270,7 @@ function DepthFish({sec,logged}){
     <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size sharpen as anglers log catches and notes.</div>
   </div>);
 }
-function CatchForm({sec, signedIn}){
+function CatchForm({sec, signedIn, compact}){
   const [open,setOpen]=useState(false); const [sp,setSp]=useState((sec.species&&sec.species[0])||"BNT");
   const [size,setSize]=useState(""); const [done,setDone]=useState(false); const [busy,setBusy]=useState(false);
   if(!API_BASE) return null;
@@ -2233,8 +2280,9 @@ function CatchForm({sec, signedIn}){
     try{ await proxyJSON("/catches",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,species:SPECIES[sp]?SPECIES[sp].name:sp,sizeInches:size?+size:null}}); setDone(true); }
     catch{ setBusy(false); } };
   const inp={padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14};
-  if(!open) return (<button onClick={()=>setOpen(true)} style={{...btnBig,marginTop:10,borderColor:C.brass,color:C.pine}}><Icon name="plus" size={15}/>Log a catch</button>);
-  return (<div style={{marginTop:10,padding:12,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10}}>
+  const pillBtn={display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,cursor:"pointer",whiteSpace:"nowrap"};
+  if(!open) return (<button onClick={()=>setOpen(true)} style={compact?pillBtn:{...btnBig,marginTop:10,borderColor:C.brass,color:C.pine}}><Icon name="plus" size={compact?13:15}/>Log a catch</button>);
+  return (<div style={{marginTop:10,padding:12,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10,...(compact?{width:"100%",boxSizing:"border-box"}:{})}}>
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
       <select value={sp} onChange={e=>setSp(e.target.value)} style={inp}>{
         // Offer every species (you can catch anything), with this reach's likely
@@ -2248,44 +2296,46 @@ function CatchForm({sec, signedIn}){
   </div>);
 }
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
-function Advisor({ev,m,premium=true,onUpgrade}){
-  const [open,setOpen]=useState(false);
-  const panelRef=useRef(null);
+// The expanded fly/strategy content, shared by the card and the map panel.
+function AdvisorPanel({ev,m}){
+  const ref=useRef(null);
   const a=useMemo(()=>advise(ev,m),[ev,m]);
-  // When the panel opens, scroll it into view so it's obvious it expanded (long
-  // cards otherwise expand below the fold and look like nothing happened).
-  useEffect(()=>{ if(open&&panelRef.current) panelRef.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[open]);
+  useEffect(()=>{ if(ref.current) ref.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[]);
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
+  return (<div ref={ref} style={{marginTop:12}}>
+    <AdvHead t="Recommended techniques"/>
+    <ul style={{margin:"0 0 14px",paddingLeft:18}}>
+      {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
+    </ul>
+    <AdvHead t="Recommended flies"/>
+    <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
+      {a.flies.map((f,i)=>(<div key={i}>
+        <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
+          <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
+          {tag(f.size,true)}{tag(f.color)}
+          <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
+            style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>
+        </div>
+        <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
+      </div>))}
+    </div>
+    {a.strategy.length>0 && (<><AdvHead t={SPECIES[ev.target].name+" strategy"}/>
+      <div style={{marginBottom:a.note?12:0}}>
+        {a.strategy.map((s,i)=>(<div key={i} style={{marginBottom:9}}>
+          <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brick,marginBottom:1}}>{s.label}</div>
+          <div style={{fontSize:12.5,color:C.text,lineHeight:1.45}}>{s.text}</div>
+        </div>))}
+      </div></>)}
+    {a.note && <div style={{padding:"9px 11px",background:`${C.brass}1f`,border:`1px solid ${C.brass}66`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>{a.note}</div>}
+  </div>);
+}
+function Advisor({ev,m,premium=true,onUpgrade}){
+  const [open,setOpen]=useState(false);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
     <button onClick={()=> premium ? setOpen(o=>{ if(!o) logEvent("view_reach",ev.sec.id,{via:"advisor"}); return !o; }) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
       cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
-    {open && premium && (<div ref={panelRef} style={{marginTop:12}}>
-      <AdvHead t="Recommended techniques"/>
-      <ul style={{margin:"0 0 14px",paddingLeft:18}}>
-        {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
-      </ul>
-      <AdvHead t="Recommended flies"/>
-      <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
-        {a.flies.map((f,i)=>(<div key={i}>
-          <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
-            <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
-            {tag(f.size,true)}{tag(f.color)}
-            <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
-              style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>
-          </div>
-          <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
-        </div>))}
-      </div>
-      {a.strategy.length>0 && (<><AdvHead t={SPECIES[ev.target].name+" strategy"}/>
-        <div style={{marginBottom:a.note?12:0}}>
-          {a.strategy.map((s,i)=>(<div key={i} style={{marginBottom:9}}>
-            <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brick,marginBottom:1}}>{s.label}</div>
-            <div style={{fontSize:12.5,color:C.text,lineHeight:1.45}}>{s.text}</div>
-          </div>))}
-        </div></>)}
-      {a.note && <div style={{padding:"9px 11px",background:`${C.brass}1f`,border:`1px solid ${C.brass}66`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>{a.note}</div>}
-    </div>)}
+    {open && premium && <AdvisorPanel ev={ev} m={m}/>}
   </div>);
 }
 function SaveButton({saved,onClick}){
@@ -2295,44 +2345,50 @@ function SaveButton({saved,onClick}){
 }
 function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged,trend}){
   const sec=ev.sec, cd=ev.cond;
+  const [panel,setPanel]=useState(null); // "adv" | "depth" | null
+  const toggle=(p)=>setPanel(cur=>cur===p?null:p);
+  const stat=(label,val,sub)=>(<div><span style={{fontFamily:sans,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.textFaint}}>{label}</span> <b style={{fontFamily:serif,fontSize:15,color:C.pine}}>{val}</b>{sub?<span style={{fontSize:11,color:C.textDim}}> {sub}</span>:null}</div>);
+  const bottomBtn=(active)=>({display:"flex",alignItems:"center",justifyContent:"center",gap:6,flex:1,fontFamily:sans,fontSize:12.5,fontWeight:700,padding:"10px",borderRadius:9,cursor:"pointer",border:`1px solid ${active?C.brass:C.line}`,background:active?`${C.brass}18`:C.bone,color:C.pine});
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
-    <div style={{display:"flex",gap:14}}>
+    {/* Header: clean — river, section, gauge (no No.X, no species pills) */}
+    <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"baseline",gap:8}}>
-          <span style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.brass}}>No.{rank}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
           <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</span>
+          {trend && trend.score>=0.6 && <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",color:C.brick,border:`1px solid ${C.brick}55`,background:`${C.brick}12`,borderRadius:20,padding:"2px 8px"}}><Icon name="fly" size={11}/>Trending</span>}
         </div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
-        <div style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:ev.source==="auto"?C.textDim:C.pine,marginTop:4}}>{sourceBadge(ev.source)}</div>
-        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
-          <Pill k={ev.target}/>{sec.species.filter(k=>k!==ev.target).slice(0,2).map(k=><Pill key={k} k={k} dim/>)}
-          {trend && trend.score>=0.6 && <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.5,textTransform:"uppercase",color:C.brick,border:`1px solid ${C.brick}55`,background:`${C.brick}12`,borderRadius:20,padding:"2px 8px"}}><Icon name="fly" size={11}/>Trending</span>}
-          {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
-          <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
-            style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"3px 10px",background:C.bone}}><Icon name="map" size={13}/>Directions</a>
-        </div>
       </div>
       <Gauge value={ev.opportunity} label="Opportunity"/>
     </div>
-    <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"14px 0 0"}}>{ev.explanation}</p>
+    <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"12px 0 0"}}>{ev.explanation}</p>
     <ConditionsStrip cond={cd}/>
-    <DepthFish sec={sec} logged={logged}/>
-    <CatchForm sec={sec} signedIn={signedIn}/>
-    <div style={{display:"flex",gap:18,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
-      <MiniStat label="Overall" value={ev.overall}/>
-      <MiniStat label="Confidence" value={ev.confidence} sub={confLabel(ev.confidence)}/>
-      <div style={{flex:1}}/>
-      <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,textAlign:"right",lineHeight:1.5}}>
-        {SPECIES[ev.target].mode}{cd.live?" · live":cd.cached?" · last-known":" · modeled"}
+    {/* Score breakdown — moved directly under the conditions box */}
+    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`}}>
+      <div style={{display:"flex",gap:18,marginBottom:9,flexWrap:"wrap"}}>{stat("Overall",ev.overall)}{stat("Confidence",ev.confidence,confLabel(ev.confidence))}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
+        <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
+        <Bar label="Habitat" value={ev.parts.habitat}/>
       </div>
     </div>
-    <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:5}}>
-      <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
-      <Bar label="Seasonal" value={ev.parts.seasonal}/><Bar label="Time" value={ev.parts.time}/>
-      <Bar label="Habitat" value={ev.parts.habitat}/>
+    {/* Three actions */}
+    <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+      {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
+      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
+        style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,whiteSpace:"nowrap"}}><Icon name="map" size={13}/>Directions</a>
+      <CatchForm sec={sec} signedIn={signedIn} compact/>
     </div>
-    <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
+    {/* Two expandable sections */}
+    <div style={{display:"flex",gap:8,marginTop:12}}>
+      <button onClick={()=> premium ? toggle("adv") : (onUpgrade&&onUpgrade())} style={bottomBtn(panel==="adv")}>
+        <Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={13} style={{transform:panel==="adv"?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
+      <button onClick={()=>toggle("depth")} style={bottomBtn(panel==="depth")}>
+        <Icon name="pin" size={15}/>Depth &amp; fish<Icon name="chevron" size={13} style={{transform:panel==="depth"?"rotate(180deg)":"none",transition:"transform .2s"}}/></button>
+    </div>
+    {panel==="adv" && premium && <AdvisorPanel ev={ev} m={m}/>}
+    {panel==="depth" && <DepthFish sec={sec} logged={logged}/>}
   </div>);
 }
 function NotesBlock({month,season,top,live,cached,manual,status,now}){
