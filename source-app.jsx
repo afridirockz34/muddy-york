@@ -1232,7 +1232,6 @@ export default function App(){
   const [adminOpen,setAdminOpen]=useState(false);
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
-  const [authOpen,setAuthOpen]=useState(false);
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [resetToken,setResetToken]=useState(()=>{ try{ return new URLSearchParams(window.location.search).get("reset"); }catch{ return null; } });
   const [flash,setFlash]=useState("");
@@ -1256,7 +1255,7 @@ export default function App(){
   const isPremium = !API_BASE || isPremiumMe(me);
   // A free user tapping a locked feature goes straight to the subscription page;
   // a signed-out user (edge case) gets the account/sign-in screen.
-  const openUpgrade=useCallback(()=>{ if(signedInRef.current) setCheckoutPlan("annual"); else setAuthOpen(true); },[]);
+  const openUpgrade=useCallback(()=>setCheckoutPlan("annual"),[]);
   const openCheckout=useCallback((plan="annual")=>setCheckoutPlan(plan),[]);
   // Mandatory sign-in gate: arm while signed out, so that once the user signs in
   // (here or via OAuth redirect) we show the subscription option once. They can
@@ -1502,7 +1501,9 @@ export default function App(){
     return [...curated,...auto].sort((a,b)=>b.opportunity-a.opportunity);
   },[month,now,condFor,discovered,catchActivity]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
-  const top3=ranked.slice(0,3), honourable=ranked.slice(3,6);
+  // When a location is set, only show water within the chosen radius.
+  const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
+  const top3=rankedNear.slice(0,3), honourable=rankedNear.slice(3,6);
   const warmAny=ranked.some(r=>r.warmStress);
 
   const fmtTime=d=>d?d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"—";
@@ -1556,7 +1557,7 @@ export default function App(){
             <Icon name="alert" size={22}/>
             {notifs.unread>0 && <span style={{position:"absolute",top:1,right:1,minWidth:16,height:16,padding:"0 4px",borderRadius:9,background:C.brick,color:"#fff",fontFamily:sans,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{notifs.unread>9?"9+":notifs.unread}</span>}
           </button>}
-          {API_BASE && <AccountButton me={me} onClick={()=>setAuthOpen(true)}/>}
+          {API_BASE && <AccountButton me={me} onClick={()=>setTab("account")}/>}
           <button aria-label="Menu" onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="menu" size={23}/></button>
         </div>
       </div>
@@ -1574,12 +1575,12 @@ export default function App(){
         {/* ===================== RIVERS TAB ===================== */}
         {tab==="rivers" && (<>
           <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-            <button onClick={requestLocation} style={{...btnBig,borderColor:userLoc?C.pine:C.line,color:userLoc?C.pine:C.textDim}}>
-              <Icon name="pin" size={15}/>{locStatus==="locating"?"Locating…":userLoc?"Located":"Use my location"}</button>
-            {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btnBig,borderColor:C.brass,color:C.pine}}>
-              <Icon name="search" size={15}/>{!isPremium?"Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`${discovered.length} spots found`:"Find water near me"}</button>}
-            <button onClick={loadWeather} style={{...btnBig,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={15}/>Refresh</button>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+            <button onClick={requestLocation} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:userLoc?C.pine:C.line,color:userLoc?C.pine:C.textDim}}>
+              <Icon name="pin" size={13}/>{locStatus==="locating"?"Locating…":userLoc?"Located":"Use my location"}</button>
+            {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine}}>
+              <Icon name="search" size={13}/>{!isPremium?"Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`${discovered.length} spots found`:"Find water near me"}</button>}
+            <button onClick={loadWeather} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={13}/>Refresh</button>
           </div>
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
           {locStatus==="denied" && <div style={hint}>Location is blocked — enable it in Settings ▸ Safari ▸ Location.</div>}
@@ -1594,9 +1595,10 @@ export default function App(){
             : (<>
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
+              {userLoc && rankedNear.length===0 && <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:14,padding:"13px 14px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>No mapped water within {radiusLabel(radiusM)} of you. Widen your search radius from the menu to see more.</div>}
               {/* Free tier: the top 3 ranked reaches are open; deeper water is locked. */}
               {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
-              <SectionTitle t="More water nearby"/>
+              {honourable.length>0 && (<><SectionTitle t="More water nearby"/>
               <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
                 <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
                   {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
@@ -1604,7 +1606,7 @@ export default function App(){
                     <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
                     <Pill k={ev.target}/></div>))}
                 </div>
-              </Locked>
+              </Locked></>)}
             </>)}
         </>)}
 
@@ -1616,6 +1618,7 @@ export default function App(){
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
+        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onCheckout={openCheckout}/>}
       </div>
 
       {/* Bottom tab bar */}
@@ -1626,7 +1629,7 @@ export default function App(){
       </div>
 
       {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
-        onAccount={()=>{setDrawerOpen(false); if(API_BASE) setAuthOpen(true);}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}
+        onAccount={()=>{setDrawerOpen(false); if(API_BASE) setTab("account");}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}
         onBoard={API_BASE?()=>{setDrawerOpen(false);setBoardOpen(true);}:null}
         onAdmin={(me&&me.isAdmin)?()=>{setDrawerOpen(false);setAdminOpen(true);}:null}/>}
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
@@ -1637,7 +1640,6 @@ export default function App(){
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
-      {authOpen && <AuthModal me={me} onClose={()=>setAuthOpen(false)} onAuth={refreshMe} onCheckout={openCheckout}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
     </div>
@@ -1929,53 +1931,30 @@ function AlertPrefs(){
     <div style={note}>Alerts fire for your saved water when its opportunity score crosses this threshold.</div>
   </div>);
 }
-function AuthModal({me,onClose,onAuth,onCheckout}){
-  const signedIn=me&&me.user;
+// Account is a normal in-frame page (top bar + bottom nav stay visible), reached
+// from the account button or drawer — not a pop-up.
+function AccountView({me,onAuth,onCheckout}){
   const premium=isPremiumMe(me);
-  const [mode,setMode]=useState("signin");
-  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
-  const inp={width:"100%",padding:"10px 12px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
-  const submit=async()=>{ setErr(""); setBusy(true);
-    try{ const wasSignup=mode==="signup"; await proxyJSON(wasSignup?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); onClose();
-      // Onboarding: new accounts go straight to the card-required trial checkout.
-      if(wasSignup&&onCheckout) onCheckout("annual"); }
-    catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); }
-    finally{ setBusy(false); } };
-  const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); onClose(); };
-  const startCheckout=(plan)=>{ onClose(); if(onCheckout) onCheckout(plan); };
+  const [err,setErr]=useState("");
+  const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
+  const startCheckout=(plan)=> onCheckout&&onCheckout(plan);
   const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
-  return (<div style={{position:"fixed",inset:0,background:C.panel,zIndex:3000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-    <div style={{width:"100%",maxWidth:520,margin:"0 auto",boxSizing:"border-box",padding:"calc(16px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-        <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine}}>{signedIn?"Your account":mode==="signup"?"Create account":"Sign in"}</div>
-        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
-      </div>
-      {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
-      {signedIn ? (<div style={{marginTop:12}}>
-        <div style={{fontSize:13,color:C.text}}>{me.user.email}</div>
-        <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
-        {!premium ? (<div style={{marginTop:14}}>
-          <div style={{fontSize:12.5,color:C.text,marginBottom:8,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots Ontario-wide, the full live map, fly strategies and a personal guide, from just {planPrice("monthly")}. A growing community, so your map keeps getting better. No charge today.</div>
-          <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"10px"}}>Start trial — annual {planPrice("annual")}</button>
-          <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
-        </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"9px",marginTop:14}}>Manage subscription</button>)}
-        <AvatarEditor me={me} onAuth={onAuth}/>
-        <DisplayNameEditor me={me} onAuth={onAuth}/>
-        <BlockedAnglers/>
-        <AlertPrefs/>
-        <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"9px",marginTop:14}}>Sign out</button>
-      </div>) : (<div style={{marginTop:12}}>
-        <a href={`${API_BASE}/auth/google`} style={{...btn,borderColor:C.pine,color:C.pine,width:"100%",padding:"10px",display:"block",textAlign:"center",textDecoration:"none",boxSizing:"border-box"}}>Continue with Google</a>
-        <div style={{textAlign:"center",fontSize:11,color:C.textFaint,margin:"12px 0"}}>or with email</div>
-        <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
-        <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)}/>
-        <button disabled={busy} onClick={submit} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account & start trial":"Sign in"}</button>
-        <div style={{textAlign:"center",marginTop:12,fontSize:12,color:C.textDim}}>
-          {mode==="signup"?"Already have an account? ":"New here? "}
-          <button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",textDecoration:"underline",fontSize:12}}>{mode==="signup"?"Sign in":"Create one — 14-day free trial"}</button>
-        </div>
-      </div>)}
-    </div>
+  if(!(me&&me.user)) return null;
+  return (<div>
+    <SectionTitle t="Your account"/>
+    <div style={{fontSize:13.5,color:C.text}}>{me.user.email}</div>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
+    {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
+    {!premium ? (<div style={{marginTop:14}}>
+      <div style={{fontSize:12.5,color:C.text,marginBottom:8,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots Ontario-wide, the full live map, fly strategies and a personal guide, from just {planPrice("monthly")}. A growing community, so your map keeps getting better. No charge today.</div>
+      <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px"}}>Start trial — annual {planPrice("annual")}</button>
+      <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
+    </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:14}}>Manage subscription</button>)}
+    <AvatarEditor me={me} onAuth={onAuth}/>
+    <DisplayNameEditor me={me} onAuth={onAuth}/>
+    <BlockedAnglers/>
+    <AlertPrefs/>
+    <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"10px",marginTop:16,marginBottom:8}}>Sign out</button>
   </div>);
 }
 function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
@@ -2081,7 +2060,7 @@ function NotifPanel({data,onClose,onGoNews,onOpenProfile}){
   const list=(data&&data.notifications)||[];
   const when=(iso)=>{ const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
     if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
-  const act=(n)=>{ if(n.type==="follow"&&n.actorId&&onOpenProfile) onOpenProfile(n.actorId); else onGoNews&&onGoNews(); };
+  const act=(n)=>{ if(n.actorId&&onOpenProfile) onOpenProfile(n.actorId); else onGoNews&&onGoNews(); };
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:3200,display:"flex",justifyContent:"flex-end",alignItems:"flex-start"}}>
     <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:380,maxHeight:"84vh",marginTop:"calc(8px + env(safe-area-inset-top))",marginRight:8,overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,boxShadow:"0 12px 40px rgba(0,0,0,.35)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",borderBottom:`1px solid ${C.lineSoft}`}}>
@@ -2300,6 +2279,7 @@ function CatchForm({sec, signedIn, compact}){
       }</select>
       <input style={{...inp,width:110}} type="number" placeholder="size (in)" value={size} onChange={e=>setSize(e.target.value)}/>
       <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}>{busy?"…":"Submit"}</button>
+      <button onClick={()=>setOpen(false)} style={{...btnBig,borderColor:C.line,color:C.textDim,background:"#fff"}}>Cancel</button>
     </div>
     <div style={{fontSize:11,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Attached to this reach only — never your exact location.</div>
   </div>);
@@ -2357,11 +2337,12 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
   const [panel,setPanel]=useState(null); // "adv" | "depth" | null
   const toggle=(p)=>setPanel(cur=>cur===p?null:p);
   const bottomBtn=(active)=>({display:"flex",alignItems:"center",justifyContent:"center",gap:6,flex:1,fontFamily:sans,fontSize:12.5,fontWeight:700,padding:"10px",borderRadius:9,cursor:"pointer",border:`1px solid ${active?C.brass:C.line}`,background:active?`${C.brass}18`:C.bone,color:C.pine});
-  return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:12,position:"relative",overflow:"hidden"}}>
+  return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:16,marginBottom:18,position:"relative",overflow:"hidden"}}>
     <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:scoreColor(ev.opportunity)}}/>
     {/* Header: river, section, actions right under the title; gauge on the right */}
     <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
       <div style={{flex:1,minWidth:0}}>
+        {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
         <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
         <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
