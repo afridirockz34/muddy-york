@@ -37,6 +37,10 @@ export const config = {
     adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
     // Where membership/trial/cancel notifications are sent.
     billingEmail: process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",
+    // Secret used to sign one-click unsubscribe links (HMAC).
+    emailSecret: process.env.EMAIL_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY || "",
+    // Public base URL where the /unsubscribe route is reachable (this backend).
+    unsubBase: process.env.PUBLIC_BACKEND_URL || process.env.RENDER_EXTERNAL_URL || "",
   },
   vapid: {
     // Public key is safe to ship; private key MUST come from env (secret).

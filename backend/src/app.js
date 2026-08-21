@@ -15,6 +15,7 @@ import noteRoutes from "./routes/notes.js";
 import postRoutes from "./routes/posts.js";
 import pushRoutes from "./routes/push.js";
 import stripeWebhookRoutes from "./routes/stripe-webhook.js";
+import unsubscribeRoutes from "./routes/unsubscribe.js";
 import proxyRoutes from "./routes/proxy.js";
 import { requirePremium } from "./billing/require-premium.js";
 
@@ -24,6 +25,7 @@ export function buildApp(opts = {}) {
   app.register(cookie);
   app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
   app.register(stripeWebhookRoutes);
+  app.register(unsubscribeRoutes);
   app.register(authRoutes);
   app.register(googleRoutes);
   app.register(appleRoutes);

@@ -21,6 +21,7 @@ model User {
   trialEnd         DateTime?
   alertEmail       Boolean       @default(true)
   alertThreshold   Int           @default(75)
+  emailOptOut      Boolean       @default(false)
   createdAt        DateTime      @default(now())
   sessions         Session[]
   subscription     Subscription?

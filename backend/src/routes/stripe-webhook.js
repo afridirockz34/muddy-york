@@ -2,6 +2,7 @@ import { config } from "../config.js";
 import { prisma } from "../db.js";
 import { getStripe } from "../billing/stripe.js";
 import { sendMail } from "../alerts/mailer.js";
+import { welcomeEmail, receiptEmail } from "../billing/customer-email.js";
 
 // Notify the business owner about membership lifecycle events.
 function notifyBilling(subject, text) {
@@ -51,6 +52,13 @@ export default async function stripeWebhookRoutes(app) {
         await upsertSubscription(userId, { id: obj.subscription, status: "trialing", priceId: null, currentPeriodEnd: null });
         const u = await prisma.user.findUnique({ where: { id: userId } });
         notifyBilling("New free trial started", `${u?.email || userId} started a 14-day free trial (card on file).`);
+        if (u) welcomeEmail(u).catch(() => {});
+      }
+    } else if (event.type === "invoice.payment_succeeded") {
+      // A paid invoice = send the customer a receipt. Skip $0 trial invoices.
+      if (obj.amount_paid > 0 && obj.customer) {
+        const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });
+        if (user) receiptEmail(user, obj).catch(() => {});
       }
     } else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });
