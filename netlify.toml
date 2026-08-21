@@ -13,3 +13,66 @@
   to = "https://muddy-york.onrender.com/:splat"
   status = 200
   force = true
+
+# publish="." serves the whole repo. Deny direct access to source/dev paths so
+# only the app + SEO pages are reachable. Runtime assets (app.js, /vendor,
+# /assets, /icons, sw.js, manifest) are intentionally NOT blocked.
+[[redirects]]
+  from = "/backend/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/marketing/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/server/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/lib/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/docs/*"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/source-app.jsx"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/build.mjs"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/vitest.config.js"
+  to = "/404"
+  status = 404
+  force = true
