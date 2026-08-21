@@ -525,65 +525,82 @@ async function discoverSecs(loc, radiusM){
    Pure rules engine: turns the live read (water temp, flow/clarity, season,
    target species) into techniques, a recommended fly box, and species tactics. */
 function clarityOf(flow){ return ({"Blown out":"very murky","High / stained":"stained","Normal":"moderate clarity","Low / clear":"clear, low water"})[flow]||"moderate clarity"; }
+// Pick ONE technique for the conditions, then a matched fly box and how-to.
 function advise(ev,m){
   const t=ev.cond.temp, flow=ev.cond.flow, key=ev.target, sp=SPECIES[key];
   const run=sp.mode==="run", season=seasonOf(m), clarity=clarityOf(flow);
   const cold=t<8, cool=t>=8&&t<14, prime=t>=14&&t<=18, warm=t>18;
-  const tech=[];
-  if(flow==="Blown out"){ tech.push("Wait for levels to drop, or work soft edges with heavy streamers"); }
-  else if(run && season!=="Summer"){
-    if(flow==="High / stained") tech.push("Indicator nymphing with eggs & stoneflies","Heavy streamers on the swing");
-    else tech.push("Swinging flies through runs & tailouts","Indicator nymphing the seams");
-    tech.push("Float / centre-pin drifts where legal");
-  } else if(cold){ tech.push("Deep nymphing with split-shot","Euro / tight-line nymphing","Slow streamers along the bottom"); }
-  else if(cool){ tech.push("Euro / tight-line nymphing","Swinging wet flies","Dry-dropper on the seams"); }
-  else if(prime){ tech.push("Dry fly to rising fish","Dry-dropper","Nymphing the runs","Streamers at first & last light"); }
-  else { tech.push("First-light & evening only, light presentations","Work riffles & oxygenated water"); }
+  const lowClear=flow==="Low / clear", highStained=flow==="High / stained", blown=flow==="Blown out";
+  const runFish = run && season!=="Summer";
 
-  const flies=[]; const add=(name,size,color,reason)=>flies.push({name,size,color,reason});
-  if(run && season!=="Summer"){
-    add("Egg pattern / Sucker Spawn","#10–14",flow==="Low / clear"?"pale / natural":"chartreuse / orange","Migratory fish key on eggs through the run.");
-    add(flow==="Low / clear"?"Zebra Midge":"Pat's Rubber Legs",flow==="Low / clear"?"#16–18":"#6–10",flow==="Low / clear"?"black / red":"black / coffee","Anchor nymph matched to the water clarity.");
-    add("Woolly Bugger / Intruder","#4–8",flow==="High / stained"?"black / white":"olive / black","Swung streamer to provoke aggressive takes.");
-  } else if(cold||cool){
-    add("Pheasant Tail Nymph","#14–18","natural","Everyday mayfly nymph; works in "+clarity+".");
-    add(flow==="Low / clear"?"Zebra Midge":"Hare's Ear",flow==="Low / clear"?"#16–20":"#12–16",flow==="Low / clear"?"black / silver":"natural / olive","Subsurface staple sized to the water.");
-    add("Woolly Bugger","#6–10",flow==="High / stained"?"black":"olive / brown","Slow streamer for cold, sluggish fish.");
-  } else if(prime){
-    add(season==="Summer"?"Elk Hair Caddis":"Adams","#14–16","tan / grey","Searching dry for surface-active fish.");
-    add("Blue-Winged Olive","#16–20","olive / dun","On overcast, cool spells BWOs bring fish up.");
-    add("Pheasant Tail dropper","#16","natural","Dropped under the dry to cover both columns.");
-    if(flow!=="Low / clear") add("Muddler / sculpin","#6–8","brown","Low-light streamer for bigger browns.");
-  } else {
-    add("Foam hopper / attractor dry","#10–14","tan","A low-light surface option when it's hot.");
-    add("Small sparse nymph","#18–20","natural","Downsize and fish stealthy in warm, clear water.");
+  // --- choose the primary technique from time / water / weather / season ---
+  let tech, why;
+  if(blown){ tech="streamer"; why="High, dirty water — pull fish with a big, visible streamer worked along the soft edges and slack water."; }
+  else if(runFish){
+    if(highStained){ tech="nymphing"; why=`${sp.name} are running in stained flow — dead-drift eggs and stoneflies through the seams and slots where fish rest.`; }
+    else { tech="swing"; why=`${sp.name} are in the river and it's fishable — swing a fly through the runs and tailouts for a hard grab.`; }
   }
-  if(clarity==="very murky"){ flies.length=Math.min(flies.length,2); add("San Juan Worm","#10","red / pink","High, dirty water — worms drift well and show up."); }
+  else if(warm){ tech="dry-dropper"; why="Water's warm — fish light and high in the column, only at first and last light. Keep fish wet and release fast."; }
+  else if(cold){ tech="nymphing"; why="Cold water: fish sit deep and slow. Get a weighted nymph dead-on-the-bottom and slow everything right down."; }
+  else if(prime){ tech = lowClear ? "dry" : "dry-dropper";
+    why = lowClear ? "Prime temps and clear water — expect fish looking up. A dry fly to working fish is your best shot."
+                   : "Prime temps — fish are active through the column; a dry-dropper covers the surface and just beneath it."; }
+  else { tech="nymphing"; why="Cool water — fish are subsurface but willing. A tight-line or indicator nymph rig covers them best; switch to a dry-dropper if you see risers."; }
 
+  const flies=[]; const add=(name,size,color,role,reason)=>flies.push({name,size,color,role,reason});
   const strat=[]; const row=(label,text)=>strat.push({label,text});
-  if(["BNT","RBT","BKT"].includes(key)){
-    row("Presentation depth", cold||cool?"Drift dead-on-bottom; add weight until you tick gravel.":prime?"Surface to mid-column — follow the hatch; a dry-dropper covers both.":"Keep it shallow, and only at first and last light.");
-    row("Fly selection","Match the hatch in "+clarity+"; switch to attractors when nothing's rising.");
-    row("Retrieve","Dead-drift nymphs and dries; strip streamers slow with pauses, a touch faster as water warms.");
-  } else if(key==="STL"){
-    row("Seasonal tactics", season==="Spring"?"Spawn-run fish hold below the redds — work tailouts and slots, never the redds themselves.":season==="Fall"||season==="Winter"?"Fresh and holding fish stack in deeper slots and pool tails.":"Few fish around — focus dawn and dusk on the coldest water.");
-    row("Fly sizes", flow==="Low / clear"?"Downsize to #12–16 nymphs on light tippet.":"#6–12 eggs, stoneflies and buggers in stained flow.");
-    row("Water conditions","Best on dropping, clearing water a day or two after a rise.");
-  } else if(["CHN","COH"].includes(key)){
-    row("Holding water","Deep pools, log-jam tailouts and current breaks in the lower river.");
-    row("Swing patterns","Large bright streamers / spey flies swung slow through the holding lies.");
-    row("Best runs","Lower-river pools on a fresh push after rain; first light is prime.");
-  } else if(key==="ATS"){
-    row("Approach","Light tippet, small wets and nymphs, low light — and strictly catch-and-release for restoration fish.");
-    row("Water","Cool, oxygenated runs from summer into fall.");
-  } else if(key==="LAT"){
-    row("Approach","Deep, slow presentations — heavy streamers and jigs in the big cold water.");
-    row("Timing","Cold months; fish the seams off the main current.");
+  const eggColor = lowClear ? "pale / natural" : "chartreuse / orange";
+
+  if(tech==="streamer"||tech==="swing"){
+    const swing=tech==="swing";
+    add(highStained||blown?"Woolly Bugger":"Sculpin / Muddler", highStained?"#2–6":"#4–8", highStained||blown?"black / white":"olive / brown","streamer","Big, findable profile that pushes water.");
+    add(swing?"Intruder / Sparkle Leech":"Zonker / Baitfish","#4–8", lowClear?"natural / olive":"black / blue","streamer",swing?"Classic swing pattern with lots of movement.":"Baitfish profile to strip and jerk.");
+    add(lowClear?"Clouser / Slim Minnow":"Complex Twist Bugger","#6–10", lowClear?"white / grey":"black / red","streamer","Change-up when fish follow but won't commit.");
+    row("Rig / leader", swing?"Floating line with a sink-tip in cold or high water; a short, stout 4–6 ft leader of 0X–2X (8–12 lb) to turn the fly over.":"Short 6–7½ ft leader of 0X–2X (8–12 lb). Add a sink-tip or a weighted fly to get down in fast or cold water.");
+    row(swing?"The swing":"The retrieve", swing?"Cast across and slightly downstream, mend to control the speed, and let the fly swing through the lie on a tight line. Most takes come at the hang-down — let it sit before recasting.":"Cast across/down and strip in short 6–12″ pulls with pauses. Slow and jerky when it's cold; faster and steadier as the water warms. Expect the eat on the pause or the drop.");
+    row("Where & when","Work current seams, drop-offs, undercut banks, log-jams and pool tails. Streamers shine at first/last light, under cloud, and right after rain colours the water.");
   }
+  else if(tech==="dry-dropper"){
+    add(season==="Summer"?"Elk Hair Caddis":"Parachute Adams","#12–16","tan / grey","dry","Buoyant dry that doubles as your strike indicator.");
+    add("Foam Hopper / Chubby","#8–12","tan / gold","dry","In summer a hopper draws big eats and floats a heavy dropper.");
+    add(lowClear?"Zebra Midge":"Pheasant Tail","#16–18", lowClear?"black / silver":"natural","nymph","Anchor nymph hung below the dry.");
+    add(lowClear?"Frenchie":"Hare's Ear","#14–16", lowClear?"pink / natural":"natural / olive","nymph","Second dropper or a change-up if the first goes untouched.");
+    row("Rig / leader","9 ft leader to 4–5X for the dry; tie 18–30″ of 5–6X off the dry's hook bend down to the top nymph (add a second nymph 10–12″ below where legal). Only pinch on a tiny shot if you're not ticking bottom.");
+    row("The drift","Cast up and across, land the dry softly, and mend to get a drag-free dead-drift. Set on any pause, twitch or sink of the dry — that's a fish on the dropper.");
+    row("Where & when","Riffles, seams, pockets and any working fish. Best mid-day in cool water and only early/late in the heat.");
+  }
+  else if(tech==="dry"){
+    add(season==="Summer"?"Elk Hair Caddis":"Parachute Adams","#14–18","tan / grey","dry","Searching dry for surface-active fish.");
+    add("Blue-Winged Olive","#16–20","olive / dun","dry","Overcast, cool spells bring BWOs up — match them.");
+    add("Terrestrial — ant / beetle / hopper","#12–18","black / tan","dry","When nothing's hatching, a terrestrial near the bank searches well.");
+    row("Rig / leader","9–12 ft leader tapered to 5–6X (6–7X on flat, clear water) so the fly lands soft and drifts drag-free.");
+    row("Presentation","Cast upstream or up-and-across to a specific riser, landing the fly a couple of feet above it. Mend for a drag-free drift and set gently. Match the size and silhouette of what's hatching before you fuss over the exact pattern.");
+    row("Where & when","Target the rise. Best from late morning through evening in prime temps — the evening rise is often the day's best window.");
+  }
+  else { // nymphing
+    if(runFish){
+      add("Egg / Sucker Spawn","#8–14",eggColor,"nymph","Migratory fish key on eggs through the run.");
+      add(highStained?"Pat's Rubber Legs / Stonefly":"Hare's Ear",highStained?"#6–10":"#12–16",highStained?"black / coffee":"natural","nymph","A bug to trail behind the egg.");
+      add(lowClear?"Zebra Midge":"Prince / Copper John","#14–18", lowClear?"black / red":"natural / copper","nymph","Small trailer for clear water or picky fish.");
+    } else {
+      add("Pheasant Tail","#14–18","natural","nymph","Everyday mayfly nymph that works in "+clarity+".");
+      add(lowClear?"Zebra Midge":"Hare's Ear",lowClear?"#16–20":"#12–16",lowClear?"black / silver":"natural / olive","nymph","Anchor nymph sized to the water.");
+      add(lowClear?"Perdigon":"Frenchie","#14–16", lowClear?"natural":"pink hot-spot","nymph","Heavier bead to get down fast in the seams.");
+    }
+    row("Rig / leader","Tight-line/euro: ~10 ft leader, 2–3 ft of 4–6X to a heavy point fly with a lighter dropper 16–20″ up. Indicator: set it ~1.5–2× the water's depth above the flies and add shot until you tick bottom.");
+    row("Depth & drift","The flies must be dead-on-the-bottom, drifting at the current's pace — add weight until you occasionally tick gravel (most anglers fish too shallow). Lead the flies through the seam drag-free and set on any hesitation.");
+    row("Where & when","Cover seams, riffle tails and the slots beside faster water where fish hold. Fishes all day; prime in cool and cold water.");
+  }
+
+  if(runFish && key==="STL" && season==="Spring") row("Ethics","Spawn-run steelhead hold below the redds — fish the tailouts and slots, never the redds themselves.");
+  if(key==="ATS") row("Ethics","Atlantic salmon are a restoration fishery — strictly catch-and-release, barbless, and handle them minimally.");
+
   let note=null;
   if(warm) note="Water's warm — if you do fish, keep them wet, land them fast and release quickly. Often the right call is to rest the trout.";
-  else if(flow==="Blown out") note="Most water is unfishable until it drops — give it a day.";
-  return {clarity, techniques:tech.slice(0,4), flies:flies.slice(0,4), strategy:strat, note};
+  else if(blown) note="Most water is unfishable until it drops — give it a day, then fish the drop.";
+
+  const techLabel={streamer:"Streamers",swing:"Swinging streamers","dry-dropper":"Dry-dropper",dry:"Dry fly",nymphing:"Nymphing"}[tech];
+  return {clarity, technique:{name:techLabel, why}, flies:flies.slice(0,4), strategy:strat, note};
 }
 
 /* ===================== HYPERLOCAL FEED (client-side) =====================
@@ -675,7 +692,13 @@ function buildFeed(ranked, userLoc, savedIds, now){
     ts, relevance:4, saved:false });
 
   items.sort((a,b)=>b.relevance-a.relevance);
-  return items.slice(0,18);
+  // Stagger the auto-items over the last ~8 hours (most relevant = most recent)
+  // instead of all sharing "now" — so the feed reads like a natural timeline and
+  // older items drift down and off rather than piling up together.
+  const kept=items.slice(0,16);
+  const nowMs=now.getTime();
+  kept.forEach((it,i)=>{ it.ts=new Date(nowMs - i*31*60000).toISOString(); });
+  return kept;
 }
 
 function scoreColor(v){ return v>=70?C.cyan:v>=45?C.amber:C.red; }
@@ -1345,6 +1368,7 @@ export default function App(){
   const discoverNearby=useCallback(async(r)=>{
     if(!userLoc){ requestLocation(); return; }
     logEvent("discover",null,{radiusM:r||radiusM});
+    setDiscovered([]); // drop stale spots from the previous radius immediately
     setDiscoStatus("loading");
     const out=await discoverSecs(userLoc, r||radiusM);
     if(out==null){ setDiscoStatus("error"); return; }
@@ -1593,6 +1617,11 @@ export default function App(){
           {riversView==="map" && isPremium
             ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
             : (<>
+              {discoStatus==="loading" && (<div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:10,padding:"26px 16px",marginBottom:14,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14}}>
+                <div style={{animation:"pulse 1.4s ease-in-out infinite"}}><Avatar src="icons/crest.png" size={64}/></div>
+                <div style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine}}>Scouting…</div>
+                <div style={{fontSize:13,color:C.textDim,maxWidth:280,lineHeight:1.5}}>Finding the best rivers around you within {radiusLabel(radiusM)}. Your top picks are ready below.</div>
+              </div>)}
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
               {userLoc && rankedNear.length===0 && <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:14,padding:"13px 14px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>No mapped water within {radiusLabel(radiusM)} of you. Widen your search radius from the menu to see more.</div>}
@@ -1973,13 +2002,15 @@ function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
       <div style={{background:C.panel,padding:"16px 16px 18px",borderBottom:`1px solid ${C.lineSoft}`}}>
         <div style={{display:"flex",justifyContent:"flex-end"}}><button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={20}/></button></div>
         {!prof ? <div style={{padding:"10px 0",fontSize:13,color:C.textFaint,textAlign:"center"}}>{data&&data.error?"Couldn't load this angler.":"Loading…"}</div>
-          : (<div style={{display:"flex",alignItems:"center",gap:14}}>
-            <Avatar src={prof.avatarUrl} size={64}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine}}>{prof.displayName}</div>
-              <div style={{display:"flex",gap:18,marginTop:8}}>{stat(prof.postCount,"Posts")}{stat(prof.followerCount,"Followers")}{stat(prof.followingCount,"Following")}</div>
+          : (<div>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <Avatar src={prof.avatarUrl} size={64}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine}}>{prof.displayName}</div>
+                <div style={{display:"flex",gap:18,marginTop:8,flexWrap:"wrap"}}>{stat(prof.postCount,"Posts")}{stat(prof.followerCount,"Followers")}{stat(prof.followingCount,"Following")}</div>
+              </div>
             </div>
-            {!prof.isMe && <button disabled={busy} onClick={toggleFollow} style={{...btn,padding:"9px 16px",borderColor:prof.isFollowing?C.line:C.brick,background:prof.isFollowing?"#fff":C.brick,color:prof.isFollowing?C.pine:C.bone,opacity:busy?0.6:1}}>{prof.isFollowing?"Following":"Follow"}</button>}
+            {!prof.isMe && <button disabled={busy} onClick={toggleFollow} style={{...btn,width:"100%",padding:"11px",marginTop:14,borderColor:prof.isFollowing?C.line:C.brick,background:prof.isFollowing?"#fff":C.brick,color:prof.isFollowing?C.pine:C.bone,opacity:busy?0.6:1}}>{prof.isFollowing?"Following":"Follow"}</button>}
           </div>)}
       </div>
       <div style={{padding:"14px 14px 20px",maxHeight:"60vh",overflowY:"auto"}}>
@@ -2292,24 +2323,26 @@ function AdvisorPanel({ev,m}){
   useEffect(()=>{ if(ref.current) ref.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[]);
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
+  const roleTag={dry:"Dry",nymph:"Nymph / dropper",streamer:"Streamer"};
   return (<div ref={ref} style={{marginTop:12}}>
-    <AdvHead t="Recommended techniques"/>
-    <ul style={{margin:"0 0 14px",paddingLeft:18}}>
-      {a.techniques.map((x,i)=><li key={i} style={{fontSize:12.5,color:C.text,marginBottom:3,lineHeight:1.45}}>{x}</li>)}
-    </ul>
-    <AdvHead t="Recommended flies"/>
+    <AdvHead t="Recommended approach"/>
+    <div style={{marginBottom:14,padding:"11px 12px",background:C.bone,border:`1px solid ${C.brass}66`,borderRadius:8}}>
+      <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,marginBottom:3}}>{a.technique.name}</div>
+      <div style={{fontSize:12.5,color:C.text,lineHeight:1.5}}>{a.technique.why}</div>
+    </div>
+    <AdvHead t={"Flies to tie on ("+SPECIES[ev.target].name+")"}/>
     <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
       {a.flies.map((f,i)=>(<div key={i}>
         <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
           <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
-          {tag(f.size,true)}{tag(f.color)}
+          {f.role&&tag(roleTag[f.role]||f.role)}{tag(f.size,true)}{tag(f.color)}
           <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
             style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>
         </div>
         <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
       </div>))}
     </div>
-    {a.strategy.length>0 && (<><AdvHead t={SPECIES[ev.target].name+" strategy"}/>
+    {a.strategy.length>0 && (<><AdvHead t="How to fish it"/>
       <div style={{marginBottom:a.note?12:0}}>
         {a.strategy.map((s,i)=>(<div key={i} style={{marginBottom:9}}>
           <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brick,marginBottom:1}}>{s.label}</div>
