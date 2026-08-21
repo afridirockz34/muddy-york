@@ -44,6 +44,16 @@ function logEvent(type,ref,meta){
 }
 if(typeof window!=="undefined") window.addEventListener("pagehide",flushEvents);
 
+/* ---- PWA install: capture Android/Chrome's install event before React mounts,
+   so the "Add to Home Screen" button can trigger the native prompt on demand. */
+let _deferredInstall=null;
+if(typeof window!=="undefined"){
+  window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); _deferredInstall=e; window.dispatchEvent(new Event("mk-installable")); });
+  window.addEventListener("appinstalled",()=>{ _deferredInstall=null; try{localStorage.setItem("mkInstalled","1");}catch{} });
+}
+const isStandalonePWA=()=> typeof window!=="undefined" && (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true);
+const isIOSDevice=()=> typeof navigator!=="undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent);
+
 /* ---- Web Push (prime-condition alerts) ---- */
 function pushSupported(){ return typeof navigator!=="undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
 function urlB64ToU8(base64){
@@ -1236,6 +1246,52 @@ function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, perso
   </div>);
 }
 
+/* First-visit "Add to Home Screen" banner. Android/Chrome fires the native
+   prompt; iOS Safari gets step-by-step instructions (no native prompt exists). */
+function InstallPrompt(){
+  const [show,setShow]=useState(false);
+  const [ios,setIos]=useState(false);
+  const [canPrompt,setCanPrompt]=useState(!!_deferredInstall);
+  useEffect(()=>{
+    if(isStandalonePWA()) return;                                  // already installed
+    try{ if(localStorage.getItem("mkInstalled")==="1") return; }catch{}
+    try{ if(localStorage.getItem("mkInstallDismiss")==="1") return; }catch{}
+    const iosDev=isIOSDevice();
+    setIos(iosDev);
+    const onInstallable=()=>setCanPrompt(true);
+    window.addEventListener("mk-installable",onInstallable);
+    // Show once the visitor has had a moment with the app.
+    const t=setTimeout(()=>{ if(iosDev || _deferredInstall) setShow(true); },3500);
+    return ()=>{ clearTimeout(t); window.removeEventListener("mk-installable",onInstallable); };
+  },[]);
+  const dismiss=()=>{ setShow(false); try{localStorage.setItem("mkInstallDismiss","1");}catch{} };
+  const install=async()=>{
+    if(!_deferredInstall) return;
+    try{ _deferredInstall.prompt(); await _deferredInstall.userChoice; }catch{}
+    _deferredInstall=null; dismiss();
+  };
+  if(!show) return null;
+  return (<div style={{position:"fixed",left:12,right:12,bottom:"calc(64px + env(safe-area-inset-bottom))",zIndex:4000,
+    background:C.ink2,border:`1.5px solid ${C.brass}`,borderRadius:14,boxShadow:"0 10px 34px rgba(0,0,0,.4)",padding:"14px 15px",
+    display:"flex",gap:12,alignItems:"flex-start",maxWidth:460,margin:"0 auto"}}>
+    <img src="icons/crest.png" alt="" width={40} height={40} style={{borderRadius:9,flexShrink:0}}/>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.bone,marginBottom:3}}>Add Muddy York to your home screen</div>
+      {ios ? (
+        <div style={{fontSize:12.5,color:C.headDim,lineHeight:1.5}}>
+          Tap the <b style={{color:C.bone}}>Share</b> icon <span style={{fontFamily:sans}}>⬆️</span> in Safari, then <b style={{color:C.bone}}>Add to Home Screen</b> — it opens full-screen like an app, no App Store needed.
+        </div>
+      ) : (
+        <>
+          <div style={{fontSize:12.5,color:C.headDim,lineHeight:1.5,marginBottom:10}}>Install it for one-tap access and a full-screen, app-like experience.</div>
+          <button onClick={install} style={{fontFamily:sans,fontSize:12.5,fontWeight:700,letterSpacing:0.3,padding:"8px 16px",borderRadius:8,cursor:"pointer",background:C.brass,border:"none",color:C.pine}}>Add to Home Screen</button>
+        </>
+      )}
+    </div>
+    <button onClick={dismiss} aria-label="Dismiss" style={{background:"none",border:"none",cursor:"pointer",color:C.headDim,fontSize:20,lineHeight:1,padding:2,flexShrink:0}}>×</button>
+  </div>);
+}
+
 export default function App(){
   const [now,setNow]=useState(new Date());
   const [wx,setWx]=useState({});                 // id -> parsed station
@@ -1671,6 +1727,7 @@ export default function App(){
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
+      {!(API_BASE && me && !me.user) && !resetToken && <InstallPrompt/>}
     </div>
   );
 }
