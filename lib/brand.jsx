@@ -33,6 +33,7 @@ const ICONS = {
   widen: '<path d="M12 4v16M4 12h16"/><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/>',
   lock: '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
+  download: '<path d="M12 3.5v11M8 10.5l4 4 4-4"/><path d="M5 19.5h14"/>',
 };
 export const ICON_NAMES = Object.keys(ICONS);
 export function iconPath(name) { return ICONS[name] || ""; }

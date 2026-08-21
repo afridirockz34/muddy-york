@@ -1250,18 +1250,24 @@ function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, perso
    prompt; iOS Safari gets step-by-step instructions (no native prompt exists). */
 function InstallPrompt(){
   const [show,setShow]=useState(false);
-  const [ios,setIos]=useState(false);
+  const [ios,setIos]=useState(isIOSDevice());
   const [canPrompt,setCanPrompt]=useState(!!_deferredInstall);
+  // Always-on: let the drawer's "Install app" item force the prompt open, even
+  // after it's been auto-dismissed.
+  useEffect(()=>{
+    const onOpen=()=>{ setIos(isIOSDevice()); setShow(true); };
+    window.addEventListener("mk-open-install",onOpen);
+    return ()=>window.removeEventListener("mk-open-install",onOpen);
+  },[]);
+  // First-visit auto prompt (skipped once installed or dismissed).
   useEffect(()=>{
     if(isStandalonePWA()) return;                                  // already installed
     try{ if(localStorage.getItem("mkInstalled")==="1") return; }catch{}
     try{ if(localStorage.getItem("mkInstallDismiss")==="1") return; }catch{}
-    const iosDev=isIOSDevice();
-    setIos(iosDev);
     const onInstallable=()=>setCanPrompt(true);
     window.addEventListener("mk-installable",onInstallable);
     // Show once the visitor has had a moment with the app.
-    const t=setTimeout(()=>{ if(iosDev || _deferredInstall) setShow(true); },3500);
+    const t=setTimeout(()=>{ if(isIOSDevice() || _deferredInstall) setShow(true); },3500);
     return ()=>{ clearTimeout(t); window.removeEventListener("mk-installable",onInstallable); };
   },[]);
   const dismiss=()=>{ setShow(false); try{localStorage.setItem("mkInstallDismiss","1");}catch{} };
@@ -1852,6 +1858,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onAdmi
       {onAdmin && link("account","Admin dashboard",false,onAdmin)}
       {link("radius","Search radius",false,onRadius)}
       {link("method","Method & sources",false,onMethod)}
+      {!isStandalonePWA() && link("download","Install app",false,()=>{ onClose(); window.dispatchEvent(new Event("mk-open-install")); })}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
       <div style={{fontFamily:sans,fontSize:12,color:"#8FA394",padding:"8px 12px",lineHeight:1.5}}>Before you fish — confirm open seasons, limits and sanctuary closures in the current Ontario regulations.</div>
     </div>
