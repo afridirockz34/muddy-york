@@ -1367,7 +1367,8 @@ export default function App(){
   const [visits,setVisits]=useState([]); // logbook entries
   const [newsUrl,setNewsUrl]=useState("");
   const [sortBy,setSortBy]=useState("overall");     // overall|distance
-  const [discovered,setDiscovered]=useState([]);    // sec-shaped auto spots
+  const [discovered,setDiscovered]=useState([]);    // sec-shaped auto spots (filtered to radiusM)
+  const discoSuperRef=useRef({radius:0,list:[]});   // biggest fetched set, for instant shrink-to-radius
   const [discoStatus,setDiscoStatus]=useState("idle"); // idle|loading|done|error
   const [radiusM,setRadiusM]=useState(30000);
   const liveRef=useRef();
@@ -1416,6 +1417,7 @@ export default function App(){
     setLocStatus("locating");
     navigator.geolocation.getCurrentPosition(
       p=>{ const loc={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4)};
+        discoSuperRef.current={radius:0,list:[]}; // moved: invalidate the cached radius superset
         setUserLoc(loc); setLocStatus("on"); dbSet("loc:last",loc); fetchUserWx(loc.lat,loc.lon); },
       e=>{ setLocStatus(e&&e.code===1?"denied":"error"); },
       {enableHighAccuracy:false,timeout:10000,maximumAge:600000});
@@ -1423,11 +1425,20 @@ export default function App(){
 
   const discoverNearby=useCallback(async(r)=>{
     if(!userLoc){ requestLocation(); return; }
-    logEvent("discover",null,{radiusM:r||radiusM});
+    const want=r||radiusM;
+    logEvent("discover",null,{radiusM:want});
+    // Shrinking within an already-fetched set: filter locally, no network wait.
+    const sup=discoSuperRef.current;
+    if(want<=sup.radius && sup.list.length){
+      setDiscovered(sup.list.filter(s=>haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon)*1000<=want));
+      setDiscoStatus("done");
+      return;
+    }
     setDiscovered([]); // drop stale spots from the previous radius immediately
     setDiscoStatus("loading");
-    const out=await discoverSecs(userLoc, r||radiusM);
+    const out=await discoverSecs(userLoc, want);
     if(out==null){ setDiscoStatus("error"); return; }
+    discoSuperRef.current={radius:want,list:out.list};
     setDiscovered(out.list);
     if(out.wxUrl){
       try{ const res=await fetch(out.wxUrl); if(res.ok){ const data=await res.json();
