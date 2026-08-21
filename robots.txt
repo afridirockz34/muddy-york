@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /marketing/
+Disallow: /backend/
+Disallow: /lib/
+Disallow: /server/
+Disallow: /docs/
+Disallow: /.github/
+Disallow: /source-app.jsx
+Disallow: /build.mjs
+Disallow: /package.json
+Sitemap: https://muddyyorkfishing.ca/sitemap.xml

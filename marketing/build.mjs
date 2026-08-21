@@ -7,10 +7,14 @@ import { fileURLToPath } from "node:url";
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dir, "..");
-const OUT = __dir;
+// The app owns the root domain (muddyyorkfishing.ca) and is served from the repo
+// root by Netlify (publish="."). The SEO pages ship in the SAME deploy at clean
+// paths, so we write them into the repo root next to the app.
+const OUT = ROOT;
 
-const SITE_URL = "https://muddyyorkfishing.ca";     // marketing site (root)
-const APP_URL = "https://app.muddyyorkfishing.ca";  // the app (subdomain)
+const SITE_URL = "https://muddyyorkfishing.ca";  // root domain (app + these pages)
+const APP_URL = "/";                             // the app lives at the root
+const HOME = "/fishing/";                        // marketing landing (root is the app)
 const BRAND = "Muddy York Fishing";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
@@ -114,16 +118,16 @@ ${schema ? `<script type="application/ld+json">${JSON.stringify(schema)}</script
 </head>
 <body>
 <header class="nav"><div class="wrap">
-  <a class="brand" href="/"><img src="/crest.png" alt="${BRAND} crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
+  <a class="brand" href="${HOME}"><img src="/crest.png" alt="${BRAND} crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links">
-    <a href="/rivers/">Rivers</a><a href="/#features">Features</a><a href="/#pricing">Pricing</a>
+    <a href="/rivers/">Rivers</a><a href="${HOME}#features">Features</a><a href="${HOME}#pricing">Pricing</a>
     <a class="cta" href="${APP_URL}">Start free</a>
   </nav>
 </div></header>
 ${body}
 <footer><div class="wrap">
   <div>© ${new Date().getFullYear()} ${BRAND} · Southern Ontario trout &amp; salmon intelligence</div>
-  <div><a href="/rivers/">Rivers</a><a href="/#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
+  <div><a href="/rivers/">Rivers</a><a href="${HOME}#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
 </div></footer>
 </body></html>`;
 }
@@ -191,7 +195,7 @@ function riverBody(r) {
   const url = `${SITE_URL}/rivers/${slug(r.river + " " + r.section)}/`;
   return {
     body: `
-<div class="wrap"><div class="crumbs"><a href="/">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(r.river)}</div></div>
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(r.river)}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(r.river)} fishing — ${esc(r.section)}</h1>
   <div class="meta">${esc(r.region)} · ${esc(r.zone)} · ${esc(r.water)}</div>
@@ -220,18 +224,21 @@ function riverBody(r) {
 }
 
 // ---- write everything ----
+// NOTE: the app owns the root index.html; the marketing landing lives at /fishing/
+// so it never overwrites the app. All other pages are new paths in the deploy.
 fs.mkdirSync(path.join(OUT, "rivers"), { recursive: true });
+fs.mkdirSync(path.join(OUT, "fishing"), { recursive: true });
 fs.copyFileSync(path.join(ROOT, "icons", "crest.png"), path.join(OUT, "crest.png"));
 
-fs.writeFileSync(path.join(OUT, "index.html"), page({
+fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   title: `${BRAND} — Ontario Trout & Salmon Fishing App`,
   description: "Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout & salmon rivers. Start free.",
-  canonical: SITE_URL + "/", body: homeBody(),
+  canonical: SITE_URL + "/fishing/", body: homeBody(),
   schema: { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
     operatingSystem: "Web, iOS", offers: { "@type": "Offer", price: "9.99", priceCurrency: "CAD" }, url: SITE_URL },
 }));
 
-const urls = [SITE_URL + "/", SITE_URL + "/rivers/"];
+const urls = [SITE_URL + "/", SITE_URL + "/fishing/", SITE_URL + "/rivers/"];
 for (const r of RIVERS) {
   const s = slug(r.river + " " + r.section);
   const dir = path.join(OUT, "rivers", s);
@@ -265,6 +272,11 @@ fs.writeFileSync(path.join(OUT, "rivers", "index.html"), page({
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") + `\n</urlset>\n`);
-fs.writeFileSync(path.join(OUT, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+// publish="." serves the whole repo, so keep crawlers out of source/dev paths.
+fs.writeFileSync(path.join(OUT, "robots.txt"),
+  `User-agent: *\nAllow: /\n` +
+  ["/marketing/", "/backend/", "/lib/", "/server/", "/docs/", "/.github/", "/source-app.jsx", "/build.mjs", "/package.json"]
+    .map((p) => `Disallow: ${p}`).join("\n") +
+  `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
 
-console.log(`Built ${RIVERS.length} river pages + home + index + sitemap (${urls.length} URLs).`);
+console.log(`Built ${RIVERS.length} river pages + /fishing landing + /rivers index + sitemap (${urls.length} URLs) into repo root.`);
