@@ -6,6 +6,7 @@ import { cloudinarySignature } from "../../../lib/cloudinary-sign.js";
 import { sendMail } from "../alerts/mailer.js";
 import { isAdmin, blockedIdsFor } from "../social/moderation.js";
 import { notify } from "../social/notify.js";
+import { isNameTaken } from "./auth.js";
 
 const sha1 = (s) => createHash("sha1").update(s).digest("hex");
 const clamp = (s, n) => String(s || "").trim().slice(0, n);
@@ -49,6 +50,7 @@ export default async function postRoutes(app) {
     if (b.displayName !== undefined) {
       const name = clamp(b.displayName, 40);
       if (!name) return reply.code(400).send({ error: "display name required" });
+      if (await isNameTaken(name, req.user.id)) return reply.code(409).send({ error: "username taken" });
       data.displayName = name;
     }
     if (b.avatarUrl !== undefined) data.avatarUrl = b.avatarUrl ? clamp(b.avatarUrl, 500) : null;

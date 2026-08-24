@@ -26,7 +26,9 @@ async function proxyJSON(path, opts){ const o = opts||{};
   const init = { credentials:"include", headers:{} };
   if(o.method) init.method = o.method;
   if(o.body!=null){ init.headers["Content-Type"]="application/json"; init.body = JSON.stringify(o.body); }
-  const r = await fetch(API_BASE + path, init); if(!r.ok) throw new Error("proxy "+r.status); return r.json(); }
+  const r = await fetch(API_BASE + path, init);
+  if(!r.ok){ let info=null; try{ info=await r.json(); }catch{} const e=new Error("proxy "+r.status); e.status=r.status; e.info=info; throw e; }
+  return r.json(); }
 
 /* ---- Usage telemetry: batch interaction events and flush to the backend ---- */
 const evQueue=[]; let evTimer=null;
@@ -1098,7 +1100,7 @@ function CommentsPanel({postId,me,admin,onCommentDelta,onSetName,onSignIn}){
     try{ if(needsName) await onSetName(name.trim());
       const { comment }=await proxyJSON(`/posts/${encodeURIComponent(postId)}/comments`,{method:"POST",body:{body:text.trim()}});
       setList(prev=>[...(prev||[]),comment]); setText(""); onCommentDelta&&onCommentDelta(postId,1);
-    }catch{ setErr("Couldn't post your comment — try again."); } finally{ setBusy(false); } };
+    }catch(e){ setErr(e&&e.info&&e.info.error==="username taken"?"That username is taken — try another.":"Couldn't post your comment — try again."); } finally{ setBusy(false); } };
   const del=async(id)=>{ setList(prev=>prev.filter(c=>c.id!==id)); onCommentDelta&&onCommentDelta(postId,-1);
     try{ await proxyJSON(`/comments/${encodeURIComponent(id)}`,{method:"DELETE"}); }catch{} };
   return (<div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`}}>
@@ -1149,7 +1151,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
       let ph=null; if(photo) ph=await uploadPhoto();
       await onCreatePost({ body:body.trim(), river:river||null, photo:ph });
       setBody(""); setRiver(""); if(photo){ URL.revokeObjectURL(photo.preview); setPhoto(null); }
-    }catch(e){ setErr(e.message||"Couldn't post — try again."); }
+    }catch(e){ setErr(e&&e.info&&e.info.error==="username taken"?"That username is taken — try another.":(e.message&&!/^proxy /.test(e.message)?e.message:"Couldn't post — try again.")); }
     finally{ setBusy(false); } };
   return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,padding:14,marginBottom:16}}>
     {needsName && <input style={{...inp,marginBottom:8}} placeholder="Choose a display name (public)" value={name} onChange={e=>setName(e.target.value)} maxLength={40}/>}
@@ -1418,34 +1420,41 @@ export default function App(){
       if(d&&d.current) setUserWx({air:d.current.temperature_2m,code:d.current.weather_code,precip:d.current.precipitation});
     }catch(e){}
   },[]);
-  const requestLocation=useCallback(()=>{
-    if(!navigator.geolocation){ setLocStatus("unsupported"); return; }
+  // Promise-based geolocation: resolves the fix (and updates state), or null on
+  // denial/unsupported (surfaced via locStatus).
+  const getPosition=useCallback(()=> new Promise((resolve)=>{
+    if(!navigator.geolocation){ setLocStatus("unsupported"); resolve(null); return; }
     setLocStatus("locating");
     navigator.geolocation.getCurrentPosition(
       p=>{ const loc={lat:+p.coords.latitude.toFixed(4),lon:+p.coords.longitude.toFixed(4)};
-        discoSuperRef.current={radius:0,list:[]}; // moved: invalidate the cached radius superset
-        setUserLoc(loc); setLocStatus("on"); dbSet("loc:last",loc); fetchUserWx(loc.lat,loc.lon); },
-      e=>{ setLocStatus(e&&e.code===1?"denied":"error"); },
+        discoSuperRef.current={radius:0,list:[]}; // new fix: invalidate the cached radius superset
+        setUserLoc(loc); setLocStatus("on"); dbSet("loc:last",loc); fetchUserWx(loc.lat,loc.lon); resolve(loc); },
+      e=>{ setLocStatus(e&&e.code===1?"denied":"error"); resolve(null); },
       {enableHighAccuracy:false,timeout:10000,maximumAge:600000});
-  },[fetchUserWx]);
+  }),[fetchUserWx]);
+  const requestLocation=useCallback(()=>{ getPosition(); },[getPosition]);
 
-  const discoverNearby=useCallback(async(r)=>{
-    if(!userLoc){ requestLocation(); return; }
+  const discoverNearby=useCallback(async(r,locArg)=>{
+    const loc=locArg||userLoc;
+    if(!loc){ requestLocation(); return; }
     const want=r||radiusM;
     logEvent("discover",null,{radiusM:want});
     // Shrinking within an already-fetched set: filter locally, no network wait.
     const sup=discoSuperRef.current;
     if(want<=sup.radius && sup.list.length){
-      setDiscovered(sup.list.filter(s=>haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon)*1000<=want));
-      setDiscoStatus("done");
+      const list=sup.list.filter(s=>haversineKm(loc.lat,loc.lon,s.lat,s.lon)*1000<=want);
+      setDiscovered(list); setDiscoStatus("done");
+      dbSet("discovered:last",{lat:loc.lat,lon:loc.lon,radius:want,list,ts:Date.now()});
       return;
     }
     setDiscovered([]); // drop stale spots from the previous radius immediately
     setDiscoStatus("loading");
-    const out=await discoverSecs(userLoc, want);
+    const out=await discoverSecs(loc, want);
     if(out==null){ setDiscoStatus("error"); return; }
     discoSuperRef.current={radius:want,list:out.list};
     setDiscovered(out.list);
+    // Persist the scouted set so it survives reloads — until the next scout.
+    dbSet("discovered:last",{lat:loc.lat,lon:loc.lon,radius:want,list:out.list,ts:Date.now()});
     if(out.wxUrl){
       try{ const res=await fetch(out.wxUrl); if(res.ok){ const data=await res.json();
         const arr=Array.isArray(data)?data:[data]; const add={};
@@ -1456,12 +1465,27 @@ export default function App(){
     setDiscoStatus("done");
   },[userLoc,radiusM,requestLocation]);
 
+  // The one Scout action: refresh location, then scout at the current radius.
+  // Replaces the separate "use my location" step.
+  const scout=useCallback(async(r)=>{
+    if(!isPremium){ openUpgrade(); return; }
+    const loc=await getPosition();
+    if(!loc) return; // denial/unsupported already shown via locStatus
+    await discoverNearby(r||radiusM, loc);
+  },[isPremium,getPosition,discoverNearby,radiusM,openUpgrade]);
+
   useEffect(()=>{
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
     (async()=>{
       const cached=await dbGet("wx:last");
       if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
       const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
+      // Restore the last scouted spots so they persist until the next scout.
+      const disc=await dbGet("discovered:last");
+      if(disc&&Array.isArray(disc.list)&&disc.list.length){
+        setDiscovered(disc.list); setDiscoStatus("done");
+        discoSuperRef.current={radius:disc.radius||0,list:disc.list};
+      }
       const log=await dbGet("log:entries"); if(log) setLogCount(log.length);
       const sv=await dbGet("saved"); if(Array.isArray(sv)){ setSaved(sv);
         if(API_BASE && !(await dbGet("saved:synced"))){
@@ -1673,10 +1697,8 @@ export default function App(){
         {tab==="rivers" && (<>
           <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-            <button onClick={requestLocation} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:userLoc?C.pine:C.line,color:userLoc?C.pine:C.textDim}}>
-              <Icon name="pin" size={13}/>{locStatus==="locating"?"Locating…":userLoc?"Located":"Use my location"}</button>
-            {userLoc && <button onClick={()=> isPremium ? discoverNearby(radiusM) : openUpgrade()} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine}}>
-              <Icon name="search" size={13}/>{!isPremium?"Find water near me":discoStatus==="loading"?"Scouting…":discovered.length?`${discovered.length} spots found`:"Find water near me"}</button>}
+            <button onClick={()=>scout()} disabled={locStatus==="locating"||discoStatus==="loading"} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine}}>
+              <Icon name={isPremium?"search":"lock"} size={13}/>{locStatus==="locating"?"Locating…":discoStatus==="loading"?"Scouting…":!isPremium?"Scout rivers near me":discovered.length?`${discovered.length} nearby · Re-scout`:"Scout rivers near me"}</button>
             <button onClick={loadWeather} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={13}/>Refresh</button>
           </div>
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
@@ -1690,6 +1712,15 @@ export default function App(){
           {riversView==="map" && isPremium
             ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
             : (<>
+              {/* First run: no location + nothing scouted yet — ask for radius, then scout. */}
+              {isPremium && !userLoc && discovered.length===0 && discoStatus!=="loading" && (
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:12,padding:"24px 18px",marginBottom:14,background:C.panel,border:`1px solid ${C.brass}66`,borderRadius:14}}>
+                  <Avatar src="icons/crest.png" size={60}/>
+                  <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>Find the best rivers near you</div>
+                  <div style={{fontSize:13,color:C.textDim,maxWidth:300,lineHeight:1.5}}>We'll use your location and scout live conditions within your search radius.</div>
+                  <button onClick={()=>setRadiusOpen(true)} style={{...btnBig,padding:"7px 12px",fontSize:12.5,borderColor:C.line,color:C.pine}}><Icon name="radius" size={14}/>Radius: {radiusLabel(radiusM)}</button>
+                  <button onClick={()=>scout()} disabled={locStatus==="locating"} style={{...btnBig,padding:"11px 20px",fontSize:14,background:C.brass,borderColor:C.brass,color:C.pine,fontWeight:700}}><Icon name="search" size={16}/>{locStatus==="locating"?"Locating…":"Scout rivers near me"}</button>
+                </div>)}
               {discoStatus==="loading" && (<div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:10,padding:"26px 16px",marginBottom:14,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14}}>
                 <div style={{animation:"pulse 1.4s ease-in-out infinite"}}><Avatar src="icons/crest.png" size={64}/></div>
                 <div style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine}}>Scouting…</div>
@@ -1736,7 +1767,7 @@ export default function App(){
         onAdmin={(me&&me.isAdmin)?()=>{setDrawerOpen(false);setAdminOpen(true);}:null}/>}
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
-      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(userLoc) discoverNearby(m); setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
+      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
@@ -1974,14 +2005,16 @@ function AvatarEditor({me,onAuth}){
 }
 function DisplayNameEditor({me,onAuth}){
   const [name,setName]=useState((me&&me.user&&me.user.displayName)||"");
-  const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false);
+  const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const inp={width:"100%",padding:"9px 11px",borderRadius:6,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:13.5,marginTop:8};
-  const save=async()=>{ const n=name.trim(); if(!n) return; setBusy(true);
-    try{ await proxyJSON("/me",{method:"PATCH",body:{displayName:n}}); setSaved(true); await onAuth(); setTimeout(()=>setSaved(false),2000); }catch{} finally{ setBusy(false); } };
+  const save=async()=>{ const n=name.trim(); if(!n) return; setErr(""); setBusy(true);
+    try{ await proxyJSON("/me",{method:"PATCH",body:{displayName:n}}); setSaved(true); await onAuth(); setTimeout(()=>setSaved(false),2000); }
+    catch(e){ setErr(e&&e.info&&e.info.error==="username taken"?"That username is taken — try another.":"Couldn't save your name — try again."); } finally{ setBusy(false); } };
   return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
     <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:2}}>Display name</div>
     <div style={{fontSize:11,color:C.textDim}}>Shown publicly on your posts. Your email is never shown.</div>
     <input style={inp} placeholder="e.g. Riverdog" value={name} maxLength={40} onChange={e=>setName(e.target.value)}/>
+    {err && <div style={{fontSize:12,color:C.brick,marginTop:6}}>{err}</div>}
     <button disabled={busy} onClick={save} style={{...btn,borderColor:C.pine,color:C.pine,width:"100%",padding:"9px",marginTop:8,opacity:busy?0.6:1}}>{saved?"Saved ✓":busy?"Saving…":"Save name"}</button>
   </div>);
 }
@@ -2120,12 +2153,23 @@ function ResetModal({token,onDone}){
 }
 function SignInGate({onAuth,providers={}}){
   const [mode,setMode]=useState("signup"); // signup | signin | forgot
-  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
+  const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[username,setUsername]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
   const oauth=(p)=>{ try{ sessionStorage.setItem("mkGate","1"); }catch{} window.location=`${API_BASE}/auth/${p}`; };
-  const submit=async()=>{ setErr(""); setBusy(true);
-    try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",{method:"POST",body:{email:email.trim(),password:pw}}); await onAuth(); }
-    catch(e){ setErr(mode==="signup"?"That email may already be registered, or the password is under 8 characters.":"Email or password incorrect."); setBusy(false); } };
+  const submit=async()=>{ setErr("");
+    if(mode==="signup" && username.trim().length<2){ setErr("Choose a username (2+ characters)."); return; }
+    setBusy(true);
+    try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",
+        {method:"POST",body:mode==="signup"?{email:email.trim(),password:pw,displayName:username.trim()}:{email:email.trim(),password:pw}});
+      await onAuth(); }
+    catch(e){ const m=e&&e.info&&e.info.error;
+      if(mode==="signup"){
+        setErr(m==="username taken"?"That username is taken — try another.":
+               m==="email already registered"?"That email is already registered.":
+               m&&m.includes("username")?"Username must be 2–40 characters.":
+               "Couldn't create the account — check your email and use an 8+ character password.");
+      } else setErr("Email or password incorrect.");
+      setBusy(false); } };
   const sendReset=async()=>{ setErr(""); setBusy(true);
     try{ await proxyJSON("/auth/forgot",{method:"POST",body:{email:email.trim()}}); }catch{} finally{ setSent(true); setBusy(false); } };
   const link={background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5};
@@ -2152,6 +2196,7 @@ function SignInGate({onAuth,providers={}}){
             </div>)
           : (<div style={{marginTop:14}}>
             {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4}}>{err}</div>}
+            {mode==="signup" && <input style={inp} type="text" placeholder="username (public)" value={username} maxLength={40} autoCapitalize="none" autoCorrect="off" onChange={e=>setUsername(e.target.value)}/>}
             <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
             <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
             <button disabled={busy} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>

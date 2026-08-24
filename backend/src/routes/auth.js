@@ -17,15 +17,34 @@ function setSessionCookie(reply, token, expiresAt) {
 }
 const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null, avatarUrl: u.avatarUrl || null });
 
+// Case-insensitive username availability. Optionally exclude one user (for edits).
+export async function isNameTaken(name, exceptUserId) {
+  const clash = await prisma.user.findFirst({
+    where: { displayName: { equals: name, mode: "insensitive" }, ...(exceptUserId ? { id: { not: exceptUserId } } : {}) },
+    select: { id: true },
+  });
+  return !!clash;
+}
+
 export default async function authRoutes(app) {
   app.post("/auth/signup", async (req, reply) => {
     const { email, password } = req.body || {};
+    const displayName = String(req.body?.displayName || "").trim();
     if (!email || !password || password.length < 8)
       return reply.code(400).send({ error: "email and 8+ char password required" });
+    if (displayName.length < 2 || displayName.length > 40)
+      return reply.code(400).send({ error: "username must be 2–40 characters" });
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return reply.code(409).send({ error: "email already registered" });
+    if (await isNameTaken(displayName)) return reply.code(409).send({ error: "username taken" });
     // No no-card trial: the 14-day trial starts only after checkout with a card.
-    const user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password) } });
+    let user;
+    try {
+      user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), displayName } });
+    } catch (e) {
+      // Unique race on email or (if a DB constraint exists) username.
+      return reply.code(409).send({ error: "email or username already taken" });
+    }
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
     return { user: publicUser(user) };
