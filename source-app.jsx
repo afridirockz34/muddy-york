@@ -2278,7 +2278,8 @@ function CheckoutModal({plan:initialPlan,onClose}){
       }});
       ecRef.current=ec;
       if(mountRef.current){ ec.mount(mountRef.current); setLoading(false); }
-    }catch(e){ setErr("Checkout is unavailable right now — please try again. You can keep using the free plan meanwhile."); setLoading(false); }
+    }catch(e){ const why=e&&e.info&&e.info.error;
+      setErr(why?`Checkout error: ${why}`:"Checkout is unavailable right now — please try again. You can keep using the free plan meanwhile."); setLoading(false); }
   },[]);
   useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
   const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
