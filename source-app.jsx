@@ -782,7 +782,7 @@ function SeasonStrip({sec,m}){
 /* ============================== MAP VIEW ================================== */
 /* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
    is an online feature; offline it shows a graceful note and the other tabs work. */
-function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,activity={}}){
+function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,activity={}}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
   const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
   const [sel,setSel]=useState(null);
@@ -805,9 +805,11 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
     if(mapRef.current) return;
     if(!L){ const id=setInterval(()=>{ if(window.L){clearInterval(id);setTick(t=>t+1);} },300);
       const to=setTimeout(()=>clearInterval(id),6000); return ()=>{clearInterval(id);clearTimeout(to);}; }
-    const map=L.map(elRef.current,{zoomControl:true}).setView([43.9,-79.4],8);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      {maxZoom:19,subdomains:"abcd",attribution:"© OpenStreetMap, © CARTO"}).addTo(map);
+    const map=L.map(elRef.current,{zoomControl:true,attributionControl:true}).setView([43.9,-79.4],8);
+    // Esri World Topo — colourful, terrain + rivers, and free without an API key
+    // (CARTO's basemaps now demand a key, which showed the "API key required" tiles).
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+      {maxZoom:19,attribution:"Tiles © Esri — USGS, NOAA"}).addTo(map);
     // Tapping empty map (not a marker — marker clicks don't propagate) closes the
     // open location panel, so users don't have to hunt for the ✕.
     map.on("click",()=>setSel(null));
@@ -829,14 +831,25 @@ function MapView({ranked,userLoc,m,distOf,isSaved,onToggleSave,premium=true,onUp
       const mk=L.marker([lat,lon],{icon}); mk.on("click",()=>{ setSel(e.sec.id); logEvent("view_reach",e.sec.id,{via:"map"}); }); grp.addLayer(mk); pts.push([lat,lon]);
     });
     map.addLayer(grp); clusterRef.current=grp;
-    if(pts.length){ try{ map.fitBounds(pts,{padding:[45,45],maxZoom:10}); }catch(e){} }
-  },[sig,tick]);
+    // When we have a location, the radius ring frames the view instead (below).
+    if(pts.length && !userLoc){ try{ map.fitBounds(pts,{padding:[45,45],maxZoom:10}); }catch(e){} }
+  },[sig,tick,userLoc]);
 
   useEffect(()=>{
     const L=window.L, map=mapRef.current; if(!L||!map) return;
     if(userRef.current){ try{map.removeLayer(userRef.current);}catch(e){} userRef.current=null; }
-    if(userLoc) userRef.current=L.circleMarker([userLoc.lat,userLoc.lon],{radius:7,weight:3,color:C.brick,fillColor:C.brick,fillOpacity:.5}).addTo(map);
-  },[userLoc,tick]);
+    if(!userLoc) return;
+    const g=L.layerGroup();
+    // Search-radius ring — makes "only within your radius" visible on the map.
+    let ring=null;
+    if(radiusM){ ring=L.circle([userLoc.lat,userLoc.lon],{radius:radiusM,color:C.pine,weight:1.5,opacity:.55,fillColor:C.pine,fillOpacity:.06,dashArray:"4,6",interactive:false}); ring.addTo(g); }
+    // "You are here" dot with a soft halo.
+    L.circleMarker([userLoc.lat,userLoc.lon],{radius:12,weight:0,color:C.brick,fillColor:C.brick,fillOpacity:.15,interactive:false}).addTo(g);
+    L.circleMarker([userLoc.lat,userLoc.lon],{radius:6,weight:3,color:"#fff",fillColor:C.brick,fillOpacity:1}).addTo(g);
+    g.addTo(map); userRef.current=g;
+    // Frame the search area so the map opens on the user's radius, not all of Ontario.
+    if(ring){ try{ map.fitBounds(ring.getBounds(),{padding:[30,30]}); }catch(e){} }
+  },[userLoc,radiusM,tick]);
 
   // fetch parking when a section is selected
   useEffect(()=>{
@@ -1479,6 +1492,7 @@ export default function App(){
     (async()=>{
       const cached=await dbGet("wx:last");
       if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
+      const rr=await dbGet("radius:last"); if(typeof rr==="number") setRadiusM(rr);
       const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
       // Restore the last scouted spots so they persist until the next scout.
       const disc=await dbGet("discovered:last");
@@ -1710,7 +1724,7 @@ export default function App(){
           </div>
 
           {riversView==="map" && isPremium
-            ? <MapView ranked={ranked} userLoc={userLoc} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
+            ? <MapView ranked={rankedNear} userLoc={userLoc} radiusM={radiusM} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
             : (<>
               {/* First run: no location + nothing scouted yet — ask for radius, then scout. */}
               {isPremium && !userLoc && discovered.length===0 && discoStatus!=="loading" && (
@@ -1729,17 +1743,22 @@ export default function App(){
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
               {userLoc && rankedNear.length===0 && <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:14,padding:"13px 14px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>No mapped water within {radiusLabel(radiusM)} of you. Widen your search radius from the menu to see more.</div>}
-              {/* Free tier: the top 3 ranked reaches are open; deeper water is locked. */}
-              {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
-              {honourable.length>0 && (<><SectionTitle t="More water nearby"/>
-              <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
-                  {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
-                    <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
-                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
-                    <Pill k={ev.target}/></div>))}
-                </div>
-              </Locked></>)}
+              {/* Only show water once we can anchor to a location + radius. Premium
+                  users without a fix see the scout prompt above instead of far rivers;
+                  free users keep the curated teaser. */}
+              {(!isPremium || userLoc) && (<>
+                {/* Free tier: the top 3 ranked reaches are open; deeper water is locked. */}
+                {top3.map((ev,i)=><RecCard key={ev.sec.id} ev={ev} rank={i+1} m={month} dist={distOf(ev.sec)} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} logged={catchActivity[ev.sec.id]} trend={trending[ev.sec.id]}/>)}
+                {honourable.length>0 && (<><SectionTitle t="More water nearby"/>
+                <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
+                  <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
+                    {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+                      <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
+                      <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
+                      <Pill k={ev.target}/></div>))}
+                  </div>
+                </Locked></>)}
+              </>)}
             </>)}
         </>)}
 
@@ -1767,7 +1786,7 @@ export default function App(){
         onAdmin={(me&&me.isAdmin)?()=>{setDrawerOpen(false);setAdminOpen(true);}:null}/>}
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
-      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
+      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
