@@ -784,12 +784,10 @@ function SeasonStrip({sec,m}){
    is an online feature; offline it shows a graceful note and the other tabs work. */
 function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,activity={}}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
-  const overlayRef=useRef(null), routeRef=useRef(null), rankedRef=useRef(ranked);
+  const overlayRef=useRef(null), rankedRef=useRef(ranked);
   const [sel,setSel]=useState(null);
   const [tick,setTick]=useState(0);
   const [parking,setParking]=useState(undefined);   // undefined | "loading" | "error" | [ ]
-  const [route,setRoute]=useState(null);             // {drive,walk}
-  const [routeStatus,setRouteStatus]=useState("idle");
   const [full,setFull]=useState(false);              // full-screen map mode
   rankedRef.current=ranked;
   // Leaflet needs a size recalc when the container resizes (fullscreen toggle).
@@ -806,16 +804,18 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
     if(!L){ const id=setInterval(()=>{ if(window.L){clearInterval(id);setTick(t=>t+1);} },300);
       const to=setTimeout(()=>clearInterval(id),6000); return ()=>{clearInterval(id);clearTimeout(to);}; }
     const map=L.map(elRef.current,{zoomControl:true,attributionControl:true}).setView([43.9,-79.4],8);
-    // Esri World Topo — colourful, terrain + rivers, and free without an API key
-    // (CARTO's basemaps now demand a key, which showed the "API key required" tiles).
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-      {maxZoom:19,attribution:"Tiles © Esri — USGS, NOAA"}).addTo(map);
+    // OpenTopoMap — high-detail terrain: hillshade, contours, rivers and lakes.
+    // No API key. detectRetina loads higher-density tiles so labels/lines stay
+    // crisp on retina screens (the old CARTO basemap looked pixelated + needed a key).
+    L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+      {maxZoom:17,maxNativeZoom:17,detectRetina:true,subdomains:"abc",
+       attribution:"© OpenTopoMap (CC-BY-SA), © OpenStreetMap"}).addTo(map);
     // Tapping empty map (not a marker — marker clicks don't propagate) closes the
     // open location panel, so users don't have to hunt for the ✕.
     map.on("click",()=>setSel(null));
     mapRef.current=map;
     setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },220);
-    return ()=>{ try{map.remove();}catch(e){} mapRef.current=null; clusterRef.current=null; userRef.current=null; overlayRef.current=null; routeRef.current=null; };
+    return ()=>{ try{map.remove();}catch(e){} mapRef.current=null; clusterRef.current=null; userRef.current=null; overlayRef.current=null; };
   },[tick]);
 
   useEffect(()=>{
@@ -853,7 +853,6 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
 
   // fetch parking when a section is selected
   useEffect(()=>{
-    setRoute(null); setRouteStatus("idle");
     if(!sec){ setParking(undefined); return; }
     let live=true; setParking("loading");
     fetchParking(sec.lat,sec.lon).then(r=>{ if(live) setParking(r===null?"error":r); });
@@ -877,34 +876,8 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
     g.addTo(map); overlayRef.current=g;
   },[sel,parking,tick]);
 
-  // draw drive + walk route
-  useEffect(()=>{
-    const L=window.L, map=mapRef.current; if(!L||!map) return;
-    if(routeRef.current){ try{map.removeLayer(routeRef.current);}catch(e){} routeRef.current=null; }
-    if(!route) return;
-    const g=L.layerGroup(); const all=[];
-    if(route.drive&&route.drive.coords){ L.polyline(route.drive.coords,{color:C.pine,weight:5,opacity:.85}).addTo(g); route.drive.coords.forEach(c=>all.push(c)); }
-    if(route.walk){ const line=route.walk.coords?route.walk.coords:[route.walk.from,route.walk.to]; L.polyline(line,{color:C.brass,weight:4,dashArray:route.walk.trail?null:"2,8",opacity:.95}).addTo(g); line.forEach(c=>all.push(c)); }
-    g.addTo(map); routeRef.current=g;
-    if(all.length){ try{ map.fitBounds(all,{padding:[50,50]}); }catch(e){} }
-  },[route,tick]);
-
   const nearestP = (Array.isArray(parking)&&parking.length&&sec) ? parking.reduce((b,p)=>{ const d=distM(sec.lat,sec.lon,p.lat,p.lon); return (!b||d<b.d)?{p,d}:b; },null) : null;
   const walk = nearestP? walkEst(nearestP.d) : null;
-
-  const routeFromMe=()=>{
-    if(!userLoc||!nearestP||!sec) return;
-    setRouteStatus("loading");
-    fetchDriveRoute(userLoc,nearestP.p).then(async dr=>{
-      if(!dr){ setRouteStatus("error"); return; }
-      const foot=await fetchFootRoute({lat:nearestP.p.lat,lon:nearestP.p.lon},{lat:sec.lat,lon:sec.lon});
-      setRouteStatus("done");
-      setRoute({drive:dr,
-        walk: foot
-          ? {from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],coords:foot.coords,min:foot.durMin,km:foot.distKm,trail:true}
-          : {from:[nearestP.p.lat,nearestP.p.lon],to:[sec.lat,sec.lon],...walkEst(distM(nearestP.p.lat,nearestP.p.lon,sec.lat,sec.lon)),trail:false}});
-    });
-  };
 
   const hasL = typeof window!=="undefined" && !!window.L;
   const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
@@ -936,32 +909,17 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
       <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
       <CatchForm sec={ev.sec} signedIn={signedIn}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
-        <AdvHead t="Parking & route"/>
-        <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & routes">
+        <AdvHead t="Parking & directions"/>
+        <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & directions">
         {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
         {parking==="error" && <div style={small}>Couldn't load parking just now — try again shortly.</div>}
         {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
         {Array.isArray(parking)&&parking.length>0 && (<>
           <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
-            {userLoc && <button onClick={routeFromMe} style={{...btnBig,borderColor:C.brick,color:C.brick,fontSize:12.5,padding:"8px 12px"}}><Icon name="drive" size={15}/>{routeStatus==="loading"?"Plotting…":"Route from me"}</button>}
             <a href={directionsUrl(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
             <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.line,color:C.textDim,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="pin" size={15}/>Access</a>
           </div>
-          {!userLoc && <div style={{...small,marginTop:8}}>Use your location (Rivers tab) to plot a route from where you are.</div>}
-          {routeStatus==="error" && <div style={{...small,marginTop:8}}>Couldn't plot a driving route just now.</div>}
-          {route && (<div style={{marginTop:10,borderTop:`1px dotted ${C.line}`}}>
-            <div style={{display:"flex",gap:11,alignItems:"flex-start",padding:"11px 0",borderBottom:`1px dotted ${C.line}`}}>
-              <div style={{width:32,height:32,borderRadius:9,background:C.panelHi,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.pine}}><Icon name="drive" size={17}/></div>
-              <div><div style={{fontSize:13.5,fontWeight:700,color:C.text}}>Drive {route.drive.durMin} min · {route.drive.distKm} km</div><div style={{fontSize:12,color:C.textDim,marginTop:2}}>To the nearest parking</div></div>
-            </div>
-            <div style={{display:"flex",gap:11,alignItems:"flex-start",padding:"11px 0"}}>
-              <div style={{width:32,height:32,borderRadius:9,background:C.panelHi,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:C.pine}}><Icon name="walk" size={17}/></div>
-              <div><div style={{fontSize:13.5,fontWeight:700,color:C.text}}>{route.walk.trail?"Walk the trail":"Walk"} ~{route.walk.min} min · {route.walk.km} km</div><div style={{fontSize:12,color:C.textDim,marginTop:2}}>To the water</div></div>
-              <div style={{flex:1}}/>
-              <button onClick={()=>setRoute(null)} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12,textDecoration:"underline",padding:0,alignSelf:"center"}}>clear</button>
-            </div>
-          </div>)}
         </>)}
         </Locked>
         <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
@@ -1365,6 +1323,10 @@ export default function App(){
     if(!(API_BASE && me && me.user)) return;
     let armed=gateArmedRef.current;
     try{ if(sessionStorage.getItem("mkGate")==="1"){ armed=true; sessionStorage.removeItem("mkGate"); } }catch{}
+    // OAuth returns with ?signedin=1 (sessionStorage doesn't survive the round-trip).
+    try{ const sp=new URLSearchParams(window.location.search);
+      if(sp.get("signedin")==="1"){ armed=true; sp.delete("signedin"); const q=sp.toString();
+        window.history.replaceState({},"",window.location.pathname+(q?"?"+q:"")); } }catch{}
     gateArmedRef.current=false;
     if(armed && !isPremiumMe(me)) openCheckout("annual");
   },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps

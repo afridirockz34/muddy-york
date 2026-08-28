@@ -53,6 +53,6 @@ export default async function appleRoutes(app) {
     if (!user) user = await prisma.user.create({ data: { email: email || `${sub}@appleid.local`, googleId: appleId, emailVerified: true } });
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
-    return reply.redirect(config.frontendOrigin + "/?signed_in=apple");
+    return reply.redirect(config.frontendOrigin + "/?signedin=1");
   });
 }

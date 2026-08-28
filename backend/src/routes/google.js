@@ -39,6 +39,8 @@ export default async function googleRoutes(app) {
     else if (!user.googleId) user = await prisma.user.update({ where: { id: user.id }, data: { googleId, emailVerified: true } });
     const { token, expiresAt } = await createSession(user.id);
     reply.setCookie(config.cookieName, token, { httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt });
-    return reply.redirect(config.frontendOrigin);
+    // Flag the return so the app offers the subscription/trial once, same as an
+    // email sign-in — sessionStorage doesn't reliably survive the OAuth round-trip.
+    return reply.redirect(`${config.frontendOrigin}/?signedin=1`);
   });
 }
