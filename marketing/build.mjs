@@ -27,6 +27,31 @@ const SPECIES = { STL: "Steelhead", CHN: "Chinook salmon", COH: "Coho salmon",
   BNTr: "Brown trout (lake-run)", BNT: "Brown trout", RBT: "Rainbow trout", BKT: "Brook trout",
   ATS: "Atlantic salmon", LAT: "Lake trout", SMB: "Smallmouth bass", NP: "Northern pike",
   WAL: "Walleye", PAN: "Panfish" };
+// Per-species season + go-to tactic, used to write richer river guides.
+const SP_INFO = {
+  STL: { season: "spring (Mar–May) and fall through winter (Oct–Feb) on the runs", tactic: "drift eggs, stoneflies and nymphs through runs and tailouts, or swing streamers when the water is stained" },
+  CHN: { season: "the fall run (Sept–Oct)", tactic: "swing large bright streamers and spey flies slowly through deep holding pools in the lower river" },
+  COH: { season: "fall (Oct–Nov)", tactic: "work bright streamers and egg patterns through lower-river pools and current breaks" },
+  BNTr: { season: "spring and fall for lake-run fish", tactic: "fish streamers, eggs and nymphs on dropping, clearing water" },
+  BNT: { season: "April–June and September–October (early and late only in summer heat)", tactic: "cover water with a dry-dropper and nymphs in prime temps, and swing streamers at first and last light" },
+  RBT: { season: "spring through fall", tactic: "nymph the seams and run a dry-dropper over the riffles" },
+  BKT: { season: "late spring and fall in cold headwaters", tactic: "fish small dries, nymphs and tiny streamers on light tippet" },
+  ATS: { season: "summer into fall", tactic: "present small wets and nymphs on light tippet in low light — strictly catch-and-release, barbless" },
+  LAT: { season: "the cold months near river mouths and deep water", tactic: "work deep, slow streamers and jigs off the main current" },
+  SMB: { season: "summer (June–September)", tactic: "throw crayfish and baitfish streamers, and poppers on warm evenings" },
+  NP: { season: "spring and fall", tactic: "strip big flashy streamers on a wire or heavy fluorocarbon bite guard" },
+  WAL: { season: "spring and fall in low light", tactic: "fish jigs and streamers deep and slow near current breaks" },
+  PAN: { season: "spring through summer", tactic: "use small nymphs, wets and poppers on light gear" },
+};
+// A short read on how a reach fishes, inferred from its water description.
+function waterHow(water) {
+  const w = (water || "").toLowerCase();
+  if (w.includes("tailwater")) return "As a tailwater below a dam, flows and temperatures stay steadier than a freestone — it fishes well when nearby rivers are blown out or too warm, and cold releases can hold trout through summer.";
+  if (w.includes("spring") || w.includes("headwater") || w.includes("cold")) return "These cold, spring-fed headwaters run clear and cool. Fish move to the shade and oxygen — approach quietly, downsize your tippet, and read the pocket water.";
+  if (w.includes("tributar")) return "A smaller tributary like this warms and clears faster than the main stem, so it fishes first after rain and concentrates migratory fish on a fresh push.";
+  if (w.includes("lower") || w.includes("mouth")) return "Down in the lower river near the lake, deep pools, log-jams and current breaks hold migratory fish on a fresh push after rain — first and last light are prime.";
+  return "This freestone reach rises and clears with rainfall, so timing is everything: it fishes best on dropping, clearing water a day or two after a rise.";
+}
 const speciesNames = (keys) => [...new Set((keys || []).map((k) => (SPECIES[k] || k).replace(/\s*\(.*\)$/, "")))];
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -192,7 +217,22 @@ function homeBody() {
 // ---- river guide page ----
 function riverBody(r) {
   const sp = speciesNames(r.species);
+  const spList = sp.join(", ").replace(/, ([^,]*)$/, " and $1");
   const url = `${SITE_URL}/rivers/${slug(r.river + " " + r.section)}/`;
+  const nearby = (RIVERS.filter((x) => x !== r && x.region === r.region).slice(0, 3).length
+    ? RIVERS.filter((x) => x !== r && x.region === r.region)
+    : RIVERS.filter((x) => x !== r)).slice(0, 3);
+  // Season/tactic rows for each target species on this reach.
+  const speciesRows = (r.species || []).map((k) => {
+    const info = SP_INFO[k]; if (!info) return "";
+    return `<li><b>${esc(SPECIES[k] || k)}</b> — best in ${esc(info.season)}. Approach: ${esc(info.tactic)}.</li>`;
+  }).filter(Boolean).join("");
+  const cta = (label) => `<div class="callout"><h3>See today's ${esc(r.river)} conditions</h3><p style="color:var(--dim);margin-bottom:14px;">Live opportunity score, the fly &amp; technique for today, depth &amp; likely fish, plus parking and access — free for 14 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
+  const faqs = [
+    { q: `What fish are in the ${r.river} (${r.section})?`, a: `This reach holds ${spList}. ${BRAND} shows which are most active today based on the season and live water conditions.` },
+    { q: `When is the best time to fish the ${r.river}?`, a: `It depends on your target and the water. ${(r.species || []).map((k) => SP_INFO[k] ? `${SPECIES[k]} run best in ${SP_INFO[k].season}` : "").filter(Boolean).slice(0, 2).join("; ")}. ${BRAND} scores the exact window each morning.` },
+    { q: `How do I check ${r.river} conditions and flows?`, a: `${BRAND} reads live water temperature, flow and weather for the ${r.river} every day, turns it into a 0–100 opportunity score, and tells you the fly, technique and access — no guesswork.` },
+  ];
   return {
     body: `
 <div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(r.river)}</div></div>
@@ -200,26 +240,48 @@ function riverBody(r) {
   <h1>${esc(r.river)} fishing — ${esc(r.section)}</h1>
   <div class="meta">${esc(r.region)} · ${esc(r.zone)} · ${esc(r.water)}</div>
   <div>${sp.map((s) => `<span class="pill">${esc(s)}</span>`).join("")}</div>
+
   <h2>Overview</h2>
   <p>${esc(r.note)}</p>
-  <h2>What to expect</h2>
-  <p>The ${esc(r.river)} (${esc(r.section)}) is ${esc((r.water || "").toLowerCase())} in ${esc(r.region)}. Anglers here target ${sp.join(", ").replace(/, ([^,]*)$/, " and $1")}. Conditions swing with rainfall, water temperature and the seasonal runs — which is exactly what ${BRAND} tracks for you day by day.</p>
+  <p>The ${esc(r.river)} (${esc(r.section)}) is ${esc((r.water || "").toLowerCase())} water in ${esc(r.region)}, and anglers here target ${spList}. It sits in ${esc(r.zone)}, so always confirm the current open seasons and limits before you go.</p>
+
+  <h2>Species &amp; seasons</h2>
+  <p>Here's when each fish is worth targeting on this reach, and how to approach it:</p>
+  <ul>${speciesRows}</ul>
+
+  <h2>How the ${esc(r.river)} fishes</h2>
+  <p>${esc(waterHow(r.water))}</p>
+  <p>Because conditions swing with rainfall, water temperature and the seasonal runs, the same spot can be red-hot one morning and dead the next. That's exactly what ${BRAND} tracks for you — so you fish the ${esc(r.river)} on the right day, not just any day.</p>
+
+  ${cta(`Open ${BRAND}`)}
+
+  <h2>Access &amp; etiquette</h2>
+  <p>${BRAND} maps parking near each reach and the walk-in to the water, and links straight to driving directions. On the ${esc(r.river)}, respect posted private land and access points, pack out everything you bring, give other anglers room, and when the water is warm, land trout fast and release them wet — or rest them for the day.</p>
+
   <h2>Fish it at the right time</h2>
-  <p>Rather than guessing, ${BRAND} scores the ${esc(r.river)} every morning from live water temperature, flow, weather and the feeding window, then recommends the fly and technique for the day — plus parking and the walk in to the water.</p>
-  <div class="callout">
-    <h3>See today's ${esc(r.river)} conditions</h3>
-    <p style="color:var(--dim);margin-bottom:14px;">Live score, fly picks, depth &amp; likely fish, and access — free for 14 days.</p>
-    <a class="btn primary" href="${APP_URL}">Open ${BRAND}</a>
-  </div>
+  <p>Rather than guessing, ${BRAND} scores the ${esc(r.river)} every morning from live water temperature, flow, weather and the feeding window, then recommends the fly and technique for the day — plus the depth to fish and what you're likely to catch.</p>
+
+  <h2>Frequently asked</h2>
+  ${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("")}
+
   <h2>Nearby water</h2>
-  <div class="rivers-grid">${RIVERS.filter((x) => x !== r && x.region === r.region).slice(0, 3).map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("") || RIVERS.filter((x) => x !== r).slice(0, 3).map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("")}</div>
+  <div class="rivers-grid">${nearby.map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("")}</div>
+  <p style="margin-top:14px;"><a href="/rivers/">← Browse all ${RIVERS.length}+ Southern Ontario rivers</a></p>
+
+  ${cta("Start your free 14-day trial")}
 </article></div></section>`,
-    schema: {
-      "@context": "https://schema.org", "@type": "Article",
-      headline: `${r.river} fishing — ${r.section}`,
-      description: `${r.river} (${r.section}) fishing guide: species, conditions and access in ${r.region}.`,
-      about: sp, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL },
-    },
+    schema: [
+      {
+        "@context": "https://schema.org", "@type": "Article",
+        headline: `${r.river} fishing — ${r.section}`,
+        description: `${r.river} (${r.section}) fishing guide: species, seasons, tactics, conditions and access in ${r.region}.`,
+        about: sp, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL },
+      },
+      {
+        "@context": "https://schema.org", "@type": "FAQPage",
+        mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+      },
+    ],
   };
 }
 

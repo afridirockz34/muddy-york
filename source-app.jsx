@@ -22,6 +22,9 @@ import { catchNudge } from "./lib/catch-nudge.js";
    parking and routing flow through it (cached + rate-limit-hardened). With no
    API base set, the app calls the public APIs directly, exactly as before. */
 const API_BASE = (typeof window !== "undefined" && window.MUDDY_API_BASE) || "";
+// Wake the backend the instant the bundle loads (Render free tier sleeps when
+// idle and takes ~30s to cold-start), so it's warming while React mounts.
+if (API_BASE && typeof window !== "undefined") { try { fetch(API_BASE + "/health", { cache: "no-store" }).catch(() => {}); } catch {} }
 async function proxyJSON(path, opts){ const o = opts||{};
   const init = { credentials:"include", headers:{} };
   if(o.method) init.method = o.method;
@@ -1308,7 +1311,7 @@ export default function App(){
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const [providers,setProviders]=useState({google:true,apple:false});
   const gateArmedRef=useRef(false);
-  const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ setMe(await proxyJSON("/auth/me")); }catch{ setMe({user:null,entitlement:"free"}); } },[]);
+  const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ const m=await proxyJSON("/auth/me"); setMe(m); dbSet("me:last",m); }catch{ setMe(prev=>prev&&prev.user?prev:{user:null,entitlement:"free"}); } },[]);
   useEffect(()=>{ if(API_BASE) proxyJSON("/auth/providers").then(setProviders).catch(()=>{}); },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   // A free user tapping a locked feature goes straight to the subscription page;
@@ -1452,6 +1455,9 @@ export default function App(){
   useEffect(()=>{
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
     (async()=>{
+      // Optimistic auth from cache so a returning signed-in user sees the app
+      // instantly instead of waiting on a cold backend; refreshMe revalidates.
+      if(API_BASE){ try{ const cm=await dbGet("me:last"); if(cm&&cm.user) setMe(prev=>prev||cm); }catch{} }
       const cached=await dbGet("wx:last");
       if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
       const rr=await dbGet("radius:last"); if(typeof rr==="number") setRadiusM(rr);
