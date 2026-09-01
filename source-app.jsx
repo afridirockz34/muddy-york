@@ -1334,6 +1334,11 @@ export default function App(){
     if(armed && !isPremiumMe(me)) openCheckout("annual");
   },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ refreshMe(); },[refreshMe]);
+  // Safety net: never let the brand splash block for more than a beat. If auth
+  // hasn't resolved in 2.5s (slow/failed /auth/me, offline, sluggish storage),
+  // fall to the signed-out default so the sign-in gate shows; refreshMe still
+  // corrects to the real state whenever it lands.
+  useEffect(()=>{ if(!API_BASE) return; const t=setTimeout(()=>setMe(prev=>prev||{user:null,entitlement:"free"}),2500); return ()=>clearTimeout(t); },[]);
   // Returning from Stripe embedded checkout (return_url = /?checkout=complete).
   useEffect(()=>{
     const p=new URLSearchParams(window.location.search);
