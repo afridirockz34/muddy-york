@@ -807,12 +807,11 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
     if(!L){ const id=setInterval(()=>{ if(window.L){clearInterval(id);setTick(t=>t+1);} },300);
       const to=setTimeout(()=>clearInterval(id),6000); return ()=>{clearInterval(id);clearTimeout(to);}; }
     const map=L.map(elRef.current,{zoomControl:true,attributionControl:true}).setView([43.9,-79.4],8);
-    // OpenTopoMap — high-detail terrain: hillshade, contours, rivers and lakes.
-    // No API key. detectRetina loads higher-density tiles so labels/lines stay
-    // crisp on retina screens (the old CARTO basemap looked pixelated + needed a key).
-    L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-      {maxZoom:17,maxNativeZoom:17,detectRetina:true,subdomains:"abc",
-       attribution:"© OpenTopoMap (CC-BY-SA), © OpenStreetMap"}).addTo(map);
+    // Esri World Topo — crisp, readable labels with terrain shading, rivers and
+    // lakes. Keyless and reliable; detectRetina keeps it sharp on retina screens
+    // (OpenTopoMap looked pixelated with tiny, unreadable labels).
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+      {maxZoom:19,detectRetina:true,attribution:"Tiles © Esri — USGS, NOAA"}).addTo(map);
     // Tapping empty map (not a marker — marker clicks don't propagate) closes the
     // open location panel, so users don't have to hunt for the ✕.
     map.on("click",()=>setSel(null));
@@ -1293,6 +1292,7 @@ export default function App(){
   const [adminOpen,setAdminOpen]=useState(false);
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
+  const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [resetToken,setResetToken]=useState(()=>{ try{ return new URLSearchParams(window.location.search).get("reset"); }catch{ return null; } });
   const [flash,setFlash]=useState("");
@@ -1339,6 +1339,9 @@ export default function App(){
   // fall to the signed-out default so the sign-in gate shows; refreshMe still
   // corrects to the real state whenever it lands.
   useEffect(()=>{ if(!API_BASE) return; const t=setTimeout(()=>setMe(prev=>prev||{user:null,entitlement:"free"}),2500); return ()=>clearTimeout(t); },[]);
+  // Always show the brand splash for ~3s on open (even when auth resolves instantly
+  // from cache), so first paint feels intentional rather than a flash.
+  useEffect(()=>{ const t=setTimeout(()=>setBootReady(true),3000); return ()=>clearTimeout(t); },[]);
   // Returning from Stripe embedded checkout (return_url = /?checkout=complete).
   useEffect(()=>{
     const p=new URLSearchParams(window.location.search);
@@ -1627,9 +1630,9 @@ export default function App(){
     : status==="loading"?(hasData?"Refreshing…":"Updating…")
     : hasData?"Last-known (offline)":"Offline · seasonal model";
 
-  // While auth is still resolving, hold a brand splash instead of flashing the
-  // main app for a frame before the sign-in gate — makes first open feel intentional.
-  if(API_BASE && me===null) return (
+  // Hold the brand splash until the 3s timer AND auth have both settled — a
+  // deliberate opening moment, never an indefinite hang (auth is capped at 2.5s).
+  if(API_BASE && (!bootReady || me===null)) return (
     <div style={{position:"fixed",inset:0,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
       <Avatar src="icons/crest.png" size={96}/>
       <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:"#EFE9DB"}}>Muddy York Fishing</div>
