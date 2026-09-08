@@ -1672,7 +1672,10 @@ export default function App(){
       return {...ev,opportunity:Math.min(100,ev.opportunity+n),confidence:Math.min(98,ev.confidence+Math.round(n/2))}; });
     const auto=discovered.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"auto",reg:reg(s)}; const n=nudge(s.id);
       return {...ev,confidence:Math.min(70,applySourcePenalty(ev.confidence,"auto")+Math.round(n/2)),opportunity:Math.min(100,ev.opportunity+n)}; });
-    return [...curated,...auto].sort((a,b)=>b.opportunity-a.opportunity);
+    // Fishable water first: reaches that are closed by the Ontario season sink
+    // below open/uncertain ones (still shown, marked "Closed"), then by score.
+    const openRank=(e)=> e.reg && e.reg.state==="closed" ? 0 : 1;
+    return [...curated,...auto].sort((a,b)=> (openRank(b)-openRank(a)) || (b.opportunity-a.opportunity));
   },[month,now,condFor,discovered,catchActivity,regs]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   // When a location is set, only show water within the chosen radius.
