@@ -13,6 +13,7 @@ import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
 import { mergeFeed } from "./lib/feed-merge.js";
+import { DEFAULT_REGS, reachRegStatus, mergeRegs } from "./lib/ontario-regs.js";
 import { applyBlocks } from "./lib/blocks.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
@@ -769,6 +770,19 @@ function Pill({k,dim}){
     border:`1px solid ${sp.color}55`,background:`${sp.color}14`,fontFamily:mono,fontSize:11,letterSpacing:0.5,color:dim?C.textDim:sp.color}}>
     <span style={{width:5,height:5,borderRadius:5,background:sp.color}}/>{sp.short}</span>);
 }
+// Free Ontario open-season tag. Links to the official regs; the detail (tooltip)
+// spells out that it's general guidance and the specific water may differ.
+function RegTag({reg,size="sm"}){
+  if(!reg) return null;
+  const map={green:{bg:`${C.pine}14`,bd:C.pine,fg:C.pine,ic:"check"},
+             red:{bg:`${C.brick}14`,bd:C.brick,fg:C.brick,ic:"lock"},
+             amber:{bg:`${C.brass}26`,bd:C.brass,fg:C.brickDeep,ic:"alert"}};
+  const t=map[reg.tone]||map.amber;
+  const pad=size==="lg"?"4px 10px":"3px 8px", fs=size==="lg"?12:11;
+  return (<a href={reg.regsUrl} target="_blank" rel="noopener noreferrer" title={reg.detail+"  ·  Tap to open the current Ontario regulations."}
+    style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:fs,fontWeight:700,letterSpacing:0.2,padding:pad,borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,textDecoration:"none",whiteSpace:"nowrap"}}>
+    <Icon name={t.ic} size={size==="lg"?13:12}/>{reg.label}</a>);
+}
 function SeasonStrip({sec,m}){
   return (<div style={{display:"flex",gap:2,marginTop:6}}>
     {MONTHS.map((mo,i)=>{ const v=bestSpecies(sec,i).activity, here=i===m;
@@ -900,7 +914,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
           <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
-          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
         <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
@@ -1293,6 +1307,7 @@ export default function App(){
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
+  const [regs,setRegs]=useState(DEFAULT_REGS);    // Ontario season data (backend feed over bundled default)
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [resetToken,setResetToken]=useState(()=>{ try{ return new URLSearchParams(window.location.search).get("reset"); }catch{ return null; } });
   const [flash,setFlash]=useState("");
@@ -1487,6 +1502,7 @@ export default function App(){
       const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
       const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
+      if(API_BASE){ const rc=await dbGet("regs:last"); if(rc) setRegs(mergeRegs(rc)); proxyJSON("/api/regulations").then(r=>{ setRegs(mergeRegs(r)); dbSet("regs:last",r); }).catch(()=>{}); }
       if(API_BASE) proxyJSON("/api/reach-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/reach-trending").then(d=>setTrending(d.trending||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
@@ -1605,12 +1621,13 @@ export default function App(){
 
   const ranked=useMemo(()=>{
     const nudge=(ref)=>catchNudge((catchActivity[ref]||{}).momentum);
-    const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified"}; const n=nudge(s.id);
+    const reg=(s)=>reachRegStatus(s,now,regs);
+    const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified",reg:reg(s)}; const n=nudge(s.id);
       return {...ev,opportunity:Math.min(100,ev.opportunity+n),confidence:Math.min(98,ev.confidence+Math.round(n/2))}; });
-    const auto=discovered.map(s=>{ const ev=evaluate(s,month,condFor(s),now); const n=nudge(s.id);
-      return {...ev,source:"auto",confidence:Math.min(70,applySourcePenalty(ev.confidence,"auto")+Math.round(n/2)),opportunity:Math.min(100,ev.opportunity+n)}; });
+    const auto=discovered.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"auto",reg:reg(s)}; const n=nudge(s.id);
+      return {...ev,confidence:Math.min(70,applySourcePenalty(ev.confidence,"auto")+Math.round(n/2)),opportunity:Math.min(100,ev.opportunity+n)}; });
     return [...curated,...auto].sort((a,b)=>b.opportunity-a.opportunity);
-  },[month,now,condFor,discovered,catchActivity]);
+  },[month,now,condFor,discovered,catchActivity,regs]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   // When a location is set, only show water within the chosen radius.
   const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
@@ -1694,9 +1711,13 @@ export default function App(){
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
           {locStatus==="denied" && <div style={hint}>Location is blocked — enable it in Settings ▸ Safari ▸ Location.</div>}
 
-          <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:14}}>
+          <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:10}}>
             <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
             <button onClick={()=> isPremium ? (setRiversView("map"),logEvent("open_map")) : openUpgrade()} style={segBtn(riversView==="map"&&isPremium)}><Icon name={isPremium?"map":"lock"} size={16}/>Map</button>
+          </div>
+          <div style={{fontSize:11.5,color:C.textDim,lineHeight:1.5,marginBottom:14,display:"flex",gap:6,alignItems:"flex-start"}}>
+            <Icon name="alert" size={13} style={{marginTop:1,flexShrink:0,color:C.brass}}/>
+            <span>Season tags are general Ontario zone guidance — many waters have specific exceptions and sanctuary closures. Always confirm the <a href={regs.regsUrl} target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>current regulations</a> for the exact water before fishing.</span>
           </div>
 
           {riversView==="map" && isPremium
@@ -1731,7 +1752,7 @@ export default function App(){
                     {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
                       <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
                       <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
-                      <Pill k={ev.target}/></div>))}
+                      <RegTag reg={ev.reg}/><Pill k={ev.target}/></div>))}
                   </div>
                 </Locked></>)}
               </>)}
@@ -2494,6 +2515,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
         <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg}/></div>
         <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
           <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}

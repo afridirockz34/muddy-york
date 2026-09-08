@@ -1,0 +1,16 @@
+{
+  "_note": "Ontario fishing-season data served to the app (GET /api/regulations). Edit this file and redeploy the backend to update seasons for everyone — no app release needed. 'reaches' overrides win over 'groups'; use them to encode a specific tributary's confirmed regulation. state = open | closed | check.",
+  "version": "2025-summary",
+  "regsUrl": "https://www.ontario.ca/page/fishing-ontario",
+  "updatedAt": "2026-01-01",
+  "reaches": {},
+  "groups": {
+    "streamTrout": { "mode": "window", "openRule": "4thSatApril", "close": [9, 30] },
+    "migratoryTrout": { "mode": "check" },
+    "salmon": { "mode": "check" },
+    "atlantic": { "mode": "check", "note": "Atlantic salmon are a restoration fishery — often catch-and-release only or closed. Confirm before fishing." },
+    "laketrout": { "mode": "check" },
+    "bass": { "mode": "window", "openRule": "4thSatJune", "close": [11, 30] },
+    "default": { "mode": "check" }
+  }
+}
