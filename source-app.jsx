@@ -13,7 +13,7 @@ import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
 import { mergeFeed } from "./lib/feed-merge.js";
-import { DEFAULT_REGS, reachRegStatus, mergeRegs } from "./lib/ontario-regs.js";
+import { DEFAULT_REGS, reachRegStatus, reachSpeciesStates, mergeRegs } from "./lib/ontario-regs.js";
 import { applyBlocks } from "./lib/blocks.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
@@ -770,18 +770,54 @@ function Pill({k,dim}){
     border:`1px solid ${sp.color}55`,background:`${sp.color}14`,fontFamily:mono,fontSize:11,letterSpacing:0.5,color:dim?C.textDim:sp.color}}>
     <span style={{width:5,height:5,borderRadius:5,background:sp.color}}/>{sp.short}</span>);
 }
-// Free Ontario open-season tag. Links to the official regs; the detail (tooltip)
-// spells out that it's general guidance and the specific water may differ.
-function RegTag({reg,size="sm"}){
+const REG_TONE={green:{bg:`${C.pine}14`,bd:C.pine,fg:C.pine,ic:"check"},
+                red:{bg:`${C.brick}14`,bd:C.brick,fg:C.brick,ic:"lock"},
+                amber:{bg:`${C.brass}26`,bd:C.brass,fg:C.brickDeep,ic:"alert"}};
+const regColor=(tone)=> tone==="green"?C.pine : tone==="red"?C.brick : C.brass;
+// Free Ontario open-season tag. Tapping opens the in-app detail sheet (no leaving
+// the app); that sheet carries the official-regs link for authoritative confirmation.
+function RegTag({reg,sec,size="sm"}){
   if(!reg) return null;
-  const map={green:{bg:`${C.pine}14`,bd:C.pine,fg:C.pine,ic:"check"},
-             red:{bg:`${C.brick}14`,bd:C.brick,fg:C.brick,ic:"lock"},
-             amber:{bg:`${C.brass}26`,bd:C.brass,fg:C.brickDeep,ic:"alert"}};
-  const t=map[reg.tone]||map.amber;
+  const t=REG_TONE[reg.tone]||REG_TONE.amber;
   const pad=size==="lg"?"4px 10px":"3px 8px", fs=size==="lg"?12:11;
-  return (<a href={reg.regsUrl} target="_blank" rel="noopener noreferrer" title={reg.detail+"  ·  Tap to open the current Ontario regulations."}
-    style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:fs,fontWeight:700,letterSpacing:0.2,padding:pad,borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,textDecoration:"none",whiteSpace:"nowrap"}}>
-    <Icon name={t.ic} size={size==="lg"?13:12}/>{reg.label}</a>);
+  const open=(e)=>{ e.preventDefault(); e.stopPropagation(); if(sec) window.dispatchEvent(new CustomEvent("mk-reg",{detail:{sec}})); };
+  return (<button onClick={open} title={reg.detail}
+    style={{display:"inline-flex",alignItems:"center",gap:4,cursor:"pointer",fontFamily:sans,fontSize:fs,fontWeight:700,letterSpacing:0.2,padding:pad,borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,whiteSpace:"nowrap"}}>
+    <Icon name={t.ic} size={size==="lg"?13:12}/>{reg.label}</button>);
+}
+// In-app regulation detail — keeps anglers on the app; the official link is here
+// for the authoritative check, not a required trip off-site.
+function RegSheet({sec,regs,now,onClose}){
+  const overall=useMemo(()=>reachRegStatus(sec,now,regs),[sec,now,regs]);
+  const rows=useMemo(()=>reachSpeciesStates(sec,now,regs),[sec,now,regs]);
+  const t=REG_TONE[overall.tone]||REG_TONE.amber;
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
+      <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
+      <div style={{fontSize:12.5,color:C.textDim,marginBottom:12}}>{sec.section} · {sec.zone}</div>
+      <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,fontFamily:sans,fontSize:13.5,fontWeight:700,marginBottom:12}}>
+        <Icon name={t.ic} size={15}/>{overall.label}</div>
+      <div style={{fontSize:13,color:C.text,lineHeight:1.55,marginBottom:14}}>{overall.detail}</div>
+      <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>By species</div>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+        {rows.map(r=>{ const rt=REG_TONE[r.tone]||REG_TONE.amber; const sp=SPECIES[r.key];
+          return (<div key={r.key} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13.5,fontWeight:700,color:C.text}}>{sp?sp.name:r.key}</div>
+              {r.window && <div style={{fontSize:11.5,color:C.textDim,marginTop:1}}>General season: {r.window}</div>}
+              {r.note && <div style={{fontSize:11.5,color:C.textDim,marginTop:1}}>{r.note}</div>}
+            </div>
+            <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,border:`1px solid ${rt.bd}`,background:rt.bg,color:rt.fg,fontFamily:sans,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}><Icon name={rt.ic} size={12}/>{r.label}</span>
+          </div>); })}
+      </div>
+      <div style={{padding:"9px 11px",background:`${C.brass}1a`,border:`1px solid ${C.brass}55`,borderRadius:9,fontSize:12,color:C.text,lineHeight:1.5,marginBottom:14}}>
+        General Ontario zone guidance. Many waters carry specific exceptions and sanctuary closures — confirm this exact reach in the official regulations before fishing.
+      </div>
+      <a href={overall.regsUrl} target="_blank" rel="noopener noreferrer" style={{...btnBig,width:"100%",justifyContent:"center",textDecoration:"none",borderColor:C.pine,color:C.pine}}><Icon name="search" size={15}/>Official Ontario regulations</a>
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:8}}>Close</button>
+    </div>
+  </div>);
 }
 function SeasonStrip({sec,m}){
   return (<div style={{display:"flex",gap:2,marginTop:6}}>
@@ -842,8 +878,9 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
     rankedRef.current.forEach(e=>{
       const lat=e.sec.lat, lon=e.sec.lon; if(lat==null) return;
       const col=scoreColor(e.opportunity);
-      const icon=L.divIcon({className:"",iconSize:[32,32],iconAnchor:[16,16],
-        html:`<div style="width:30px;height:30px;border-radius:50%;background:${C.bone};border:2.5px solid ${col};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:12.5px;color:${C.pine};box-shadow:0 1px 4px rgba(0,0,0,.35)">${e.opportunity}</div>`});
+      const ring=regColor(e.reg&&e.reg.tone); // border marks fishability: green=in season, red=closed, amber=check
+      const icon=L.divIcon({className:"",iconSize:[34,34],iconAnchor:[17,17],
+        html:`<div style="width:30px;height:30px;border-radius:50%;background:${C.bone};border:3px solid ${ring};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:12.5px;color:${col};box-shadow:0 1px 4px rgba(0,0,0,.35)">${e.opportunity}</div>`});
       const mk=L.marker([lat,lon],{icon}); mk.on("click",()=>{ setSel(e.sec.id); logEvent("view_reach",e.sec.id,{via:"map"}); }); grp.addLayer(mk); pts.push([lat,lon]);
     });
     map.addLayer(grp); clusterRef.current=grp;
@@ -908,13 +945,20 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
       style={{position:"absolute",top:full?"calc(10px + env(safe-area-inset-top))":10,right:10,zIndex:1400,display:"inline-flex",alignItems:"center",gap:6,padding:"8px 12px",borderRadius:9,cursor:"pointer",fontFamily:sans,fontSize:12.5,fontWeight:700,background:C.panel,border:`1px solid ${C.line}`,color:C.pine,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
       <Icon name={full?"close":"map"} size={15}/>{full?"Close map":"Full screen"}</button>}
     {!hasL && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:24,fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine}}>Loading the map — this part needs a connection.</div>}
-    {!full && <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:6,textAlign:"center"}}>Marker number = today's opportunity score · tap one for the report</div>}
+    {!full && (<div style={{marginTop:6,textAlign:"center"}}>
+      <div style={{display:"inline-flex",gap:12,flexWrap:"wrap",justifyContent:"center",alignItems:"center",fontFamily:sans,fontSize:10.5,color:C.textDim}}>
+        <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:11,height:11,borderRadius:11,border:`3px solid ${C.pine}`,background:C.bone}}/>In season</span>
+        <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:11,height:11,borderRadius:11,border:`3px solid ${C.brick}`,background:C.bone}}/>Closed</span>
+        <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:11,height:11,borderRadius:11,border:`3px solid ${C.brass}`,background:C.bone}}/>Check regs</span>
+      </div>
+      <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:4}}>Ring = Ontario season · number = today's opportunity · tap a marker for the report</div>
+    </div>)}
     {ev && (<div style={{position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
       <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
           <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
-          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg} sec={ev.sec}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
         <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
@@ -1308,6 +1352,8 @@ export default function App(){
   const [me,setMe]=useState(null);
   const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
   const [regs,setRegs]=useState(DEFAULT_REGS);    // Ontario season data (backend feed over bundled default)
+  const [regDetail,setRegDetail]=useState(null);  // reach whose in-app regulation sheet is open
+  useEffect(()=>{ const h=(e)=>setRegDetail(e.detail&&e.detail.sec); window.addEventListener("mk-reg",h); return ()=>window.removeEventListener("mk-reg",h); },[]);
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
   const [resetToken,setResetToken]=useState(()=>{ try{ return new URLSearchParams(window.location.search).get("reset"); }catch{ return null; } });
   const [flash,setFlash]=useState("");
@@ -1752,7 +1798,7 @@ export default function App(){
                     {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
                       <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
                       <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
-                      <RegTag reg={ev.reg}/><Pill k={ev.target}/></div>))}
+                      <RegTag reg={ev.reg} sec={ev.sec}/><Pill k={ev.target}/></div>))}
                   </div>
                 </Locked></>)}
               </>)}
@@ -1784,6 +1830,7 @@ export default function App(){
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
+      {regDetail && <RegSheet sec={regDetail} regs={regs} now={now} onClose={()=>setRegDetail(null)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
@@ -2515,7 +2562,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
         <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
-        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg}/></div>
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg} sec={ev.sec}/></div>
         <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
           <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
