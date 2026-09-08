@@ -1,6 +1,6 @@
 {
-  "_note": "Ontario fishing-season data served to the app (GET /api/regulations). Edit this file and redeploy the backend to update seasons for everyone — no app release needed. 'reaches' overrides win over 'groups'; each has a 'detail' plus either a static 'state' (open|closed|check) or a date-aware 'group' (a key in 'groups'). River ids match the app's RIVERS data. Encoded from the FMZ 16 regulations at ontario.ca; add other zones / refine boundaries as confirmed.",
-  "version": "2025-fmz16",
+  "_note": "Ontario fishing-season data served to the app (GET /api/regulations). Edit this file and redeploy the backend to update seasons for everyone — no app release needed. 'reaches' overrides win over 'groups'; each has a 'detail' plus either a static 'state' (open|closed|check) or a date-aware 'group' (a key in 'groups'). River ids match the app's RIVERS data. Encoded from the FMZ 13/14/16/17 regulations at ontario.ca; refine boundaries as confirmed.",
+  "version": "2025-fmz13-14-16-17",
   "regsUrl": "https://www.ontario.ca/document/ontario-fishing-regulations-summary",
   "updatedAt": "2026-01-01",
   "reaches": {
@@ -16,11 +16,27 @@
     "credit-mid": { "group": "streamTrout", "detail": "Middle Credit (Norval–Glen Williams), above the Hwy 407 extended-season boundary — resident-trout season closes Sept 30. Confirm the exact reach in the regs." },
     "notty-tribs": { "group": "streamTrout", "detail": "Nottawasaga cold tributaries — resident-trout season (~4th Sat April to Sept 30). The extended fall season applies to the main river, not these headwater tribs." },
     "boyne": { "group": "streamTrout", "detail": "Boyne headwaters — resident-trout season (~4th Sat April to Sept 30)." },
-    "conestogo-tw": { "group": "streamTrout", "detail": "Conestogo tailwater — resident-trout season (~4th Sat April to Sept 30). Not on the extended-fall list." }
+    "conestogo-tw": { "group": "streamTrout", "detail": "Conestogo tailwater — resident-trout season (~4th Sat April to Sept 30). Not on the extended-fall list." },
+
+    "ganaraska": { "group": "ganaraskaLower", "detail": "Lower Ganaraska (Port Hope, Jocelyn St to CNR): open 4th Sat April–Aug 31 and Oct 15–Dec 31. NO FISHING sanctuary Sept 1–Oct 14." },
+    "duffins": { "state": "check", "detail": "FMZ 17 base trout/salmon season closes Sept 30; some Lake Ontario tributaries carry extended fall seasons or sanctuary closures not confirmed here. Confirm the current regs for this reach." },
+    "wilmot": { "state": "check", "detail": "FMZ 17 base trout/salmon season closes Sept 30; some Lake Ontario tributaries carry extended fall seasons or sanctuary closures not confirmed here. Confirm the current regs for this reach." },
+    "bowmanville": { "state": "check", "detail": "FMZ 17 base trout/salmon season closes Sept 30; some Lake Ontario tributaries carry extended fall seasons or sanctuary closures not confirmed here. Confirm the current regs for this reach." },
+    "niagara-lower": { "state": "check", "detail": "The lower Niagara is a special border water with its own seasons (including lake trout) and sanctuary areas. Confirm the current regs." },
+
+    "saugeen-denny": { "state": "check", "detail": "FMZ 13 is generally open all year for steelhead/rainbow, brown and salmon — but the Saugeen has a sanctuary near Denny's Dam and seasonal limit changes. Confirm the current regs for this reach." },
+    "maitland-lower": { "state": "check", "detail": "FMZ 13 is generally open all year for steelhead/rainbow, brown and salmon; the lower Maitland (to the Highway 21 bridge) has extended/boundary rules. Confirm the current regs." },
+    "sauble": { "state": "check", "detail": "FMZ 13 is generally open all year for steelhead/rainbow and salmon, but the Sauble Falls area carries sanctuary/seasonal closures. Confirm the current regs." },
+
+    "beaver-lower": { "state": "check", "detail": "FMZ 14 is generally open all year for steelhead/rainbow, brown and salmon, but below-dam reaches like Thornbury often have spawning sanctuary closures. Confirm the current regs." },
+    "beaver-upper": { "state": "check", "detail": "FMZ 14: brown and rainbow are open all year, but brook trout is closed all year in this zone. Confirm the current regs for this reach." },
+    "bighead": { "state": "check", "detail": "FMZ 14 is generally open all year for steelhead/rainbow and salmon, but lower/below-dam reaches often have sanctuary closures. Confirm the current regs." },
+    "sydenham-os": { "state": "check", "detail": "FMZ 14 is generally open all year for steelhead/rainbow and salmon, but the below-dam Owen Sound reach may have sanctuary closures. Confirm the current regs." }
   },
   "groups": {
     "streamTrout": { "mode": "window", "openRule": "4thSatApril", "close": [9, 30] },
     "extendedFall": { "mode": "window", "openRule": "4thSatApril", "close": [12, 31], "note": "Extended fall migratory season (to Dec 31) on this named river." },
+    "ganaraskaLower": { "mode": "windows", "windows": [{ "open": "4thSatApril", "close": [8, 31] }, { "open": [10, 15], "close": [12, 31] }], "note": "No fishing Sept 1–Oct 14 (spawning sanctuary)." },
     "migratoryTrout": { "mode": "check" },
     "salmon": { "mode": "check" },
     "atlantic": { "mode": "check", "note": "Atlantic salmon are a restoration fishery — often catch-and-release only or closed. Confirm before fishing." },
