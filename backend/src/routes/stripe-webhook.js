@@ -30,7 +30,7 @@ async function upsertSubscription(userId, { id, status, priceId, currentPeriodEn
 
 // current_period_end moved from the subscription onto its items in newer Stripe
 // API versions — read whichever is present.
-function periodEndOf(sub) {
+export function periodEndOf(sub) {
   return sub.current_period_end || sub.items?.data?.[0]?.current_period_end || null;
 }
 
