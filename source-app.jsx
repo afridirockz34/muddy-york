@@ -1351,6 +1351,7 @@ export default function App(){
   const [notes,setNotes]=useState([]);
   const [me,setMe]=useState(null);
   const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
+  const [bootSlow,setBootSlow]=useState(false);   // show a "waking the server" note during a cold start
   const [regs,setRegs]=useState(DEFAULT_REGS);    // Ontario season data (backend feed over bundled default)
   const [regDetail,setRegDetail]=useState(null);  // reach whose in-app regulation sheet is open
   useEffect(()=>{ const h=(e)=>setRegDetail(e.detail&&e.detail.sec); window.addEventListener("mk-reg",h); return ()=>window.removeEventListener("mk-reg",h); },[]);
@@ -1395,11 +1396,15 @@ export default function App(){
     if(armed && !isPremiumMe(me)) openCheckout("annual");
   },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ refreshMe(); },[refreshMe]);
-  // Safety net: never let the brand splash block for more than a beat. If auth
-  // hasn't resolved in 2.5s (slow/failed /auth/me, offline, sluggish storage),
-  // fall to the signed-out default so the sign-in gate shows; refreshMe still
-  // corrects to the real state whenever it lands.
-  useEffect(()=>{ if(!API_BASE) return; const t=setTimeout(()=>setMe(prev=>prev||{user:null,entitlement:"free"}),2500); return ()=>clearTimeout(t); },[]);
+  // Hold the splash while auth resolves — but NEVER flip a possibly-signed-in
+  // user to the sign-in gate just because the backend is slow (a cold server can
+  // take ~30s). Show a reassuring note after 8s; only a very long hard fallback
+  // (30s) defaults to signed-out to avoid an infinite hang. The gate otherwise
+  // appears only when /auth/me actually returns signed-out.
+  useEffect(()=>{ if(!API_BASE) return;
+    const t1=setTimeout(()=>setBootSlow(true),8000);
+    const t2=setTimeout(()=>setMe(prev=>prev||{user:null,entitlement:"free"}),30000);
+    return ()=>{ clearTimeout(t1); clearTimeout(t2); }; },[]);
   // Always show the brand splash for ~3s on open (even when auth resolves instantly
   // from cache), so first paint feels intentional rather than a flash.
   useEffect(()=>{ const t=setTimeout(()=>setBootReady(true),3000); return ()=>clearTimeout(t); },[]);
@@ -1696,12 +1701,13 @@ export default function App(){
     : status==="loading"?(hasData?"Refreshing…":"Updating…")
     : hasData?"Last-known (offline)":"Offline · seasonal model";
 
-  // Hold the brand splash until the 3s timer AND auth have both settled — a
-  // deliberate opening moment, never an indefinite hang (auth is capped at 2.5s).
+  // Hold the brand splash until the 3s timer AND auth have both settled. It waits
+  // out a slow/cold backend rather than showing the sign-in gate prematurely.
   if(API_BASE && (!bootReady || me===null)) return (
-    <div style={{position:"fixed",inset:0,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14}}>
+    <div style={{position:"fixed",inset:0,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
       <Avatar src="icons/crest.png" size={96}/>
       <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:"#EFE9DB"}}>Muddy York Fishing</div>
+      {bootSlow && me===null && <div style={{fontFamily:sans,fontSize:12.5,color:"#B7C7B7",maxWidth:260,lineHeight:1.5,marginTop:2}}>Waking the server — one moment…</div>}
     </div>
   );
 

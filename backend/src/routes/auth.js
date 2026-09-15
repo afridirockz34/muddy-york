@@ -2,7 +2,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { hashPassword, verifyPassword } from "../auth/password.js";
-import { createSession, invalidateSession } from "../auth/session.js";
+import { createSession, invalidateSession, renewSession } from "../auth/session.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { entitlementForUser } from "../billing/user-entitlement.js";
 import { isAdmin } from "../social/moderation.js";
@@ -118,9 +118,13 @@ export default async function authRoutes(app) {
     apple: config.apple.configured,
   }));
 
-  app.get("/auth/me", async (req) => {
+  app.get("/auth/me", async (req, reply) => {
     const user = await getCurrentUser(req);
     if (!user) return { user: null, entitlement: "free" };
+    // Slide the session forward on each app open so active users stay signed in.
+    const token = req.cookies?.[config.cookieName];
+    const renewed = await renewSession(token);
+    if (renewed) setSessionCookie(reply, token, renewed.expiresAt);
     return { user: publicUser(user), entitlement: await entitlementForUser(user.id), isAdmin: isAdmin(user) };
   });
 }

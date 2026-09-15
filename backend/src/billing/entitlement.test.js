@@ -17,8 +17,18 @@ describe("resolveEntitlement", () => {
   it("no subscription and no live trial is free", () => {
     expect(resolveEntitlement({ status: null, currentPeriodEnd: null, trialEnd: past })).toBe("free");
   });
-  it("active status but a past period end falls through to trial/free", () => {
-    expect(resolveEntitlement({ status: "active", currentPeriodEnd: past, trialEnd: null })).toBe("free");
+  it("active status is premium even when currentPeriodEnd is missing (newer webhook payloads)", () => {
+    expect(resolveEntitlement({ status: "active", currentPeriodEnd: null, trialEnd: null })).toBe("active");
+  });
+  it("active status stays premium even if a stored period end looks stale (trust Stripe)", () => {
+    expect(resolveEntitlement({ status: "active", currentPeriodEnd: past, trialEnd: null })).toBe("active");
+  });
+  it("past-due within the known paid period keeps access (retry grace)", () => {
+    expect(resolveEntitlement({ status: "past_due", currentPeriodEnd: future, trialEnd: null })).toBe("active");
+    expect(resolveEntitlement({ status: "past_due", currentPeriodEnd: past, trialEnd: null })).toBe("free");
+  });
+  it("canceled with the paid period already over is free", () => {
+    expect(resolveEntitlement({ status: "canceled", currentPeriodEnd: past, trialEnd: null })).toBe("free");
   });
 });
 

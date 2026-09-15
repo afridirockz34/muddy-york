@@ -10,17 +10,36 @@ function notifyBilling(subject, text) {
   sendMail({ to: config.resend.billingEmail, subject: `[Muddy York Fishing] ${subject}`, text }).catch(() => {});
 }
 
+// A user has exactly one Subscription row (userId is unique). Key the upsert by
+// userId — NOT by the Stripe subscription id — so re-subscribing (a brand-new
+// Stripe sub id) updates the same row instead of failing the unique constraint
+// and leaving the user stranded on their old/canceled subscription.
 async function upsertSubscription(userId, { id, status, priceId, currentPeriodEnd }) {
   const data = {
+    id,
     status,
     priceId: priceId || null,
     currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : null,
   };
   await prisma.subscription.upsert({
-    where: { id },
-    create: { id, userId, ...data },
+    where: { userId },
+    create: { userId, ...data },
     update: data,
   });
+}
+
+// current_period_end moved from the subscription onto its items in newer Stripe
+// API versions — read whichever is present.
+function periodEndOf(sub) {
+  return sub.current_period_end || sub.items?.data?.[0]?.current_period_end || null;
+}
+
+const TERMINAL_STATUSES = ["canceled", "incomplete_expired", "unpaid"];
+// A late cancel/delete for a PREVIOUS subscription must not overwrite the user's
+// current one after they re-subscribed. Ignore terminal events whose sub id no
+// longer matches the row we track.
+export function ignoreStaleSubEvent(existingId, eventSubId, status) {
+  return !!existingId && existingId !== eventSubId && TERMINAL_STATUSES.includes(status);
 }
 
 export default async function stripeWebhookRoutes(app) {
@@ -63,13 +82,18 @@ export default async function stripeWebhookRoutes(app) {
     } else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });
       if (user) {
-        const prior = await prisma.subscription.findUnique({ where: { id: obj.id } });
+        const existing = await prisma.subscription.findUnique({ where: { userId: user.id } });
         const status = event.type === "customer.subscription.deleted" ? "canceled" : obj.status;
+        // Ignore a late cancel/delete of a previous sub after the user re-subscribed.
+        if (ignoreStaleSubEvent(existing?.id, obj.id, status)) {
+          return { received: true };
+        }
+        const prior = existing && existing.id === obj.id ? existing : null;
         await upsertSubscription(user.id, {
           id: obj.id,
           status,
           priceId: obj.items?.data?.[0]?.price?.id,
-          currentPeriodEnd: obj.current_period_end,
+          currentPeriodEnd: periodEndOf(obj),
         });
         const was = prior?.status;
         // Trial (or anything) converting to a paid, active membership.
@@ -78,7 +102,8 @@ export default async function stripeWebhookRoutes(app) {
         }
         // Membership cancelled (or scheduled to cancel at period end).
         if ((status === "canceled" || obj.cancel_at_period_end) && was !== "canceled" && was !== undefined) {
-          const end = obj.current_period_end ? new Date(obj.current_period_end * 1000).toDateString() : "now";
+          const pe = periodEndOf(obj);
+          const end = pe ? new Date(pe * 1000).toDateString() : "now";
           notifyBilling("Membership cancelled", `${user.email} cancelled their membership (access ends ${end}).`);
         }
       }
