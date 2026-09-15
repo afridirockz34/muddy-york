@@ -1892,7 +1892,14 @@ function LeaderboardSheet({onClose}){
 }
 function AdminSheet({onClose}){
   const [d,setD]=useState(null);
+  const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/api/admin/overview").then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); }); return ()=>{live=false;}; },[]);
+  const reconcile=async(all)=>{ setRecBusy(true); setRecOut(null);
+    try{ const body = all ? {} : { email: recEmail.trim() };
+      const r=await proxyJSON("/api/admin/reconcile",{method:"POST",body});
+      setRecOut(r); }
+    catch(e){ setRecOut({error: (e&&e.info&&e.info.error)||"Failed — are you the admin?"}); }
+    finally{ setRecBusy(false); } };
   const card=(label,val,sub)=>(<div style={{flex:"1 1 30%",minWidth:96,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,padding:"11px 12px"}}>
     <div style={{fontFamily:serif,fontSize:22,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
     <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:4}}>{label}</div>
@@ -1942,6 +1949,24 @@ function AdminSheet({onClose}){
               </div>))}
             </div></>}
         </div>)}
+
+      {head("Billing tools")}
+      <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Re-sync members from live Stripe — repairs anyone whose access drifted. Enter an email to fix one, or sweep everyone.</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={recEmail} onChange={e=>setRecEmail(e.target.value)} placeholder="member@email.com" style={{flex:"1 1 160px",minWidth:0,padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
+        <button disabled={recBusy||!recEmail.trim()} onClick={()=>reconcile(false)} style={{...btn,borderColor:C.pine,color:C.pine,padding:"9px 13px",opacity:(recBusy||!recEmail.trim())?0.5:1}}>Fix member</button>
+        <button disabled={recBusy} onClick={()=>{ if(window.confirm("Re-sync ALL members from Stripe?")) reconcile(true); }} style={{...btn,borderColor:C.brass,color:C.brickDeep,padding:"9px 13px",opacity:recBusy?0.5:1}}>Sweep all</button>
+      </div>
+      {recBusy && <div style={{fontSize:12.5,color:C.textDim,marginTop:8}}>Syncing with Stripe…</div>}
+      {recOut && (recOut.error
+        ? <div style={{fontSize:12.5,color:C.brick,marginTop:8}}>{recOut.error}</div>
+        : <div style={{marginTop:8,padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.pine,marginBottom:4}}>Reconciled {recOut.reconciled}</div>
+            {(recOut.results||[]).map((r,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,color:C.text}}>
+              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.email}</span>
+              <span style={{flexShrink:0,color:r.action==="error"?C.brick:r.entitlement==="free"?C.textFaint:C.pine,fontWeight:700}}>{r.action==="error"?r.error:`${r.action} · ${r.entitlement||r.status||"—"}`}</span>
+            </div>))}
+          </div>)}
       <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
     </div>
   </div>);
