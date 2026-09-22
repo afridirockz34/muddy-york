@@ -18,6 +18,7 @@ import pushRoutes from "./routes/push.js";
 import stripeWebhookRoutes from "./routes/stripe-webhook.js";
 import unsubscribeRoutes from "./routes/unsubscribe.js";
 import regulationsRoutes from "./routes/regulations.js";
+import supportRoutes from "./routes/support.js";
 import proxyRoutes from "./routes/proxy.js";
 import { requirePremium } from "./billing/require-premium.js";
 
@@ -29,6 +30,7 @@ export function buildApp(opts = {}) {
   app.register(stripeWebhookRoutes);
   app.register(unsubscribeRoutes);
   app.register(regulationsRoutes);
+  app.register(supportRoutes);
   app.register(authRoutes);
   app.register(googleRoutes);
   app.register(appleRoutes);

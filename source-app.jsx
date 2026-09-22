@@ -50,6 +50,36 @@ function logEvent(type,ref,meta){
 }
 if(typeof window!=="undefined") window.addEventListener("pagehide",flushEvents);
 
+/* ---- Acquisition: record where a visitor came from and the first page they hit,
+   once per session (a matching beacon on the marketing pages shares this flag, so
+   whichever page is the true entry point is the one recorded). ---- */
+function classifySource(){
+  try{
+    const p=new URLSearchParams(location.search);
+    const utm=(p.get("utm_source")||"").trim().toLowerCase();
+    if(utm) return utm.slice(0,60);
+    const r=document.referrer;
+    if(!r) return "direct";
+    const h=new URL(r).hostname.replace(/^www\./,"");
+    if(h===location.hostname) return "direct";
+    if(/google\./.test(h)) return "google";
+    if(/(bing\.|duckduckgo|yahoo)/.test(h)) return "search:"+h.split(".")[0];
+    if(/(facebook|fb\.|instagram|t\.co|twitter|x\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h)) return h.split(".")[0];
+    return h.slice(0,60);
+  }catch{ return "direct"; }
+}
+function trackFirstVisit(){
+  if(!API_BASE) return;
+  try{ if(sessionStorage.getItem("mkVisit")==="1") return; sessionStorage.setItem("mkVisit","1"); }catch{ return; }
+  const p=new URLSearchParams(location.search);
+  const landing=(location.pathname||"/").slice(0,60);
+  const meta={ referrer:(document.referrer||"").slice(0,200),
+    utmSource:p.get("utm_source")||null, utmMedium:p.get("utm_medium")||null, utmCampaign:p.get("utm_campaign")||null };
+  try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
+    body:JSON.stringify({events:[{type:"visit",ref:classifySource(),meta},{type:"landing",ref:landing}]})}).catch(()=>{}); }catch{}
+}
+if(typeof window!=="undefined") trackFirstVisit();
+
 /* ---- PWA install: capture Android/Chrome's install event before React mounts,
    so the "Add to Home Screen" button can trigger the native prompt on demand. */
 let _deferredInstall=null;
@@ -1346,6 +1376,7 @@ export default function App(){
   const [riversView,setRiversView]=useState("list");
   const [radiusOpen,setRadiusOpen]=useState(false);
   const [methodOpen,setMethodOpen]=useState(false);
+  const [helpOpen,setHelpOpen]=useState(false);
   const [boardOpen,setBoardOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
   const [notes,setNotes]=useState([]);
@@ -1835,9 +1866,11 @@ export default function App(){
       {drawerOpen && <Drawer tab={tab} me={me} onNav={(t)=>{setTab(t);setDrawerOpen(false);}} onClose={()=>setDrawerOpen(false)}
         onAccount={()=>{setDrawerOpen(false); if(API_BASE) setTab("account");}} onRadius={()=>{setDrawerOpen(false);setRadiusOpen(true);}} onMethod={()=>{setDrawerOpen(false);setMethodOpen(true);}}
         onBoard={API_BASE?()=>{setDrawerOpen(false);setBoardOpen(true);}:null}
+        onHelp={(API_BASE&&me&&me.user)?()=>{setDrawerOpen(false);setHelpOpen(true);}:null}
         onAdmin={(me&&me.isAdmin)?()=>{setDrawerOpen(false);setAdminOpen(true);}:null}/>}
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
+      {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {regDetail && <RegSheet sec={regDetail} regs={regs} now={now} onClose={()=>setRegDetail(null)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
@@ -1890,6 +1923,27 @@ function LeaderboardSheet({onClose}){
     </div>
   </div>);
 }
+function HelpSheet({me,onClose}){
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[sent,setSent]=useState(false),[err,setErr]=useState("");
+  const send=async()=>{ const m=msg.trim(); if(m.length<3){ setErr("Please write a message."); return; } setErr(""); setBusy(true);
+    try{ await proxyJSON("/support",{method:"POST",body:{message:m}}); setSent(true); }
+    catch(e){ setErr((e&&e.info&&e.info.error)||"Couldn't send just now — please try again."); } finally{ setBusy(false); } };
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
+      <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine,marginBottom:2}}>Help &amp; support</div>
+      {sent
+        ? <div style={{fontSize:14,color:C.text,lineHeight:1.55,padding:"10px 0"}}>Thanks — your message is on its way. We'll reply to <b>{me&&me.user&&me.user.email}</b>.</div>
+        : (<>
+          <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5,marginBottom:12}}>Have a question or hit a problem? Send us a note and we'll get back to you by email at {me&&me.user&&me.user.email}.</div>
+          <textarea value={msg} onChange={e=>setMsg(e.target.value)} maxLength={4000} placeholder="How can we help?" style={{width:"100%",minHeight:120,boxSizing:"border-box",padding:"11px 12px",borderRadius:10,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:15,resize:"vertical"}}/>
+          {err && <div style={{fontSize:12.5,color:C.brick,marginTop:6}}>{err}</div>}
+          <button disabled={busy} onClick={send} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:12,opacity:busy?0.6:1}}><Icon name="comment" size={16}/>{busy?"Sending…":"Send to support"}</button>
+        </>)}
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:8}}>Close</button>
+    </div>
+  </div>);
+}
 function AdminSheet({onClose}){
   const [d,setD]=useState(null);
   const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
@@ -1934,6 +1988,22 @@ function AdminSheet({onClose}){
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {(d.topEvents||[]).slice(0,8).map(e=><span key={e.type} style={{...notePill}}>{e.type} · {e.count}</span>)}
           </div>
+          {(()=>{ const bars=(rows)=>{ const max=Math.max(1,...(rows||[]).map(r=>r.count)); return (
+            <div style={{display:"flex",flexDirection:"column",gap:5}}>
+              {(rows||[]).map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{flex:"0 0 42%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:C.text}}>{r.label}</span>
+                <span style={{flex:1,height:8,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.round(r.count/max*100)}%`,background:C.brass}}/></span>
+                <span style={{flex:"0 0 auto",fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{r.count}</span>
+              </div>))}
+            </div>); };
+            return (<>
+              {head("How they found us (30 days)")}
+              {(d.acquisition||[]).length ? bars(d.acquisition) : <div style={{fontSize:12.5,color:C.textFaint}}>No traffic data yet.</div>}
+              {head("First page visited")}
+              {(d.landingPages||[]).length ? bars(d.landingPages) : <div style={{fontSize:12.5,color:C.textFaint}}>No landing data yet.</div>}
+              {head("Most-checked rivers")}
+              {(d.topReaches||[]).length ? bars(d.topReaches) : <div style={{fontSize:12.5,color:C.textFaint}}>No views yet.</div>}
+            </>); })()}
           {head("Recent signups")}
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
             {(d.recentSignups||[]).map((u,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text}}>
@@ -1971,7 +2041,7 @@ function AdminSheet({onClose}){
     </div>
   </div>);
 }
-function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onAdmin}){
+function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp,onAdmin}){
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
@@ -1982,10 +2052,11 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onAdmi
       {link("notes","My notes",tab==="notes",()=>onNav("notes"))}
       {onBoard && link("save","Recent catches",false,onBoard)}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
-      {API_BASE && link("account",`Account${me&&me.user?" · "+entitlementLabel(me):""}`,false,onAccount)}
+      {API_BASE && link("account","Account",false,onAccount)}
       {onAdmin && link("account","Admin dashboard",false,onAdmin)}
       {link("radius","Search radius",false,onRadius)}
       {link("method","Method & sources",false,onMethod)}
+      {onHelp && link("comment","Help & support",false,onHelp)}
       {!isStandalonePWA() && link("download","Install app",false,()=>{ onClose(); window.dispatchEvent(new Event("mk-open-install")); })}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
       <div style={{fontFamily:sans,fontSize:12,color:"#8FA394",padding:"8px 12px",lineHeight:1.5}}>Before you fish — confirm open seasons, limits and sanctuary closures in the current Ontario regulations.</div>
@@ -2076,8 +2147,9 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
 
 /* ============================ AUTH / PAYWALL UI =========================== */
 function AccountButton({me,onClick}){
-  const label=entitlementLabel(me);
-  return (<button onClick={onClick} style={{fontFamily:sans,fontSize:10,fontWeight:700,letterSpacing:0.4,padding:"5px 10px",borderRadius:6,cursor:"pointer",border:`1px solid ${C.brass}`,background:"transparent",color:C.brass,whiteSpace:"nowrap"}}>{me&&me.user?label:"Sign in"}</button>);
+  // Plain account icon — no entitlement chip in the header (no "Trial" reminder).
+  // Membership status still shows on the Account page.
+  return (<button onClick={onClick} aria-label="Account" style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="account" size={22}/></button>);
 }
 function AvatarEditor({me,onAuth}){
   const [busy,setBusy]=useState(false),[err,setErr]=useState("");

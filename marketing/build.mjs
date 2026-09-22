@@ -154,6 +154,20 @@ ${body}
   <div>© ${new Date().getFullYear()} ${BRAND} · Southern Ontario trout &amp; salmon intelligence</div>
   <div><a href="/rivers/">Rivers</a><a href="${HOME}#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
 </div></footer>
+<script>
+/* First-touch acquisition beacon — shares the sessionStorage flag with the app,
+   so the true entry page (this marketing page or the app) is the one recorded. */
+(function(){try{
+  if(sessionStorage.getItem("mkVisit")==="1")return;sessionStorage.setItem("mkVisit","1");
+  var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
+  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\\./,"");
+    if(h===location.hostname)src="direct";else if(/google\\./.test(h))src="google";else if(/(bing\\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
+    else if(/(facebook|fb\\.|instagram|t\\.co|twitter|x\\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
+  var meta={referrer:(document.referrer||"").slice(0,200),utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
+  fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
+    body:JSON.stringify({events:[{type:"visit",ref:src,meta:meta},{type:"landing",ref:(location.pathname||"/").slice(0,60)}]})}).catch(function(){});
+}catch(e){}})();
+</script>
 </body></html>`;
 }
 

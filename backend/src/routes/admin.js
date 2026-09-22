@@ -14,6 +14,7 @@ export default async function adminRoutes(app) {
       users, new7d, new30d, active, trialing,
       catches, notes, posts, comments, events7d,
       recentUsers, recentCatches, eventTypes,
+      acquisition, landingPages, topReaches,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: d7 } } }),
@@ -28,13 +29,23 @@ export default async function adminRoutes(app) {
       prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 15, select: { email: true, displayName: true, createdAt: true } }),
       prisma.catch.findMany({ orderBy: { caughtAt: "desc" }, take: 10, select: { species: true, sizeInches: true, river: true, caughtAt: true } }),
       prisma.event.groupBy({ by: ["type"], where: { createdAt: { gte: d30 } }, _count: { _all: true } }),
+      // Acquisition: where visitors came from (utm_source or referrer host).
+      prisma.event.groupBy({ by: ["ref"], where: { type: "visit", createdAt: { gte: d30 }, ref: { not: null } }, _count: { _all: true } }),
+      // First page visited on the site.
+      prisma.event.groupBy({ by: ["ref"], where: { type: "landing", createdAt: { gte: d30 }, ref: { not: null } }, _count: { _all: true } }),
+      // Which reaches customers are checking most.
+      prisma.event.groupBy({ by: ["ref"], where: { type: "view_reach", createdAt: { gte: d30 }, ref: { not: null } }, _count: { _all: true } }),
     ]);
+    const rank = (rows) => rows.map((r) => ({ label: r.ref, count: r._count._all })).sort((a, b) => b.count - a.count).slice(0, 10);
     return {
       users: { total: users, new7d, new30d },
       members: { active, trialing },
       content: { catches, notes, posts, comments },
       events7d,
       topEvents: eventTypes.map((e) => ({ type: e.type, count: e._count._all })).sort((a, b) => b.count - a.count),
+      acquisition: rank(acquisition),
+      landingPages: rank(landingPages),
+      topReaches: rank(topReaches),
       recentSignups: recentUsers.map((u) => ({ email: u.email, displayName: u.displayName, createdAt: u.createdAt.toISOString() })),
       recentCatches: recentCatches.map((c) => ({ species: c.species, sizeInches: c.sizeInches, river: c.river, caughtAt: c.caughtAt.toISOString() })),
     };
