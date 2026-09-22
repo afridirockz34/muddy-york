@@ -958,7 +958,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
           <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
-          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg} sec={ev.sec}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
+          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><RegTag reg={ev.reg} sec={ev.sec}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
         <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
@@ -1807,7 +1807,7 @@ export default function App(){
                     {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
                       <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
                       <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
-                      <RegTag reg={ev.reg} sec={ev.sec}/><Pill k={ev.target}/></div>))}
+                      <RegTag reg={ev.reg} sec={ev.sec}/></div>))}
                   </div>
                 </Locked></>)}
               </>)}
@@ -2596,7 +2596,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
         <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
-        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><Pill k={ev.target}/><RegTag reg={ev.reg} sec={ev.sec}/></div>
+        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><RegTag reg={ev.reg} sec={ev.sec}/></div>
         <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
           {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
           <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
