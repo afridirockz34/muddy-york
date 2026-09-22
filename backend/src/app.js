@@ -12,6 +12,7 @@ import catchRoutes from "./routes/catches.js";
 import eventRoutes from "./routes/events.js";
 import adminRoutes from "./routes/admin.js";
 import adminReconcileRoutes from "./routes/admin-reconcile.js";
+import adminUserRoutes from "./routes/admin-user.js";
 import noteRoutes from "./routes/notes.js";
 import postRoutes from "./routes/posts.js";
 import pushRoutes from "./routes/push.js";
@@ -40,6 +41,7 @@ export function buildApp(opts = {}) {
   app.register(eventRoutes);
   app.register(adminRoutes);
   app.register(adminReconcileRoutes);
+  app.register(adminUserRoutes);
   app.register(noteRoutes);
   app.register(postRoutes);
   app.register(pushRoutes);

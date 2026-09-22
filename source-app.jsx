@@ -68,15 +68,36 @@ function classifySource(){
     return h.slice(0,60);
   }catch{ return "direct"; }
 }
+function deviceInfo(){
+  try{
+    const ua=navigator.userAgent||"";
+    const os=/iphone|ipad|ipod/i.test(ua)?"iOS":/android/i.test(ua)?"Android":/mac os/i.test(ua)?"macOS":/windows/i.test(ua)?"Windows":/linux/i.test(ua)?"Linux":"Other";
+    const browser=/crios/i.test(ua)?"Chrome":/fxios|firefox/i.test(ua)?"Firefox":/edg/i.test(ua)?"Edge":/chrome/i.test(ua)?"Chrome":/safari/i.test(ua)?"Safari":"Browser";
+    const type=/mobile|iphone|android/i.test(ua)?"Mobile":"Desktop";
+    return { os, browser, type, standalone:isStandalonePWA(), ua:ua.slice(0,300) };
+  }catch{ return {}; }
+}
 function trackFirstVisit(){
   if(!API_BASE) return;
-  try{ if(sessionStorage.getItem("mkVisit")==="1") return; sessionStorage.setItem("mkVisit","1"); }catch{ return; }
   const p=new URLSearchParams(location.search);
   const landing=(location.pathname||"/").slice(0,60);
-  const meta={ referrer:(document.referrer||"").slice(0,200),
+  const attr={ source:classifySource(), referrer:(document.referrer||"").slice(0,200), landing,
     utmSource:p.get("utm_source")||null, utmMedium:p.get("utm_medium")||null, utmCampaign:p.get("utm_campaign")||null };
+  // First-touch attribution, kept for the eventual per-user acquisition record.
+  try{ if(!localStorage.getItem("mkAttr")) localStorage.setItem("mkAttr",JSON.stringify(attr)); }catch{}
+  try{ if(sessionStorage.getItem("mkVisit")==="1") return; sessionStorage.setItem("mkVisit","1"); }catch{ return; }
   try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({events:[{type:"visit",ref:classifySource(),meta},{type:"landing",ref:landing}]})}).catch(()=>{}); }catch{}
+    body:JSON.stringify({events:[{type:"visit",ref:attr.source,meta:attr},{type:"landing",ref:landing}]})}).catch(()=>{}); }catch{}
+}
+// Once a visitor is signed in, tie their first-touch attribution + device to the
+// account (one user-linked event, so the admin can see how each customer arrived).
+function sendAcquisitionOnce(userId){
+  if(!API_BASE||!userId) return;
+  try{ if(localStorage.getItem("mkAttrSent")===userId) return; }catch{}
+  let attr=null; try{ attr=JSON.parse(localStorage.getItem("mkAttr")||"null"); }catch{}
+  const meta={ ...(attr||{source:"direct"}), device:deviceInfo() };
+  logEvent("acquisition", meta.source||"direct", meta); flushEvents();
+  try{ localStorage.setItem("mkAttrSent",userId); }catch{}
 }
 if(typeof window!=="undefined") trackFirstVisit();
 
@@ -1427,6 +1448,8 @@ export default function App(){
     if(armed && !isPremiumMe(me)) openCheckout("annual");
   },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ refreshMe(); },[refreshMe]);
+  // Link first-touch attribution + device to the account once signed in.
+  useEffect(()=>{ if(API_BASE && me && me.user && me.user.id) sendAcquisitionOnce(me.user.id); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Hold the splash while auth resolves — but NEVER flip a possibly-signed-in
   // user to the sign-in gate just because the backend is slow (a cold server can
   // take ~30s). Show a reassuring note after 8s; only a very long hard fallback
@@ -1946,6 +1969,7 @@ function HelpSheet({me,onClose}){
 }
 function AdminSheet({onClose}){
   const [d,setD]=useState(null);
+  const [profileEmail,setProfileEmail]=useState(null);
   const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/api/admin/overview").then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); }); return ()=>{live=false;}; },[]);
   const reconcile=async(all)=>{ setRecBusy(true); setRecOut(null);
@@ -2005,11 +2029,12 @@ function AdminSheet({onClose}){
               {(d.topReaches||[]).length ? bars(d.topReaches) : <div style={{fontSize:12.5,color:C.textFaint}}>No views yet.</div>}
             </>); })()}
           {head("Recent signups")}
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {(d.recentSignups||[]).map((u,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text}}>
+          <div style={{fontSize:11,color:C.textFaint,marginBottom:6}}>Tap a user to see their full profile.</div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {(d.recentSignups||[]).map((u,i)=>(<button key={i} onClick={()=>setProfileEmail(u.email)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,fontSize:12.5,color:C.text,background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"7px 2px",cursor:"pointer",textAlign:"left",width:"100%"}}>
               <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}{u.displayName?` · ${u.displayName}`:""}</span>
-              <span style={{color:C.textFaint,flexShrink:0}}>{dt(u.createdAt)}</span>
-            </div>))}
+              <span style={{color:C.textFaint,flexShrink:0,display:"inline-flex",alignItems:"center",gap:4}}>{dt(u.createdAt)}<Icon name="chevron" size={13} style={{transform:"rotate(-90deg)"}}/></span>
+            </button>))}
           </div>
           {(d.recentCatches||[]).length>0 && <>{head("Recent catches")}
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -2038,6 +2063,69 @@ function AdminSheet({onClose}){
             </div>))}
           </div>)}
       <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
+    </div>
+    {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); proxyJSON("/api/admin/overview").then(setD).catch(()=>{}); }}/>}
+  </div>);
+}
+function UserProfileSheet({email,onClose,onDeleted}){
+  const [p,setP]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  useEffect(()=>{ let live=true; proxyJSON(`/api/admin/user?email=${encodeURIComponent(email)}`).then(x=>{ if(live) setP(x); }).catch(()=>{ if(live) setP({error:true}); }); return ()=>{live=false;}; },[email]);
+  const head=(t)=>(<div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,margin:"16px 0 7px"}}>{t}</div>);
+  const kv=(k,v)=>v!=null&&v!==""?(<div style={{display:"flex",gap:8,justifyContent:"space-between",fontSize:12.5,color:C.text,padding:"3px 0"}}><span style={{color:C.textDim,flexShrink:0}}>{k}</span><span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"right"}}>{v}</span></div>):null;
+  const when=(iso)=>{ try{ return new Date(iso).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch{ return iso; } };
+  const del=async()=>{ if(!window.confirm(`Permanently delete ${email} and ALL their data? This cannot be undone.`)) return;
+    setBusy(true); setErr("");
+    try{ await proxyJSON(`/api/admin/user?email=${encodeURIComponent(email)}`,{method:"DELETE"}); onDeleted&&onDeleted(); }
+    catch(e){ setErr((e&&e.info&&e.info.error)||"Couldn't delete — try again."); setBusy(false); } };
+  return (<div onClick={onClose} style={{...sheetOverlay,zIndex:9200}}>
+    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:560}}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>
+      {!p ? <div style={{fontSize:13,color:C.textFaint,padding:"14px 0"}}>Loading…</div>
+       : p.error ? <div style={{fontSize:13,color:C.brick,padding:"14px 0"}}>Couldn't load this profile.</div>
+       : (<div>
+        <div style={{display:"flex",gap:12,alignItems:"center"}}>
+          <Avatar src={p.user.avatarUrl} size={48}/>
+          <div style={{minWidth:0}}>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{p.user.displayName||"(no name)"}</div>
+            <div style={{fontSize:12.5,color:C.textDim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.user.email}</div>
+          </div>
+        </div>
+        {head("Account")}
+        {kv("Joined",when(p.user.createdAt))}
+        {kv("Sign-in",p.user.provider)}
+        {kv("Email verified",p.user.emailVerified?"Yes":"No")}
+        {head("Membership")}
+        {kv("Access",p.membership.entitlement)}
+        {kv("Stripe status",p.membership.status||"—")}
+        {kv("Renews / ends",p.membership.currentPeriodEnd?when(p.membership.currentPeriodEnd):"—")}
+        {head("How they arrived")}
+        {p.acquisition ? (<>
+          {kv("Source",p.acquisition.source)}
+          {kv("Campaign",p.acquisition.utmCampaign)}
+          {kv("UTM medium",p.acquisition.utmMedium)}
+          {kv("First page",p.acquisition.landing)}
+          {kv("Referrer",p.acquisition.referrer)}
+          {kv("Device",p.acquisition.device?`${p.acquisition.device.type} · ${p.acquisition.device.os} · ${p.acquisition.device.browser}${p.acquisition.device.standalone?" · installed":""}`:null)}
+          {kv("First seen",when(p.acquisition.firstSeen))}
+        </>) : <div style={{fontSize:12.5,color:C.textFaint}}>No acquisition data (signed up before tracking, or blocked).</div>}
+        {head("Content")}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {["catches","notes","posts","comments","saved"].map(k=><span key={k} style={notePill}>{k}: {p.content[k]}</span>)}
+        </div>
+        {p.behaviour.topReaches.length>0 && <>{head("Rivers they check most")}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{p.behaviour.topReaches.map((r,i)=><span key={i} style={notePill}>{r.ref} · {r.count}</span>)}</div></>}
+        {head("Recent activity")}
+        <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:220,overflowY:"auto"}}>
+          {p.recentActivity.length===0 ? <div style={{fontSize:12.5,color:C.textFaint}}>No activity yet.</div>
+            : p.recentActivity.map((e,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,color:C.text,padding:"2px 0"}}>
+                <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.type}{e.ref?` · ${e.ref}`:""}</span>
+                <span style={{color:C.textFaint,flexShrink:0}}>{when(e.createdAt)}</span>
+              </div>))}
+        </div>
+        {err && <div style={{fontSize:12.5,color:C.brick,marginTop:10}}>{err}</div>}
+        <button disabled={busy} onClick={del} style={{...btn,width:"100%",padding:"11px",marginTop:16,borderColor:C.brick,color:"#fff",background:C.brick,opacity:busy?0.6:1}}>{busy?"Deleting…":"Delete this customer & all their data"}</button>
+      </div>)}
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:8}}>Close</button>
     </div>
   </div>);
 }
