@@ -37,8 +37,8 @@ export const config = {
     adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
     // Where membership/trial/cancel notifications are sent.
     billingEmail: process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",
-    // Where in-app support requests are sent (set SUPPORT_EMAIL later).
-    supportEmail: process.env.SUPPORT_EMAIL || process.env.ADMIN_EMAIL || process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",
+    // Where in-app support requests are sent. SUPPORT_EMAIL env overrides.
+    supportEmail: process.env.SUPPORT_EMAIL || "faheem@6ixdevelopers.com",
     // Secret used to sign one-click unsubscribe links (HMAC).
     emailSecret: process.env.EMAIL_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY || "",
     // Public base URL where the /unsubscribe route is reachable (this backend).
