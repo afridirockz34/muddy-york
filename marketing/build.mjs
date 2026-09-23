@@ -152,7 +152,7 @@ ${schema ? `<script type="application/ld+json">${JSON.stringify(schema)}</script
 ${body}
 <footer><div class="wrap">
   <div>© ${new Date().getFullYear()} ${BRAND} · Southern Ontario trout &amp; salmon intelligence</div>
-  <div><a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="${HOME}#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
+  <div><a href="/rivers/">Rivers</a><a href="/regions/">Regions</a><a href="/guides/">Guides</a><a href="${APP_URL}">Open the app</a></div>
 </div></footer>
 <script>
 /* First-touch acquisition beacon — shares the sessionStorage flag with the app,
@@ -282,7 +282,7 @@ function riverBody(r) {
 
   <h2>Nearby water</h2>
   <div class="rivers-grid">${nearby.map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("")}</div>
-  <p style="margin-top:14px;"><a href="/rivers/">← Browse all ${RIVERS.length}+ Southern Ontario rivers</a></p>
+  <p style="margin-top:14px;"><a href="/rivers/">← Browse all ${RIVERS.length}+ Southern Ontario rivers</a>${(() => { const reg = REGIONS.find((x) => x.filter(r)); return reg ? ` · <a href="/regions/${reg.slug}/">${esc(reg.h1)} →</a>` : ""; })()}</p>
 
   ${cta("Start your free 14-day trial")}
 </article></div></section>`,
@@ -385,6 +385,27 @@ const GUIDES = [
       { q: "When is brown trout season in Ontario?", a: "Resident stream trout generally open from the fourth Saturday of April to September 30, with extended fall seasons on named migratory rivers. Confirm the exact reach in the current Ontario regulations — Muddy York Fishing shows the season status for each river." },
     ],
   },
+  {
+    slug: "ontario-trout-opener",
+    title: `Ontario Trout Opener — Season Dates & Where to Fish`,
+    desc: "When trout season opens in Ontario (the fourth Saturday in April), what the opener means by zone, and the best rivers to fish on opening day.",
+    h1: "The Ontario trout opener",
+    filter: (r) => r.species.includes("BKT") || r.species.includes("BNT"),
+    intro: [
+      "For Southern Ontario anglers, the trout opener is the real start of the season. Across most of the province, the general stream-trout season opens on the fourth Saturday in April — the first legal day to target brook and brown trout in most rivers and streams.",
+      "It's more than a date. Opening weekend puts hungry, un-pressured fish in cold, high spring water, and it's a tradition that draws anglers back to the same runs year after year.",
+    ],
+    sections: [
+      { h: "When does trout season open in Ontario?", p: "In the Southern divisions the general stream-trout (brook and brown trout) season runs from the fourth Saturday in April through September 30. Dates and exceptions vary by Fisheries Management Zone (FMZ), and many Great Lakes tributaries carry extended migratory seasons or spring sanctuary closures that override the zone default — so always confirm the exact reach before you go. Muddy York Fishing shows the current season status (open, closed, or check regs) for each river." },
+      { h: "Where to fish on opening day", p: "Cold, spring-fed headwaters and tailwaters fish best early, while the water is still cold and often high. Tailwaters like the Grand below Shand Dam and the Conestogo run clearer and steadier than freestones after spring rain. Focus on the deeper slots and seams, and fish through the warmest part of the day." },
+      { h: "Best rivers for the opener", links: true },
+    ],
+    faqs: [
+      { q: "When is the trout opener in Ontario?", a: "In most of Southern Ontario the general stream-trout season opens on the fourth Saturday in April and runs to September 30. Some zones and waters differ, so confirm the current Ontario regulations for the exact river." },
+      { q: "Do I need a licence for the trout opener?", a: "Yes — a valid Ontario fishing licence (with an Outdoors Card) is required. Check the current regulations for season dates, limits and any sanctuary closures on the water you plan to fish." },
+      { q: "What's the best bait or fly for opening day?", a: "Cold, high spring water favours getting down: weighted nymphs and small streamers fished deep and slow, plus egg patterns where migratory fish are still around. Muddy York Fishing recommends the technique and flies for each river based on the day's conditions." },
+    ],
+  },
 ];
 
 const guideCta = (label) => `<div class="callout"><h3>Fish Southern Ontario on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the fly &amp; technique for today, depth &amp; likely fish, and access for 30+ rivers — free for 14 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
@@ -411,6 +432,83 @@ function guideBody(g) {
     schema: [
       { "@context": "https://schema.org", "@type": "Article", headline: g.h1, description: g.desc, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },
       { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: g.faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
+    ],
+  };
+}
+
+// ---- region pages (target "<place> fishing" searches) ----
+const REGIONS = [
+  {
+    slug: "lake-ontario-tributaries",
+    title: `Lake Ontario Tributary Fishing — Steelhead, Salmon & Trout`,
+    desc: "The best Lake Ontario tributaries for steelhead, salmon and trout — the Credit, Humber, Rouge, Ganaraska, Bowmanville and more — with seasons and access.",
+    h1: "Lake Ontario tributary fishing",
+    filter: (r) => /Lake Ontario/i.test(r.region),
+    intro: [
+      "Lake Ontario's tributaries are Southern Ontario's steelhead-and-salmon highway. From the Credit and Humber on the west end to the Ganaraska, Bowmanville and Wilmot to the east, these rivers fill with migratory fish each spring and fall — and many are within an hour of Toronto.",
+      "They're rain-driven: each fresh push pulls new fish up from the lake, then the drop and clear is prime. Knowing which tributary is fishing today is the difference between a banner day and a wasted drive.",
+    ],
+  },
+  {
+    slug: "georgian-bay-lake-huron",
+    title: `Georgian Bay & Lake Huron Tributary Fishing — Steelhead & Salmon`,
+    desc: "Fishing the Georgian Bay and Lake Huron tributaries — the Nottawasaga, Saugeen, Maitland, Beaver, Bighead and Sauble — for steelhead, salmon and trout.",
+    h1: "Georgian Bay & Lake Huron tributary fishing",
+    filter: (r) => /Georgian Bay|Lake Huron/i.test(r.region),
+    intro: [
+      "The rivers flowing into Georgian Bay and Lake Huron hold some of Ontario's most storied steelhead and salmon water. The Saugeen and Maitland draw anglers from across the province, while the Nottawasaga, Beaver, Bighead and Sauble each run their own spring and fall migrations.",
+      "This is bigger, wilder water than the urban tributaries, and it rewards anglers who time the runs and read fresh, dropping flows.",
+    ],
+  },
+  {
+    slug: "grand-river",
+    title: `Grand River Fishing — Brown Trout, Steelhead & Salmon`,
+    desc: "Fishing the Grand River watershed: the world-class brown-trout tailwater below Shand Dam, the lower river to Lake Erie, and the Conestogo tailwater.",
+    h1: "Grand River fishing",
+    filter: (r) => /grand|conestogo/i.test(r.river),
+    intro: [
+      "The Grand is Ontario's signature trout river. The tailwater below Shand Dam runs cold and steady, holding wild brown trout that make it one of the best resident-trout fisheries in the country, while the lower river down to Lake Erie draws a strong run of migratory rainbow and brown trout.",
+      "Because the tailwater is dam-controlled, it fishes when freestones are blown out or too warm — a reliable option across the season.",
+    ],
+  },
+  {
+    slug: "niagara-region",
+    title: `Niagara Region Fishing — Lower Niagara & Twelve Mile Creek`,
+    desc: "Fishing the Niagara region: the powerful lower Niagara River for steelhead, brown trout and lake trout, plus cold-water Twelve Mile Creek near St. Catharines.",
+    h1: "Niagara region fishing",
+    filter: (r) => /Niagara/i.test(r.region),
+    intro: [
+      "The Niagara region packs big-water drama into a small area. The lower Niagara River — below the falls, through the whirlpool and Devil's Hole — is a world-class drift fishery for steelhead, brown trout and lake trout, while Twelve Mile Creek near St. Catharines offers a cold, wild-trout contrast.",
+      "The lower Niagara is a special border water with its own regulations, so always confirm the current rules before you fish.",
+    ],
+  },
+];
+
+function regionBody(g) {
+  const rivers = RIVERS.filter(g.filter);
+  const url = `${SITE_URL}/regions/${g.slug}/`;
+  const species = [...new Set(rivers.flatMap((r) => speciesNames(r.species)))];
+  return {
+    body: `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(g.h1)}</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>${esc(g.h1)}</h1>
+  ${g.intro.map((p) => `<p>${esc(p)}</p>`).join("\n")}
+  ${species.length ? `<p><b>What you'll catch:</b> ${esc(species.join(", ").replace(/, ([^,]*)$/, " and $1"))}.</p>` : ""}
+  ${guideCta(`Open ${BRAND}`)}
+  <h2>Rivers in this region</h2>
+  <p>Open any river for its full guide, species &amp; seasons, and today's live conditions:</p>
+  ${riverGrid(rivers)}
+  <h2>Fish the right river on the right day</h2>
+  <p>${BRAND} reads live water temperature, flow and weather on every one of these rivers each morning, ranks them by opportunity, and tells you where to go, when it's prime and what fly to tie on — plus parking and the walk to the water, and the current Ontario season status for each reach.</p>
+  <h2>Frequently asked</h2>
+  <details><summary>What can I catch in this region?</summary><p>These waters hold ${esc(species.join(", "))}. ${BRAND} shows which are most active today based on the season and live conditions.</p></details>
+  <details><summary>Do I need a fishing licence in Ontario?</summary><p>Yes — a valid Ontario fishing licence with an Outdoors Card is required for most anglers. Always confirm the current regulations, seasons and any sanctuary closures for the exact water.</p></details>
+  <p style="margin-top:18px;"><a href="/rivers/">Browse all ${RIVERS.length}+ Southern Ontario rivers →</a> · <a href="/guides/">Ontario fishing guides →</a></p>
+  ${guideCta("Start your free 14-day trial")}
+</article></div></section>`,
+    schema: [
+      { "@context": "https://schema.org", "@type": "Article", headline: g.h1, description: g.desc, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },
     ],
   };
 }
@@ -452,6 +550,8 @@ const riversIndexBody = `
   <h2 style="text-align:left;">Rivers &amp; spots we cover</h2>
   <p style="color:var(--dim);max-width:700px;margin-top:8px;">${RIVERS.length}+ trout, steelhead and salmon rivers across Southern Ontario. Tap any river for its guide, then open the app for today's live conditions.</p>
   ${Object.keys(byRegion).sort().map((reg) => `<h3 style="margin:28px 0 6px;font-size:18px;">${esc(reg)}</h3><div class="rivers-grid">${byRegion[reg].map((r) => `<a class="river-link" href="/rivers/${slug(r.river + " " + r.section)}/"><b>${esc(r.river)}</b><span>${esc(r.section)}</span></a>`).join("")}</div>`).join("")}
+  <h3 style="margin:30px 0 6px;font-size:18px;">Fishing regions</h3>
+  <div class="rivers-grid">${REGIONS.map((g) => `<a class="river-link" href="/regions/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 60)}…</span></a>`).join("")}</div>
   <h3 style="margin:30px 0 6px;font-size:18px;">Ontario fishing guides</h3>
   <div class="rivers-grid">${GUIDES.map((g) => `<a class="river-link" href="/guides/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 64)}…</span></a>`).join("")}</div>
   <div class="callout" style="margin-top:36px;"><h3>Get today's conditions on all of them</h3><a class="btn primary" href="${APP_URL}">Start free</a></div>
@@ -485,6 +585,29 @@ fs.writeFileSync(path.join(OUT, "guides", "index.html"), page({
 }));
 urls.push(SITE_URL + "/guides/");
 
+// region pages + regions index
+fs.mkdirSync(path.join(OUT, "regions"), { recursive: true });
+for (const g of REGIONS) {
+  const dir = path.join(OUT, "regions", g.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const { body, schema } = regionBody(g);
+  fs.writeFileSync(path.join(dir, "index.html"), page({ title: `${g.title} | ${BRAND}`, description: g.desc, canonical: `${SITE_URL}/regions/${g.slug}/`, body, schema }));
+  urls.push(`${SITE_URL}/regions/${g.slug}/`);
+}
+const regionsIndexBody = `
+<section class="section"><div class="wrap">
+  <h2 style="text-align:left;">Fishing regions of Southern Ontario</h2>
+  <p style="color:var(--dim);max-width:700px;margin-top:8px;">Explore the rivers by region — Lake Ontario and Lake Huron tributaries, the Grand River watershed and Niagara — then open the app for today's live conditions.</p>
+  <div class="rivers-grid" style="margin-top:16px;">${REGIONS.map((g) => `<a class="river-link" href="/regions/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 66)}…</span></a>`).join("")}</div>
+  <p style="margin-top:20px;"><a href="/rivers/">Browse all ${RIVERS.length}+ rivers →</a></p>
+</div></section>`;
+fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
+  title: `Southern Ontario Fishing Regions — Rivers by Area | ${BRAND}`,
+  description: "Fishing regions of Southern Ontario: Lake Ontario tributaries, Georgian Bay & Lake Huron, the Grand River and Niagara — with live conditions in the app.",
+  canonical: SITE_URL + "/regions/", body: regionsIndexBody,
+}));
+urls.push(SITE_URL + "/regions/");
+
 // sitemap + robots
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -496,4 +619,4 @@ fs.writeFileSync(path.join(OUT, "robots.txt"),
     .map((p) => `Disallow: ${p}`).join("\n") +
   `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
 
-console.log(`Built ${RIVERS.length} river pages + ${GUIDES.length} guides + /fishing landing + indexes + sitemap (${urls.length} URLs) into repo root.`);
+console.log(`Built ${RIVERS.length} river pages + ${GUIDES.length} guides + ${REGIONS.length} region pages + /fishing landing + indexes + sitemap (${urls.length} URLs) into repo root.`);
