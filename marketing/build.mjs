@@ -472,6 +472,17 @@ const REGIONS = [
     ],
   },
   {
+    slug: "toronto-area-rivers",
+    title: `Toronto-Area River Fishing — Trout, Steelhead & Salmon`,
+    desc: "Fishing the rivers in and around Toronto — the Credit, Humber, Rouge, Bronte, Sixteen Mile and Duffins — for trout, steelhead and salmon, with access and live conditions.",
+    h1: "Toronto-area river fishing",
+    filter: (r) => /credit|humber|rouge|bronte|sixteen|duffins|\bdon\b/i.test(r.river),
+    intro: [
+      "You don't have to leave the GTA for real fishing. The Credit, Humber and Rouge run right through the western and eastern suburbs, while Bronte Creek, Sixteen Mile Creek and Duffins Creek sit a short drive out — all holding resident trout through the season and filling with steelhead and salmon on the spring and fall runs.",
+      "These rivers change quickly with city rain, so the same creek can be prime one morning and blown out the next. Knowing which one is fishing today turns a lunch-break session into a real shot at fish.",
+    ],
+  },
+  {
     slug: "niagara-region",
     title: `Niagara Region Fishing — Lower Niagara & Twelve Mile Creek`,
     desc: "Fishing the Niagara region: the powerful lower Niagara River for steelhead, brown trout and lake trout, plus cold-water Twelve Mile Creek near St. Catharines.",
