@@ -4,8 +4,14 @@ import { config } from "../config.js";
 // A single admin, identified by ADMIN_EMAIL (falls back to the Resend from-addr's
 // configured admin). No schema flag needed for one moderator.
 export function isAdmin(user) {
-  const admin = config.resend.adminEmail;
-  return !!user && !!admin && user.email === admin;
+  if (!user || !user.email) return false;
+  // adminEmail may be a plain email, a comma list, or a "Name <addr>" string —
+  // normalise all of them and compare case-insensitively.
+  const emails = String(config.resend.adminEmail || "")
+    .split(",")
+    .map((s) => { const m = s.match(/<([^>]+)>/); return (m ? m[1] : s).trim().toLowerCase(); })
+    .filter(Boolean);
+  return emails.includes(String(user.email).trim().toLowerCase());
 }
 
 // User ids to hide from `userId`'s feed: everyone they've blocked, plus everyone

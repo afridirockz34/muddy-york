@@ -1448,6 +1448,14 @@ export default function App(){
     if(armed && !isPremiumMe(me)) openCheckout("annual");
   },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ refreshMe(); },[refreshMe]);
+  // Bulletproof sign-out: clear the server session AND the local optimistic cache,
+  // then force the UI to signed-out even if the network call fails.
+  const signOut=useCallback(async()=>{
+    try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{}
+    try{ dbSet("me:last",{user:null,entitlement:"free"}); }catch{}
+    try{ localStorage.removeItem("mkAttrSent"); }catch{}
+    setMe({user:null,entitlement:"free"}); setTab("rivers");
+  },[]);
   // Link first-touch attribution + device to the account once signed in.
   useEffect(()=>{ if(API_BASE && me && me.user && me.user.id) sendAcquisitionOnce(me.user.id); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Hold the splash while auth resolves — but NEVER flip a possibly-signed-in
@@ -1876,7 +1884,7 @@ export default function App(){
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
-        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onCheckout={openCheckout}/>}
+        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onLogout={signOut} onCheckout={openCheckout}/>}
       </div>
 
       {/* Bottom tab bar */}
@@ -2327,10 +2335,10 @@ function AlertPrefs(){
 }
 // Account is a normal in-frame page (top bar + bottom nav stay visible), reached
 // from the account button or drawer — not a pop-up.
-function AccountView({me,onAuth,onCheckout}){
+function AccountView({me,onAuth,onLogout,onCheckout}){
   const premium=isPremiumMe(me);
   const [err,setErr]=useState("");
-  const logout=async()=>{ try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
+  const logout=async()=>{ if(onLogout) return onLogout(); try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
   const startCheckout=(plan)=> onCheckout&&onCheckout(plan);
   const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
   if(!(me&&me.user)) return null;

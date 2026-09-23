@@ -34,7 +34,9 @@ export const config = {
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "Muddy York Fishing <onboarding@resend.dev>",
-    adminEmail: process.env.ADMIN_EMAIL || process.env.EMAIL_FROM || "",
+    // Admin account(s) — plain email, or a comma-separated list. Do NOT fall back
+    // to EMAIL_FROM (that's a "Name <addr>" string and would never match a user).
+    adminEmail: process.env.ADMIN_EMAIL || "afridirockz34@gmail.com",
     // Where membership/trial/cancel notifications are sent.
     billingEmail: process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",
     // Where in-app support requests are sent. SUPPORT_EMAIL env overrides.
