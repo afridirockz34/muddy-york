@@ -145,14 +145,14 @@ ${schema ? `<script type="application/ld+json">${JSON.stringify(schema)}</script
 <header class="nav"><div class="wrap">
   <a class="brand" href="${HOME}"><img src="/crest.png" alt="${BRAND} crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links">
-    <a href="/rivers/">Rivers</a><a href="${HOME}#features">Features</a><a href="${HOME}#pricing">Pricing</a>
+    <a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="${HOME}#pricing">Pricing</a>
     <a class="cta" href="${APP_URL}">Start free</a>
   </nav>
 </div></header>
 ${body}
 <footer><div class="wrap">
   <div>© ${new Date().getFullYear()} ${BRAND} · Southern Ontario trout &amp; salmon intelligence</div>
-  <div><a href="/rivers/">Rivers</a><a href="${HOME}#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
+  <div><a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="${HOME}#pricing">Pricing</a><a href="${APP_URL}">Open the app</a></div>
 </div></footer>
 <script>
 /* First-touch acquisition beacon — shares the sessionStorage flag with the app,
@@ -301,6 +301,120 @@ function riverBody(r) {
   };
 }
 
+// ---- pillar / guide pages (target broad Ontario fishing searches) ----
+const riverGrid = (list) => `<div class="rivers-grid">${list.slice(0, 12).map((r) => `<a class="river-link" href="/rivers/${slug(r.river + " " + r.section)}/"><b>${esc(r.river)}</b><span>${esc(r.section)}</span></a>`).join("")}</div>`;
+
+const GUIDES = [
+  {
+    slug: "steelhead-fishing-ontario",
+    title: `Steelhead Fishing in Ontario — Rivers, Runs & Tactics`,
+    desc: "Where and when to fish steelhead (lake-run rainbow trout) in Southern Ontario: the best Great Lakes tributaries, run timing, flies and tactics.",
+    h1: "Steelhead fishing in Ontario",
+    filter: (r) => r.species.includes("STL") || r.species.includes("RBT"),
+    intro: [
+      "Steelhead — lake-run rainbow trout — are the prize of Southern Ontario's Great Lakes tributaries. Each spring and fall they push out of Lakes Ontario, Erie and Huron into the rivers, drawing fly and float anglers to famous water like the Ganaraska, Saugeen, Credit and Niagara.",
+      "The catch is timing. Steelhead move on fresh water: a rain that bumps and colours a river, then drops and clears, is the classic window. Fish the wrong day and a river is dead; fish the drop and it can be the day of the season.",
+    ],
+    sections: [
+      { h: "When steelhead run in Ontario", p: "Fall run fish start entering the tributaries from late September through December, with holdover fish through winter where seasons stay open. The spring run — the biggest push — comes March through May as fish stage to spawn. Many lower tributary reaches carry extended seasons into December; upper reaches and sanctuaries close, so always confirm the current regulations for the exact water." },
+      { h: "How to catch them", p: "Drift eggs, nymphs and stoneflies through runs and tailouts under a float or on a tight line, and swing streamers when the water is stained. Fish hold in the deeper slots and the seams beside faster water. On low, clear water, downsize and lengthen your leader; on high, stained water, go bigger and brighter." },
+      { h: "Best steelhead rivers", links: true },
+    ],
+    faqs: [
+      { q: "When is the best time for steelhead in Ontario?", a: "The spring run (March–May) is the largest, and the fall run (late September–December) is prime on fresh, dropping water. Muddy York Fishing scores each river daily so you fish the right window." },
+      { q: "What's the difference between steelhead and rainbow trout?", a: "They're the same species — steelhead are the lake-run form that spend part of their life in the Great Lakes and run the tributaries to spawn, growing much larger than resident stream rainbows." },
+    ],
+  },
+  {
+    slug: "salmon-run-ontario",
+    title: `Salmon Run in Ontario — Chinook & Coho Rivers and Timing`,
+    desc: "The Ontario fall salmon run: when Chinook and Coho salmon run the Great Lakes tributaries, the best rivers to fish, and how to target them.",
+    h1: "The Ontario salmon run",
+    filter: (r) => r.species.includes("CHN") || r.species.includes("COH"),
+    intro: [
+      "Every fall, Chinook (king) and Coho salmon leave the Great Lakes and surge up Southern Ontario's tributaries to spawn — one of the most dramatic fisheries in the province. Rivers like the Credit, Humber, Ganaraska, Saugeen and Niagara fill with big, aggressive fish.",
+      "The run is short and weather-driven. A cool, rainy stretch in September and October pulls fresh fish in on every push; a warm, dry spell can stall it. Reading the water and the rain is everything.",
+    ],
+    sections: [
+      { h: "When is the Ontario salmon run?", p: "Chinook typically run from late August through October, peaking in September; Coho follow slightly later into October and November. Fresh rain that bumps the rivers triggers each new push, and first light is prime in the lower-river pools." },
+      { h: "How to fish the run", p: "Target deep holding pools, log-jam tailouts and current breaks in the lower river. Swing large, bright streamers and spey flies slowly through the lies, or drift roe and heavy nymphs. These are powerful fish on a fresh push — heavier tackle and stout leaders earn their keep." },
+      { h: "Best salmon rivers", links: true },
+    ],
+    faqs: [
+      { q: "When do salmon run in Ontario?", a: "Chinook salmon run from late August into October (peak September); Coho a little later into November. Runs surge on fresh rain — Muddy York Fishing tracks the rivers daily so you catch the push." },
+      { q: "Where can I see the salmon run near Toronto?", a: "The Credit, Humber and Rouge rivers all get strong fall runs within reach of Toronto. Open the river guides for access and today's conditions." },
+    ],
+  },
+  {
+    slug: "fly-fishing-near-toronto",
+    title: `Fly Fishing Near Toronto — Rivers, Trout & Salmon`,
+    desc: "The best rivers to fly fish near Toronto for trout, steelhead and salmon — from the Credit and Humber to the Rouge — with live conditions and access.",
+    h1: "Fly fishing near Toronto",
+    filter: (r) => /credit|humber|rouge|bronte|sixteen|don|duffins/i.test(r.river),
+    intro: [
+      "You don't have to drive north for good water. Within an hour of Toronto, the Credit, Humber, Rouge, Bronte and Sixteen Mile hold resident brown and brook trout through the season and fill with steelhead and salmon on the spring and fall runs.",
+      "These urban and near-urban rivers change fast with rainfall and rise and fall with the seasonal runs, so knowing which one is fishing today saves a wasted trip.",
+    ],
+    sections: [
+      { h: "The best rivers near Toronto", links: true },
+      { h: "What you'll catch", p: "Resident brown and brook trout in the cooler upper and middle reaches through spring to fall; lake-run steelhead and Chinook/Coho salmon in the lower reaches on the migratory runs. The Credit is the classic all-rounder, the Humber and Rouge get strong fall runs, and Bronte and Sixteen Mile are productive lower-river tributaries." },
+      { h: "Fish the right day", p: "Muddy York Fishing reads live water temperature, flow and weather on each of these rivers every morning, ranks them, and tells you where to go, when it's prime, and what fly to tie on — plus parking and the walk to the water." },
+    ],
+    faqs: [
+      { q: "Where can I fly fish near Toronto?", a: "The Credit, Humber, Rouge, Bronte Creek and Sixteen Mile Creek are all within about an hour of the city and hold trout, steelhead and salmon depending on the season." },
+      { q: "Do I need a licence to fish in Ontario?", a: "Yes — an Ontario Outdoors Card with a fishing licence is required for most anglers. Always check the current Ontario fishing regulations for the water you plan to fish." },
+    ],
+  },
+  {
+    slug: "brown-trout-fishing-ontario",
+    title: `Brown Trout Fishing in Ontario — Rivers & Seasons`,
+    desc: "Brown trout fishing in Southern Ontario: resident stream browns and lake-run browns, the best rivers and tailwaters, seasons and tactics.",
+    h1: "Brown trout fishing in Ontario",
+    filter: (r) => r.species.includes("BNT") || r.species.includes("BNTr"),
+    intro: [
+      "Brown trout are Southern Ontario's wariest, most rewarding stream fish. Wild resident browns hold in cold headwaters and tailwaters like the Grand below Shand Dam and the upper Credit, while lake-run browns run the Great Lakes tributaries in spring and fall.",
+      "Browns reward a careful approach: light tippet, a quiet wade, and reading the water at first and last light when the biggest fish feed.",
+    ],
+    sections: [
+      { h: "Resident vs. lake-run browns", p: "Resident stream browns live in the river year-round and fish through the general season (roughly the fourth Saturday of April to September 30). Lake-run browns — bigger, silver fish from the lakes — run the lower tributaries in spring and fall, often alongside steelhead. Cold tailwaters like the Grand can fish for browns almost year-round where regulations allow." },
+      { h: "How to catch brown trout", p: "Match the hatch with dries and a dry-dropper in prime temps, nymph the seams in cooler water, and swing or strip streamers at first and last light for the larger fish. Downsize and lengthen leaders on low, clear water." },
+      { h: "Best brown trout rivers", links: true },
+    ],
+    faqs: [
+      { q: "Where is the best brown trout fishing in Ontario?", a: "The Grand River tailwater below Shand Dam is Ontario's premier resident brown-trout water; the upper Credit, Conestogo tailwater and many cold tributaries also hold wild browns, and the lower Great Lakes tributaries get lake-run browns." },
+      { q: "When is brown trout season in Ontario?", a: "Resident stream trout generally open from the fourth Saturday of April to September 30, with extended fall seasons on named migratory rivers. Confirm the exact reach in the current Ontario regulations — Muddy York Fishing shows the season status for each river." },
+    ],
+  },
+];
+
+const guideCta = (label) => `<div class="callout"><h3>Fish Southern Ontario on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the fly &amp; technique for today, depth &amp; likely fish, and access for 30+ rivers — free for 14 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
+
+function guideBody(g) {
+  const rivers = RIVERS.filter(g.filter);
+  const url = `${SITE_URL}/guides/${g.slug}/`;
+  const secHtml = g.sections.map((s) => s.links
+    ? `<h2>${esc(s.h)}</h2><p>These Southern Ontario rivers are among the best — open any for its full guide and today's live conditions:</p>${riverGrid(rivers)}`
+    : `<h2>${esc(s.h)}</h2><p>${esc(s.p)}</p>`).join("\n");
+  return {
+    body: `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/guides/">Guides</a> › ${esc(g.h1)}</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>${esc(g.h1)}</h1>
+  ${g.intro.map((p) => `<p>${esc(p)}</p>`).join("\n")}
+  ${guideCta(`Open ${BRAND}`)}
+  ${secHtml}
+  <h2>Frequently asked</h2>
+  ${g.faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("")}
+  <p style="margin-top:18px;"><a href="/rivers/">Browse all ${RIVERS.length}+ Southern Ontario rivers →</a></p>
+  ${guideCta("Start your free 14-day trial")}
+</article></div></section>`,
+    schema: [
+      { "@context": "https://schema.org", "@type": "Article", headline: g.h1, description: g.desc, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },
+      { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: g.faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
+    ],
+  };
+}
+
 // ---- write everything ----
 // NOTE: the app owns the root index.html; the marketing landing lives at /fishing/
 // so it never overwrites the app. All other pages are new paths in the deploy.
@@ -338,6 +452,8 @@ const riversIndexBody = `
   <h2 style="text-align:left;">Rivers &amp; spots we cover</h2>
   <p style="color:var(--dim);max-width:700px;margin-top:8px;">${RIVERS.length}+ trout, steelhead and salmon rivers across Southern Ontario. Tap any river for its guide, then open the app for today's live conditions.</p>
   ${Object.keys(byRegion).sort().map((reg) => `<h3 style="margin:28px 0 6px;font-size:18px;">${esc(reg)}</h3><div class="rivers-grid">${byRegion[reg].map((r) => `<a class="river-link" href="/rivers/${slug(r.river + " " + r.section)}/"><b>${esc(r.river)}</b><span>${esc(r.section)}</span></a>`).join("")}</div>`).join("")}
+  <h3 style="margin:30px 0 6px;font-size:18px;">Ontario fishing guides</h3>
+  <div class="rivers-grid">${GUIDES.map((g) => `<a class="river-link" href="/guides/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 64)}…</span></a>`).join("")}</div>
   <div class="callout" style="margin-top:36px;"><h3>Get today's conditions on all of them</h3><a class="btn primary" href="${APP_URL}">Start free</a></div>
 </div></section>`;
 fs.writeFileSync(path.join(OUT, "rivers", "index.html"), page({
@@ -345,6 +461,29 @@ fs.writeFileSync(path.join(OUT, "rivers", "index.html"), page({
   description: `Guides to ${RIVERS.length}+ Southern Ontario trout, steelhead and salmon rivers — species, seasons and access. Live conditions in the ${BRAND} app.`,
   canonical: SITE_URL + "/rivers/", body: riversIndexBody,
 }));
+
+// guide / pillar pages + guides index
+fs.mkdirSync(path.join(OUT, "guides"), { recursive: true });
+for (const g of GUIDES) {
+  const dir = path.join(OUT, "guides", g.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const { body, schema } = guideBody(g);
+  fs.writeFileSync(path.join(dir, "index.html"), page({ title: `${g.title} | ${BRAND}`, description: g.desc, canonical: `${SITE_URL}/guides/${g.slug}/`, body, schema }));
+  urls.push(`${SITE_URL}/guides/${g.slug}/`);
+}
+const guidesIndexBody = `
+<section class="section"><div class="wrap">
+  <h2 style="text-align:left;">Ontario fishing guides</h2>
+  <p style="color:var(--dim);max-width:700px;margin-top:8px;">Where and when to fish for steelhead, salmon and trout across Southern Ontario — then open the app for today's live conditions.</p>
+  <div class="rivers-grid" style="margin-top:16px;">${GUIDES.map((g) => `<a class="river-link" href="/guides/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 70)}…</span></a>`).join("")}</div>
+  <p style="margin-top:20px;"><a href="/rivers/">Browse all ${RIVERS.length}+ rivers →</a></p>
+</div></section>`;
+fs.writeFileSync(path.join(OUT, "guides", "index.html"), page({
+  title: `Ontario Fishing Guides — Steelhead, Salmon & Trout | ${BRAND}`,
+  description: "Guides to steelhead, salmon and trout fishing across Southern Ontario — run timing, tactics and the best rivers, with live conditions in the app.",
+  canonical: SITE_URL + "/guides/", body: guidesIndexBody,
+}));
+urls.push(SITE_URL + "/guides/");
 
 // sitemap + robots
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
@@ -357,4 +496,4 @@ fs.writeFileSync(path.join(OUT, "robots.txt"),
     .map((p) => `Disallow: ${p}`).join("\n") +
   `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
 
-console.log(`Built ${RIVERS.length} river pages + /fishing landing + /rivers index + sitemap (${urls.length} URLs) into repo root.`);
+console.log(`Built ${RIVERS.length} river pages + ${GUIDES.length} guides + /fishing landing + indexes + sitemap (${urls.length} URLs) into repo root.`);
