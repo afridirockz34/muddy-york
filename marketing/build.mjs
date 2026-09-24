@@ -386,6 +386,29 @@ const GUIDES = [
     ],
   },
   {
+    slug: "float-fishing-for-steelhead",
+    title: `Float Fishing for Steelhead — Setup, Gear & Technique`,
+    desc: "How to float fish for steelhead in Ontario's rivers: centerpin and float rods, the float rig and shot pattern, baits and beads, and reading the water.",
+    h1: "Float fishing for steelhead",
+    filter: (r) => r.species.includes("STL") || r.species.includes("RBT"),
+    intro: [
+      "Float fishing is the deadliest way to present a bait to steelhead in a river, and it's why you see so many centerpin and float rods on the Ganaraska, Saugeen and Credit each run. A float lets you drift a bait at the exact speed of the current, drag-free, right along the bottom where steelhead hold — the presentation they can't resist.",
+      "It looks technical, but the core idea is simple: get your bait down, drift it naturally through the holding water, and watch the float for the take.",
+    ],
+    sections: [
+      { h: "The gear", p: "Two setups dominate. A centerpin reel on a 12–13' float rod gives the longest, most natural drag-free drifts and is the gold standard for dedicated steelheaders. A float (spinning) setup on a similar long rod is easier to learn and covers most water. Either way, the long rod is what mends line and controls the drift." },
+      { h: "The float rig", p: "Run the mainline to a float sized to the water (bigger and buoyant for heavy flow, small for slow, clear water), then a shot pattern below it — heavier shot up top tapering to smaller shot near the hook so the bait leads naturally. Below the shot, tie a lighter fluorocarbon leader (roughly 6–10 lb, lighter on clear water) to your hook. Set the float depth so the bait ticks bottom: as a rule of thumb, start at about 1.5× the water's depth and adjust until you occasionally touch." },
+      { h: "Baits, beads and flies", p: "Roe bags are the classic steelhead bait; plastic beads (pegged above the hook) and soft plastics have become just as popular and are cleaner to fish. Nymphs, egg patterns and small jigs all drift well under a float too. Match colour to clarity — natural and subtle in clear water, brighter (orange, chartreuse, pink) in stain." },
+      { h: "Reading the water & the drift", p: "Steelhead hold in the deeper slots, the tailouts of pools, and the seams beside faster water. Cast up and across, let the float settle, then keep the line off the water and mend so the float drifts at the current's speed — never dragging. When the float dips, hesitates or shoots under, set. Work a run in lanes, covering the near seam before the far one." },
+      { h: "Best rivers to float fish", links: true },
+    ],
+    faqs: [
+      { q: "What float rig do I use for steelhead?", a: "A buoyant float sized to the flow, a tapering shot pattern below it (heavier up, lighter near the hook), and a light fluorocarbon leader to the hook. Set the depth so the bait ticks bottom — about 1.5× the water depth to start." },
+      { q: "Do I need a centerpin reel to float fish?", a: "No. A centerpin gives the longest drag-free drifts and is ideal, but a float setup on a long spinning rod catches plenty of steelhead and is easier to learn." },
+      { q: "What's the best bait for steelhead?", a: "Roe bags, pegged beads and soft plastics are all top steelhead baits, along with egg patterns, nymphs and small jigs under a float. Match colour to water clarity — natural in clear water, brighter in stain." },
+    ],
+  },
+  {
     slug: "ontario-trout-opener",
     title: `Ontario Trout Opener — Season Dates & Where to Fish`,
     desc: "When trout season opens in Ontario (the fourth Saturday in April), what the opener means by zone, and the best rivers to fish on opening day.",
