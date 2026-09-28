@@ -6,7 +6,9 @@ export async function sendMail({ to, subject, text, replyTo }, opts = {}) {
   const apiKey = process.env.RESEND_API_KEY || config.resend.apiKey;
   if (!apiKey || !to) return false;
   try {
-    const payload = { from: config.resend.from, to, subject, text };
+    // `to` may be a comma-separated list (e.g. ADMIN_EMAIL); Resend wants an array.
+    const recipients = Array.isArray(to) ? to : String(to).split(",").map((s) => s.trim()).filter(Boolean);
+    const payload = { from: config.resend.from, to: recipients, subject, text };
     if (replyTo) payload.reply_to = replyTo;
     const res = await fetchImpl("https://api.resend.com/emails", {
       method: "POST",

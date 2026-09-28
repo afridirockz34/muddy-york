@@ -33,14 +33,14 @@ export const config = {
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY || "",
-    from: process.env.EMAIL_FROM || "Muddy York Fishing <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "Muddy York Fishing <info@muddyyorkfishing.ca>",
     // Admin account(s) — plain email, or a comma-separated list. Do NOT fall back
     // to EMAIL_FROM (that's a "Name <addr>" string and would never match a user).
-    adminEmail: process.env.ADMIN_EMAIL || "afridirockz34@gmail.com",
+    adminEmail: process.env.ADMIN_EMAIL || "afridirockz34@gmail.com,info@muddyyorkfishing.ca",
     // Where membership/trial/cancel notifications are sent.
-    billingEmail: process.env.BILLING_NOTIFY_EMAIL || "faheem-afridi@live.com",
+    billingEmail: process.env.BILLING_NOTIFY_EMAIL || "info@muddyyorkfishing.ca",
     // Where in-app support requests are sent. SUPPORT_EMAIL env overrides.
-    supportEmail: process.env.SUPPORT_EMAIL || "faheem@6ixdevelopers.com",
+    supportEmail: process.env.SUPPORT_EMAIL || "info@muddyyorkfishing.ca",
     // Secret used to sign one-click unsubscribe links (HMAC).
     emailSecret: process.env.EMAIL_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_SECRET_KEY || "",
     // Public base URL where the /unsubscribe route is reachable (this backend).

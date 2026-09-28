@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { sendAlertEmail } from "./mailer.js";
+import { sendAlertEmail, sendMail } from "./mailer.js";
 
 const spot = { river: "Grand River", section: "Tailwater" };
 
@@ -15,5 +15,15 @@ describe("sendAlertEmail", () => {
     process.env.RESEND_API_KEY = "";
     const ok = await sendAlertEmail("a@b.com", spot, 82, { fetchImpl: vi.fn() });
     expect(ok).toBe(false);
+  });
+});
+
+describe("sendMail", () => {
+  it("splits a comma-separated recipient list into an array", async () => {
+    process.env.RESEND_API_KEY = "re_test";
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    const ok = await sendMail({ to: "a@b.com, c@d.com", subject: "s", text: "t" }, { fetchImpl });
+    expect(ok).toBe(true);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).to).toEqual(["a@b.com", "c@d.com"]);
   });
 });
