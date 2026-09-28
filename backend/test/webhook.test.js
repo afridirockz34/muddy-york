@@ -34,6 +34,6 @@ describe("POST /webhooks/stripe", () => {
     expect(res.statusCode).toBe(200);
     const sub = await prisma.subscription.findUnique({ where: { userId: user.id } });
     expect(sub.id).toBe("sub_1");
-    expect(sub.status).toBe("active");
+    expect(sub.status).toBe("trialing"); // checkout always starts the 14-day trial
   });
 });

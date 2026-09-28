@@ -6,7 +6,7 @@ import { resetDb } from "./helpers/db.js";
 const app = buildApp();
 const cookieName = process.env.SESSION_COOKIE_NAME || "my_session";
 async function signup(email) {
-  const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1" } });
+  const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1", displayName: "u_" + email } });
   return s.cookies.find((c) => c.name === cookieName).value;
 }
 const body = { ref: "grand-tw", river: "Grand River", section: "Tailwater", species: "Brown trout", sizeInches: 14 };

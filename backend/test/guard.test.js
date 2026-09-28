@@ -10,14 +10,15 @@ describe("requirePremium guard", () => {
   beforeEach(resetDb);
   afterAll(() => prisma.$disconnect());
 
-  it("allows a trialing (fresh signup) user", async () => {
-    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "g@b.com", password: "supersecret1" } });
+  it("allows a user with an active trial", async () => {
+    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "g@b.com", password: "supersecret1", displayName: "u_g@b.com" } });
     const token = s.cookies.find((c) => c.name === cookieName).value;
+    await prisma.user.update({ where: { email: "g@b.com" }, data: { trialEnd: new Date(Date.now() + 86400000) } });
     const res = await app.inject({ method: "GET", url: "/premium/ping", cookies: { [cookieName]: token } });
     expect(res.statusCode).toBe(200);
   });
   it("402s a user whose trial has expired and has no subscription", async () => {
-    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "e@b.com", password: "supersecret1" } });
+    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "e@b.com", password: "supersecret1", displayName: "u_e@b.com" } });
     const token = s.cookies.find((c) => c.name === cookieName).value;
     await prisma.user.update({ where: { email: "e@b.com" }, data: { trialEnd: new Date(Date.now() - 1000) } });
     const res = await app.inject({ method: "GET", url: "/premium/ping", cookies: { [cookieName]: token } });

@@ -10,6 +10,9 @@ try {
 // database. Tests use a dedicated throwaway DB via TEST_DATABASE_URL; without
 // it, point DATABASE_URL at an unreachable host so DB-backed tests fail loudly
 // instead of deleting production data. (Pure-logic tests still run.)
+// Webhook tests sign events with this; CI has no backend/.env to provide one.
+process.env.STRIPE_WEBHOOK_SECRET ||= "whsec_test_secret";
+
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   "postgresql://blocked:blocked@127.0.0.1:1/no_test_db_configured";

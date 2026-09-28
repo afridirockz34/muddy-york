@@ -10,13 +10,12 @@ describe("trial on signup", () => {
   beforeEach(resetDb);
   afterAll(() => prisma.$disconnect());
 
-  it("new signup is on a trial and /me reports 'trialing'", async () => {
-    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "t@b.com", password: "supersecret1" } });
+  // No no-card trial: the 14-day trial starts only at checkout (see webhook tests).
+  it("new signup is free until checkout", async () => {
+    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "t@b.com", password: "supersecret1", displayName: "u_t@b.com" } });
     const cookie = s.cookies.find((c) => c.name === cookieName);
     const me = await app.inject({ method: "GET", url: "/auth/me", cookies: { [cookieName]: cookie.value } });
-    expect(me.json().entitlement).toBe("trialing");
-    const user = await prisma.user.findUnique({ where: { email: "t@b.com" } });
-    expect(user.trialEnd.getTime()).toBeGreaterThan(Date.now());
+    expect(me.json().entitlement).toBe("free");
   });
   it("unauthenticated /me is 'free'", async () => {
     const me = await app.inject({ method: "GET", url: "/auth/me" });

@@ -9,7 +9,7 @@ const cookieName = process.env.SESSION_COOKIE_NAME || "my_session";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 async function signup(email) {
-  await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1" } });
+  await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1", displayName: "u_" + email } });
 }
 
 describe("password reset", () => {

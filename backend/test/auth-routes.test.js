@@ -12,7 +12,7 @@ describe("auth routes", () => {
 
   it("signs up, sets a cookie, and returns the user from /me", async () => {
     const signup = await app.inject({ method: "POST", url: "/auth/signup",
-      payload: { email: "a@b.com", password: "supersecret1" } });
+      payload: { email: "a@b.com", password: "supersecret1", displayName: "u_a@b.com" } });
     expect(signup.statusCode).toBe(200);
     const cookie = signup.cookies.find((c) => c.name === cookieName);
     expect(cookie).toBeTruthy();
@@ -21,13 +21,13 @@ describe("auth routes", () => {
     expect(me.json().user.email).toBe("a@b.com");
   });
   it("rejects a duplicate email", async () => {
-    await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "d@b.com", password: "supersecret1" } });
-    const dup = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "d@b.com", password: "supersecret1" } });
+    await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "d@b.com", password: "supersecret1", displayName: "u_d@b.com" } });
+    const dup = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "d@b.com", password: "supersecret1", displayName: "u_d@b.com" } });
     expect(dup.statusCode).toBe(409);
   });
   it("logs in with correct creds and rejects wrong ones", async () => {
-    await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "l@b.com", password: "supersecret1" } });
-    const ok = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "l@b.com", password: "supersecret1" } });
+    await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "l@b.com", password: "supersecret1", displayName: "u_l@b.com" } });
+    const ok = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "l@b.com", password: "supersecret1", displayName: "u_l@b.com" } });
     expect(ok.statusCode).toBe(200);
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "l@b.com", password: "wrong" } });
     expect(bad.statusCode).toBe(401);

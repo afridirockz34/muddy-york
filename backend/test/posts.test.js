@@ -7,7 +7,7 @@ const app = buildApp();
 const cookieName = process.env.SESSION_COOKIE_NAME || "my_session";
 
 async function signup(email) {
-  const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1" } });
+  const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1", displayName: "u_" + email } });
   return s.cookies.find((c) => c.name === cookieName).value;
 }
 const auth = (t) => ({ cookies: { [cookieName]: t } });
@@ -29,6 +29,8 @@ describe("social posts + likes", () => {
 
   it("requires a display name before posting", async () => {
     const t = await signup("nn@b.com");
+    // Signup requires a username; simulate an account without one (e.g. OAuth).
+    await prisma.user.update({ where: { email: "nn@b.com" }, data: { displayName: null } });
     const r = await app.inject({ method: "POST", url: "/posts", ...auth(t), payload: { body: "hello" } });
     expect(r.statusCode).toBe(400);
     await app.inject({ method: "PATCH", url: "/me", ...auth(t), payload: { displayName: "Riverdog" } });
