@@ -30,13 +30,34 @@ export default async function billingRoutes(app) {
     const modeOf = (k, live, test) => (typeof k === "string" && k.startsWith(live) ? "live" : typeof k === "string" && k.startsWith(test) ? "test" : "unset");
     const publishable = modeOf(config.stripe.publishableKey, "pk_live", "pk_test");
     const secret = modeOf(config.stripe.secretKey, "sk_live", "sk_test");
+    // Actually fetch each configured price from Stripe (using the secret key) so
+    // we can see whether it exists in THIS mode, is active, and its amount — the
+    // usual cause of "Something went wrong" is a test-mode price with a live key.
+    const priceInfo = async (id) => {
+      if (!id) return { set: false };
+      try {
+        const p = await getStripe().prices.retrieve(id);
+        return { set: true, exists: true, active: p.active, mode: p.livemode ? "live" : "test",
+          currency: p.currency, amount: p.unit_amount, interval: p.recurring ? p.recurring.interval : null };
+      } catch (e) {
+        return { set: true, exists: false, error: e?.raw?.message || e?.message || "not found" };
+      }
+    };
+    const [priceMonthly, priceAnnual] = await Promise.all([
+      priceInfo(config.stripe.priceMonthly),
+      priceInfo(config.stripe.priceAnnual),
+    ]);
+    const priceOk = (p) => p.set && p.exists && p.active && p.mode === secret;
     return {
       publishable,
       secret,
       keysAligned: publishable !== "unset" && publishable === secret,
-      priceMonthlySet: !!config.stripe.priceMonthly,
-      priceAnnualSet: !!config.stripe.priceAnnual,
       webhookSecretSet: !!config.stripe.webhookSecret,
+      priceMonthly,
+      priceAnnual,
+      // The single field to check: true only when both prices exist, are active,
+      // and are in the SAME mode as the secret key. false ⇒ that's the problem.
+      pricesReady: priceOk(priceMonthly) && priceOk(priceAnnual),
     };
   });
 
