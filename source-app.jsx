@@ -18,6 +18,7 @@ import { applyBlocks } from "./lib/blocks.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
 import { catchNudge } from "./lib/catch-nudge.js";
+import { emailProblem, suggestEmail } from "./lib/email-validate.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -433,27 +434,11 @@ function evaluate(sec,m,cond,now){
     sec, cond, target:key, targetActivity:SPECIES[key].a[m],
     opportunity:opp, overall:overallRiverScore(sec), confidence:confidence2(sec,cond),
     warmStress, parts, detail,
-    explanation: explainScore(opp,cond,detail,seasonal,key,feed,warmStress),
   };
 }
 
-function explainScore(opp,cond,detail,seasonal,key,feed,warmStress){
-  const q = opp>=80?"Excellent conditions":opp>=65?"A good window":opp>=50?"Fair — workable":opp>=35?"Tough going":"Poor — likely off";
-  const cl=[];
-  cl.push(({"Low / clear":"low, clear water","Normal":"moderate flow","High / stained":"high, stained flow","Blown out":"blown-out, dirty water"})[cond.flow]||"moderate flow");
-  const t=cond.temp;
-  cl.push(t>=20?`warm water (${t.toFixed(0)}°C)`:t<8?`cold water (${t.toFixed(0)}°C)`:t<=18?`water in the trout band (${t.toFixed(0)}°C)`:`mild water (${t.toFixed(0)}°C)`);
-  if(cond.pressureTrend!=null){ const pt=cond.pressureTrend; cl.push(Math.abs(pt)<1.5?"stable pressure":pt<0?"falling pressure":"rising pressure"); }
-  if(cond.cloud!=null) cl.push(cond.cloud>70?"overcast skies":cond.cloud<30?"bright skies":"broken cloud");
-  if(cond.wind!=null && cond.wind>=25) cl.push("strong wind");
-  if(feed>=1.08) cl.push("an active feeding window right now");
-  else if(feed<=0.85) cl.push("a midday lull");
-  if(seasonal>=75) cl.push(`${SPECIES[key].name.toLowerCase()} near their peak`);
-  else if(seasonal<=20) cl.push(`${SPECIES[key].name.toLowerCase()} well off-peak`);
-  let s=`Score: ${opp}/100. ${q}. `+cl.slice(0,4).join(", ")+".";
-  if(warmStress) s+=" Warm-water flag — consider resting the trout today.";
-  return s;
-}
+// One-word read of today's opportunity, shown as "Condition" in the conditions box.
+function conditionLabel(opp){ return opp>=80?"Excellent":opp>=65?"Good":opp>=50?"Fair":opp>=35?"Tough":"Poor"; }
 
 /* ============================== LIVE LAYER ================================= */
 function buildWeatherURL(){
@@ -769,7 +754,6 @@ function buildFeed(ranked, userLoc, savedIds, now){
 }
 
 function scoreColor(v){ return v>=70?C.cyan:v>=45?C.amber:C.red; }
-function scoreWord(v){ return v>=70?"Prime":v>=45?"Fair":"Slow"; }
 function confLabel(v){ return v>=80?"High":v>=62?"Moderate":"Building"; }
 const serif='"Playfair Display",Besley,Georgia,"Times New Roman",serif';
 const sans='"Public Sans","Trade Gothic","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif';
@@ -801,7 +785,6 @@ function Gauge({value,size=72,label,stroke=7}){
         fontFamily:serif,fontSize:size*0.32,fontWeight:700,color:col,fontVariantNumeric:"tabular-nums"}}>{value}</div>
     </div>
     {label&&<div style={{fontFamily:mono,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.textDim}}>{label}</div>}
-    {label&&<div style={{fontFamily:sans,fontSize:9,fontWeight:700,letterSpacing:0.5,color:col}}>{scoreWord(value)}</div>}
   </div>);
 }
 function Bar({label,value}){
@@ -1009,16 +992,14 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
           <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
-          <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><RegTag reg={ev.reg} sec={ev.sec}/>{onToggleSave&&<SaveButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}</div>
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
         <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
       </div>
-      <p style={{fontSize:12.5,color:C.text,lineHeight:1.5,margin:"10px 0 0"}}>{ev.explanation}</p>
-      <ConditionsStrip cond={ev.cond}/>
+      <ActionBar ev={ev} isSaved={isSaved} onToggleSave={onToggleSave} signedIn={signedIn}/>
+      <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
-      <CatchForm sec={ev.sec} signedIn={signedIn}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & directions"/>
         <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & directions">
@@ -1785,6 +1766,8 @@ export default function App(){
         input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:${C.brick};border:2px solid ${C.bone};cursor:pointer;}
         .seg{font-family:${sans};font-size:10px;letter-spacing:.5px;padding:6px 9px;border-radius:4px;cursor:pointer;border:1px solid ${C.line};background:${C.bone};color:${C.textDim};}
         .seg.on{background:${C.brick};border-color:${C.brick};color:${C.bone};}
+        .mk-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+        @media (min-width:600px){.mk-actions{grid-template-columns:repeat(4,1fr);}}
         .tabs::-webkit-scrollbar{display:none;} .tabs{scrollbar-width:none;-ms-overflow-style:none;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
         @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
@@ -1802,7 +1785,6 @@ export default function App(){
             <Icon name="alert" size={22}/>
             {notifs.unread>0 && <span style={{position:"absolute",top:1,right:1,minWidth:16,height:16,padding:"0 4px",borderRadius:9,background:C.brick,color:"#fff",fontFamily:sans,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{notifs.unread>9?"9+":notifs.unread}</span>}
           </button>}
-          {API_BASE && <AccountButton me={me} onClick={()=>setTab("account")}/>}
           <button aria-label="Menu" onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="menu" size={23}/></button>
         </div>
       </div>
@@ -1867,7 +1849,7 @@ export default function App(){
                 <Locked premium={isPremium} onUpgrade={openUpgrade} label="Upgrade to see more water">
                   <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:8}}>
                     {honourable.map(ev=>(<div key={ev.sec.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
-                      <span title={scoreWord(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
+                      <span title={conditionLabel(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28}}>{ev.opportunity}</span>
                       <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,color:C.text,fontWeight:600}}>{ev.sec.river}</div><div style={{fontSize:12.5,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km`:""}</div></div>
                       <RegTag reg={ev.reg} sec={ev.sec}/></div>))}
                   </div>
@@ -1883,8 +1865,8 @@ export default function App(){
           onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
 
         {/* ===================== NOTES TAB ===================== */}
-        {tab==="notes" && <NotesView saved={saved} notes={notes} onAddNote={addNote} onRemoveNote={removeNote} onUnsave={toggleSave} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
-        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onLogout={signOut} onCheckout={openCheckout}/>}
+        {tab==="notes" && <NotesView notes={notes} onAddNote={addNote} onRemoveNote={removeNote} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
+        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onLogout={signOut} onCheckout={openCheckout} saved={saved} ranked={ranked} distOf={distOf} onUnsave={toggleSave} goRivers={()=>setTab("rivers")}/>}
       </div>
 
       {/* Bottom tab bar */}
@@ -2148,7 +2130,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp
       {link("notes","My notes",tab==="notes",()=>onNav("notes"))}
       {onBoard && link("save","Recent catches",false,onBoard)}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
-      {API_BASE && link("account","Account",false,onAccount)}
+      {API_BASE && link("account","Profile",tab==="account",onAccount)}
       {onAdmin && link("account","Admin dashboard",false,onAdmin)}
       {link("radius","Search radius",false,onRadius)}
       {link("method","Method & sources",false,onMethod)}
@@ -2173,7 +2155,7 @@ function RadiusSheet({current,onPick,onClose}){
     </div>
   </div>);
 }
-function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestLocation,top,signedIn,syncState}){
+function NotesView({notes,onAddNote,onRemoveNote,userLoc,requestLocation,top,signedIn,syncState}){
   const [f,setF]=useState({title:"",body:"",technique:"",flies:"",species:"",size:""});
   const [pin,setPin]=useState(false);
   const inp={width:"100%",padding:"10px 12px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14,marginTop:8};
@@ -2200,14 +2182,6 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
       <div style={{fontSize:11.5,color:C.textFaint,marginTop:9,lineHeight:1.5}}>{signedIn?"Backed up to your account and synced across your devices":"Saved to this device"}. A pin saves your current GPS spot so you can return to the exact place — and helps sharpen the app's spot suggestions.</div>
     </div>
 
-    {saved.length>0 && (<><SectionTitle t="Saved water"/>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
-        {saved.map(s=>(<div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
-          <div style={{flex:1,minWidth:0}}><div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.label}</div><div style={{fontSize:12.5,color:C.textDim}}>{s.section}</div></div>
-          <button onClick={()=>set("title",s.label+" — ")} style={{...btnBig,padding:"7px 10px",fontSize:12}}>Note</button>
-          <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6}}><Icon name="close" size={16}/></button>
-        </div>))}
-      </div></>)}
 
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
       <SectionTitle t="Your notes"/>
@@ -2233,7 +2207,7 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
 
     {top && <div style={{background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:11,padding:13,marginBottom:12}}>
       <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Today's best read</div>
-      <div style={{fontSize:14,color:C.text,marginTop:5}}><b style={{fontFamily:serif,fontSize:16,color:C.pine}}>{top.sec.river}</b> — opportunity {top.opportunity}/100 ({scoreWord(top.opportunity)}).</div></div>}
+      <div style={{fontSize:14,color:C.text,marginTop:5}}><b style={{fontFamily:serif,fontSize:16,color:C.pine}}>{top.sec.river}</b> — opportunity {top.opportunity}/100 ({conditionLabel(top.opportunity)}).</div></div>}
     <div style={{background:`${C.amber}14`,border:`1px solid ${C.amber}55`,borderRadius:11,padding:13}}>
       <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.amberDeep,marginBottom:6}}>Before you fish</div>
       <div style={{fontSize:13,color:C.text,lineHeight:1.55}}>Confirm open seasons, gear and limits in the current Ontario Fishing Regulations for the zone, plus waterbody exceptions and sanctuary closures. When water is warm, the kindest call is often not to target trout at all.</div>
@@ -2242,11 +2216,6 @@ function NotesView({saved,notes,onAddNote,onRemoveNote,onUnsave,userLoc,requestL
 }
 
 /* ============================ AUTH / PAYWALL UI =========================== */
-function AccountButton({me,onClick}){
-  // Plain account icon — no entitlement chip in the header (no "Trial" reminder).
-  // Membership status still shows on the Account page.
-  return (<button onClick={onClick} aria-label="Account" style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}><Icon name="account" size={22}/></button>);
-}
 function AvatarEditor({me,onAuth}){
   const [busy,setBusy]=useState(false),[err,setErr]=useState("");
   const fileRef=useRef(null);
@@ -2335,7 +2304,31 @@ function AlertPrefs(){
 }
 // Account is a normal in-frame page (top bar + bottom nav stay visible), reached
 // from the account button or drawer — not a pop-up.
-function AccountView({me,onAuth,onLogout,onCheckout}){
+// Saved rivers on the Profile screen, with today's read for each.
+function SavedRivers({saved,ranked,distOf,onUnsave,goRivers}){
+  const evOf=id=>ranked&&ranked.find(e=>e.sec.id===id);
+  return (<div style={{marginTop:22}}>
+    <SectionTitle t="Saved rivers"/>
+    {saved.length===0 ? (
+      <div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:14,fontSize:13,color:C.textDim,lineHeight:1.5}}>
+        No saved rivers yet. Tap <b style={{color:C.pine}}>Save</b> on any river in the list or on the map and it'll show up here. <button onClick={goRivers} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",textDecoration:"underline",fontSize:13,padding:0}}>Browse rivers</button>
+      </div>
+    ) : (<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {saved.map(s=>{ const ev=evOf(s.id); const d=ev&&distOf?distOf(ev.sec):null;
+        return (<div key={s.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+          {ev ? <span title={conditionLabel(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28,textAlign:"center"}}>{ev.opportunity}</span>
+              : <span style={{width:28,textAlign:"center",color:C.textFaint}}>–</span>}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.label}</div>
+            <div style={{fontSize:12.5,color:C.textDim}}>{s.section}{d!=null?` · ${d} km`:""}{ev?` · ${conditionLabel(ev.opportunity)}`:""}</div>
+          </div>
+          <a href={directionsUrl(s.lat,s.lon)} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${s.label}`} style={{color:C.pine,padding:6,display:"flex"}}><Icon name="map" size={18}/></a>
+          <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} aria-label={`Remove ${s.label}`} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6,display:"flex"}}><Icon name="close" size={16}/></button>
+        </div>); })}
+    </div>)}
+  </div>);
+}
+function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUnsave,goRivers}){
   const premium=isPremiumMe(me);
   const [err,setErr]=useState("");
   const logout=async()=>{ if(onLogout) return onLogout(); try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
@@ -2352,6 +2345,7 @@ function AccountView({me,onAuth,onLogout,onCheckout}){
       <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px"}}>Start trial — annual {planPrice("annual")}</button>
       <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
     </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:14}}>Manage subscription</button>)}
+    <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} goRivers={goRivers}/>
     <AvatarEditor me={me} onAuth={onAuth}/>
     <DisplayNameEditor me={me} onAuth={onAuth}/>
     <BlockedAnglers/>
@@ -2421,8 +2415,13 @@ function SignInGate({onAuth,providers={}}){
   const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[username,setUsername]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
   const oauth=(p)=>{ try{ sessionStorage.setItem("mkGate","1"); }catch{} window.location=`${API_BASE}/auth/${p}`; };
+  const [touched,setTouched]=useState(false);
+  // Signup checks the email before it can reach the server (and Stripe later).
+  const emailErr=mode==="signup"?emailProblem(email):null;
+  const emailFix=mode==="signup"?suggestEmail(email):null;
   const submit=async()=>{ setErr("");
     if(mode==="signup" && username.trim().length<2){ setErr("Choose a username (2+ characters)."); return; }
+    if(emailErr){ setTouched(true); return; }
     setBusy(true);
     try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",
         {method:"POST",body:mode==="signup"?{email:email.trim(),password:pw,displayName:username.trim()}:{email:email.trim(),password:pw}});
@@ -2431,6 +2430,7 @@ function SignInGate({onAuth,providers={}}){
       if(mode==="signup"){
         setErr(m==="username taken"?"That username is taken — try another.":
                m==="email already registered"?"That email is already registered.":
+               m==="invalid email"?(e.info.message||"Enter a valid email address."):
                m&&m.includes("username")?"Username must be 2–40 characters.":
                "Couldn't create the account — check your email and use an 8+ character password.");
       } else setErr("Email or password incorrect.");
@@ -2462,9 +2462,12 @@ function SignInGate({onAuth,providers={}}){
           : (<div style={{marginTop:14}}>
             {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4}}>{err}</div>}
             {mode==="signup" && <input style={inp} type="text" placeholder="username (public)" value={username} maxLength={40} autoCapitalize="none" autoCorrect="off" onChange={e=>setUsername(e.target.value)}/>}
-            <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)}/>
+            <input style={{...inp,...(touched&&emailErr?{borderColor:"#F3C0B5",boxShadow:"0 0 0 2px rgba(243,192,181,.35)"}:{})}} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              placeholder="you@example.com" value={email} aria-invalid={!!(touched&&emailErr)} onBlur={()=>{ if(email) setTouched(true); }} onChange={e=>setEmail(e.target.value)}/>
+            {touched && emailErr && <div role="alert" style={{fontSize:12.5,color:"#F3C0B5",marginTop:6,lineHeight:1.4}}>
+              {emailFix ? <>Did you mean <button onClick={()=>setEmail(emailFix)} style={{background:"none",border:"none",padding:0,color:"#fff",fontWeight:700,textDecoration:"underline",cursor:"pointer",fontSize:12.5}}>{emailFix}</button>?</> : emailErr}</div>}
             <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
-            <button disabled={busy} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:busy?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
+            <button disabled={busy||(touched&&!!emailErr)} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:(busy||(touched&&emailErr))?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
             {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
@@ -2594,23 +2597,25 @@ function MiniStat({label,value,sub}){
     <div style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,marginTop:3}}>{label}{sub&&<span style={{color:C.textFaint}}> · {sub}</span>}</div>
   </div>);
 }
-function ConditionsStrip({cond}){
+function ConditionsStrip({cond,opp,warm}){
   if(cond.air==null && cond.wind==null && cond.temp==null) return null;
   const DIRS=["N","NE","E","SE","S","SW","W","NW"];
   const dir=cond.windDir!=null?DIRS[Math.round(cond.windDir/45)%8]:"";
   const pt=cond.pressureTrend;
   const press=pt==null?null:(pt>1.5?"↑ rising":pt<-1.5?"↓ falling":"→ steady");
   const sky=cond.cloud==null?null:(cond.cloud>70?"Overcast":cond.cloud<30?"Clear":"Cloudy");
-  const chip=(label,val)=>(<span key={label} style={{display:"inline-flex",gap:5,alignItems:"baseline"}}>
+  const chip=(label,val,color)=>(<span key={label} style={{display:"inline-flex",gap:5,alignItems:"baseline"}}>
     <span style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{label}</span>
-    <span style={{fontFamily:sans,fontSize:12,color:C.text,fontWeight:600}}>{val}</span></span>);
+    <span style={{fontFamily:sans,fontSize:12,color:color||C.text,fontWeight:color?800:600}}>{val}</span></span>);
   return (<div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8}}>
+    {opp!=null && chip("Condition",conditionLabel(opp),scoreColor(opp))}
     {chip("Water",`${cond.temp.toFixed(0)}°C`)}
     {cond.air!=null && chip("Air",`${Math.round(cond.air)}°C`)}
     {cond.wind!=null && chip("Wind",`${Math.round(cond.wind)} km/h${dir?" "+dir:""}`)}
     {press && chip("Pressure",press)}
     {sky && chip("Sky",sky)}
     {chip("Flow",cond.flow)}
+    {warm && chip("Heads-up","Warm water — rest the trout",C.brick)}
   </div>);
 }
 function MeasuredGauge({lat,lon}){
@@ -2675,8 +2680,8 @@ function DepthFish({sec,logged}){
     <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size sharpen as anglers log catches and notes.</div>
   </div>);
 }
-function CatchForm({sec, signedIn, compact}){
-  const [open,setOpen]=useState(false); const [sp,setSp]=useState((sec.species&&sec.species[0])||"BNT");
+function CatchForm({sec, signedIn, compact, startOpen, onCancel}){
+  const [open,setOpen]=useState(!!startOpen); const [sp,setSp]=useState((sec.species&&sec.species[0])||"BNT");
   const [size,setSize]=useState(""); const [done,setDone]=useState(false); const [busy,setBusy]=useState(false);
   if(!API_BASE) return null;
   if(!signedIn) return (<div style={{marginTop:10,fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Sign in to log a catch — it's free and helps everyone.</div>);
@@ -2696,7 +2701,7 @@ function CatchForm({sec, signedIn, compact}){
       }</select>
       <input style={{...inp,width:110}} type="number" placeholder="size (in)" value={size} onChange={e=>setSize(e.target.value)}/>
       <button disabled={busy} onClick={submit} style={{...btnBig,background:C.pine,color:C.headText,borderColor:C.pine}}>{busy?"…":"Submit"}</button>
-      <button onClick={()=>setOpen(false)} style={{...btnBig,borderColor:C.line,color:C.textDim,background:"#fff"}}>Cancel</button>
+      <button onClick={()=>{ setOpen(false); if(onCancel) onCancel(); }} style={{...btnBig,borderColor:C.line,color:C.textDim,background:"#fff"}}>Cancel</button>
     </div>
     <div style={{fontSize:11,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Attached to this reach only — never your exact location.</div>
   </div>);
@@ -2746,10 +2751,26 @@ function Advisor({ev,m,premium=true,onUpgrade}){
     {open && premium && <AdvisorPanel ev={ev} m={m}/>}
   </div>);
 }
-function SaveButton({saved,onClick}){
-  return (<button onClick={onClick} style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:11.5,fontWeight:700,letterSpacing:0.3,padding:"5px 11px",borderRadius:20,cursor:"pointer",
-    border:`1px solid ${saved?C.brass:C.line}`,background:saved?`${C.brass}22`:"#fff",color:saved?C.brickDeep:C.textDim,whiteSpace:"nowrap"}}>
-    <Icon name="save" size={13}/>{saved?"Saved":"Save"}</button>);
+// The four reach actions as one aligned grid (2×2 on phones, one row when wide).
+// The catch form opens full-width underneath instead of squeezing into the row.
+function ActionBar({ev,isSaved,onToggleSave,signedIn}){
+  const sec=ev.sec;
+  const [logOpen,setLogOpen]=useState(false);
+  const saved=onToggleSave&&isSaved(sec.id);
+  const t=ev.reg?(REG_TONE[ev.reg.tone]||REG_TONE.amber):null;
+  const cell={display:"flex",alignItems:"center",justifyContent:"center",gap:6,minHeight:40,padding:"8px 10px",borderRadius:9,
+    fontFamily:sans,fontSize:12.5,fontWeight:700,cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+    border:`1px solid ${C.line}`,background:C.bone,color:C.pine};
+  const openRegs=()=>window.dispatchEvent(new CustomEvent("mk-reg",{detail:{sec}}));
+  return (<div style={{marginTop:12}}>
+    <div className="mk-actions">
+      {t && <button onClick={openRegs} title={ev.reg.detail} style={{...cell,borderColor:t.bd,background:t.bg,color:t.fg}}><Icon name={t.ic} size={14}/>{ev.reg.label}</button>}
+      {onToggleSave && <button onClick={()=>onToggleSave(sec)} style={{...cell,...(saved?{borderColor:C.brass,background:`${C.brass}22`,color:C.brickDeep}:{})}}><Icon name="save" size={14}/>{saved?"Saved":"Save"}</button>}
+      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)} style={cell}><Icon name="map" size={14}/>Directions</a>
+      {API_BASE && <button onClick={()=>setLogOpen(o=>!o)} style={{...cell,...(logOpen?{borderColor:C.brass,background:`${C.brass}18`}:{})}}><Icon name="plus" size={14}/>Log a catch</button>}
+    </div>
+    {logOpen && <CatchForm sec={sec} signedIn={signedIn} startOpen onCancel={()=>setLogOpen(false)}/>}
+  </div>);
 }
 function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged,trend}){
   const sec=ev.sec, cd=ev.cond;
@@ -2764,18 +2785,11 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
         <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
         <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
-        <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap",alignItems:"center"}}><RegTag reg={ev.reg} sec={ev.sec}/></div>
-        <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
-          {onToggleSave && <SaveButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
-          <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)}
-            style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"none",border:`1px solid ${C.line}`,borderRadius:20,padding:"5px 11px",background:C.bone,whiteSpace:"nowrap"}}><Icon name="map" size={13}/>Directions</a>
-          <CatchForm sec={sec} signedIn={signedIn} compact/>
-        </div>
       </div>
       <Gauge value={ev.opportunity} label="Opportunity"/>
     </div>
-    <p style={{fontSize:13,color:C.text,lineHeight:1.55,margin:"12px 0 0"}}>{ev.explanation}</p>
-    <ConditionsStrip cond={cd}/>
+    <ActionBar ev={ev} isSaved={isSaved} onToggleSave={onToggleSave} signedIn={signedIn}/>
+    <ConditionsStrip cond={cd} opp={ev.opportunity} warm={ev.warmStress}/>
     {/* Score breakdown — full-width bars under the conditions box */}
     <div style={{width:"100%",marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:9}}>
       <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
