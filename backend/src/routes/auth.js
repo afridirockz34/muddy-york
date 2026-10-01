@@ -7,6 +7,8 @@ import { getCurrentUser } from "../auth/current-user.js";
 import { entitlementForUser } from "../billing/user-entitlement.js";
 import { isAdmin } from "../social/moderation.js";
 import { sendMail } from "../alerts/mailer.js";
+import { emailProblem, normalizeEmail } from "../../../lib/email-validate.js";
+import { domainAcceptsMail } from "../auth/email-domain.js";
 
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
@@ -15,6 +17,10 @@ function setSessionCookie(reply, token, expiresAt) {
     httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt,
   });
 }
+// Emails are stored lowercase from now on; older rows may not be, so look up
+// case-insensitively.
+const findByEmail = (email) => prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+
 const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null, avatarUrl: u.avatarUrl || null });
 
 // Case-insensitive username availability. Optionally exclude one user (for edits).
@@ -28,14 +34,19 @@ export async function isNameTaken(name, exceptUserId) {
 
 export default async function authRoutes(app) {
   app.post("/auth/signup", async (req, reply) => {
-    const { email, password } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
     const displayName = String(req.body?.displayName || "").trim();
-    if (!email || !password || password.length < 8)
+    const problem = emailProblem(email);
+    if (problem) return reply.code(400).send({ error: "invalid email", message: problem });
+    if (!password || password.length < 8)
       return reply.code(400).send({ error: "email and 8+ char password required" });
     if (displayName.length < 2 || displayName.length > 40)
       return reply.code(400).send({ error: "username must be 2–40 characters" });
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await findByEmail(email);
     if (existing) return reply.code(409).send({ error: "email already registered" });
+    if (config.checkEmailDomain && !(await domainAcceptsMail(email)))
+      return reply.code(400).send({ error: "invalid email", message: "That email domain can't receive mail — check the spelling." });
     if (await isNameTaken(displayName)) return reply.code(409).send({ error: "username taken" });
     // No no-card trial: the 14-day trial starts only after checkout with a card.
     let user;
@@ -51,8 +62,9 @@ export default async function authRoutes(app) {
   });
 
   app.post("/auth/login", async (req, reply) => {
-    const { email, password } = req.body || {};
-    const user = email ? await prisma.user.findUnique({ where: { email } }) : null;
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
+    const user = email ? await findByEmail(email) : null;
     if (!user || !user.passwordHash || !(await verifyPassword(password || "", user.passwordHash)))
       return reply.code(401).send({ error: "invalid credentials" });
     const { token, expiresAt } = await createSession(user.id);
@@ -75,9 +87,9 @@ export default async function authRoutes(app) {
   // exists). Emails a link to FRONTEND_ORIGIN/?reset=<token> when an email account
   // is found.
   app.post("/auth/forgot", async (req) => {
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const email = normalizeEmail(req.body?.email);
     if (email) {
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await findByEmail(email);
       if (user && user.passwordHash) {
         const token = randomBytes(32).toString("hex");
         await prisma.user.update({

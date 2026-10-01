@@ -2,6 +2,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { getStripe } from "../billing/stripe.js";
 import { getCurrentUser } from "../auth/current-user.js";
+import { emailProblem } from "../../../lib/email-validate.js";
 
 async function ensureCustomer(user) {
   // Reuse the stored customer only if it still exists in the CURRENT Stripe mode.
@@ -66,6 +67,10 @@ export default async function billingRoutes(app) {
     if (!user) return reply.code(401).send({ error: "not authenticated" });
     const plan = req.body?.plan === "annual" ? "annual" : "monthly";
     const price = plan === "annual" ? config.stripe.priceAnnual : config.stripe.priceMonthly;
+    // Stripe rejects malformed customer emails; stop here with a clear message
+    // instead of a failed checkout (affects accounts made before validation).
+    if (emailProblem(user.email))
+      return reply.code(400).send({ error: "invalid email", message: "Your account email looks invalid. Contact info@muddyyorkfishing.ca and we'll fix it." });
     try {
       const customerId = await ensureCustomer(user);
       const session = await getStripe().checkout.sessions.create({

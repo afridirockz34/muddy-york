@@ -18,6 +18,9 @@ export const config = {
   databaseUrl: required("DATABASE_URL"),
   cookieName: process.env.SESSION_COOKIE_NAME || "my_session",
   frontendOrigin: process.env.FRONTEND_ORIGIN || "http://localhost:8000",
+  // Look up the signup email's domain (MX/A) before creating an account. Off in
+  // tests so the suite never depends on live DNS.
+  checkEmailDomain: process.env.NODE_ENV !== "test",
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",

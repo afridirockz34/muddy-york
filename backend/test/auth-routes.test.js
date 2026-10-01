@@ -32,6 +32,21 @@ describe("auth routes", () => {
     const bad = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "l@b.com", password: "wrong" } });
     expect(bad.statusCode).toBe(401);
   });
+  it("rejects malformed and misspelled emails at signup", async () => {
+    for (const email of ["not-an-email", "a@b", "joe@gmial.com", "a b@c.com"]) {
+      const r = await app.inject({ method: "POST", url: "/auth/signup", payload: { email, password: "supersecret1", displayName: "x_" + email.length } });
+      expect(r.statusCode, email).toBe(400);
+      expect(r.json().error).toBe("invalid email");
+    }
+  });
+  it("stores emails lowercase and matches them case-insensitively", async () => {
+    const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "  Mixed@Case.COM ", password: "supersecret1", displayName: "mixed" } });
+    expect(s.json().user.email).toBe("mixed@case.com");
+    const dup = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "MIXED@case.com", password: "supersecret1", displayName: "mixed2" } });
+    expect(dup.statusCode).toBe(409);
+    const ok = await app.inject({ method: "POST", url: "/auth/login", payload: { email: "Mixed@CASE.com", password: "supersecret1" } });
+    expect(ok.statusCode).toBe(200);
+  });
   it("returns null user when unauthenticated", async () => {
     const me = await app.inject({ method: "GET", url: "/auth/me" });
     expect(me.json().user).toBe(null);
