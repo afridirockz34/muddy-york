@@ -20,6 +20,7 @@ import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
 import { catchNudge } from "./lib/catch-nudge.js";
 import { emailProblem, suggestEmail } from "./lib/email-validate.js";
+import { rankTechniques, reasonText, TECHNIQUES } from "./lib/strategy.js";
 
 /* When a backend proxy is configured (window.MUDDY_API_BASE), discovery,
    parking and routing flow through it (cached + rate-limit-hardened). With no
@@ -586,20 +587,12 @@ function advise(ev,m){
   const lowClear=flow==="Low / clear", highStained=flow==="High / stained", blown=flow==="Blown out";
   const runFish = run && season!=="Summer";
 
-  // --- choose the primary technique from time / water / weather / season ---
-  let tech, why;
-  if(blown){ tech="streamer"; why="High, dirty water — pull fish with a big, visible streamer worked along the soft edges and slack water."; }
-  else if(runFish){
-    if(highStained){ tech="nymphing"; why=`${sp.name} are running in stained flow — dead-drift eggs and stoneflies through the seams and slots where fish rest.`; }
-    else { tech="swing"; why=`${sp.name} are in the river and it's fishable — swing a fly through the runs and tailouts for a hard grab.`; }
-  }
-  else if(warm){ tech="dry-dropper"; why="Water's warm — fish light and high in the column, only at first and last light. Keep fish wet and release fast."; }
-  else if(cold){ tech="nymphing"; why="Cold water: fish sit deep and slow. Get a weighted nymph dead-on-the-bottom and slow everything right down."; }
-  else if(prime){ tech = lowClear ? "dry" : "dry-dropper";
-    why = lowClear ? "Prime temps and clear water — expect fish looking up. A dry fly to working fish is your best shot."
-                   : "Prime temps — fish are active through the column; a dry-dropper covers the surface and just beneath it."; }
-  else { tech="nymphing"; why="Cool water — fish are subsurface but willing. A tight-line or indicator nymph rig covers them best; switch to a dry-dropper if you see risers."; }
-
+  // --- score every technique against the live read, best one wins ---
+  const c=ev.cond||{};
+  const ranked=rankTechniques({temp:t,flow,cloud:c.cloud,wind:c.wind,pressureTrend:c.pressureTrend,sunrise:c.sunrise,sunset:c.sunset,
+    now:new Date(),species:key,run:runFish,season,water:ev.sec&&ev.sec.water});
+  const tech=ranked[0].tech, alt=ranked[1];
+  const why=reasonText(ranked[0])||`${TECHNIQUES[tech]} suits today's read on this water.`;
   const flies=[]; const add=(name,size,color,role,reason)=>flies.push({name,size,color,role,reason});
   const strat=[]; const row=(label,text)=>strat.push({label,text});
   const eggColor = lowClear ? "pale / natural" : "chartreuse / orange";
@@ -630,8 +623,8 @@ function advise(ev,m){
     row("Presentation","Cast upstream or up-and-across to a specific riser, landing the fly a couple of feet above it. Mend for a drag-free drift and set gently. Match the size and silhouette of what's hatching before you fuss over the exact pattern.");
     row("Where & when","Target the rise. Best from late morning through evening in prime temps — the evening rise is often the day's best window.");
   }
-  else { // nymphing
-    if(runFish){
+  else { // nymphing or drifting eggs
+    if(tech==="eggs"){
       add("Egg / Sucker Spawn","#8–14",eggColor,"nymph","Migratory fish key on eggs through the run.");
       add(highStained?"Pat's Rubber Legs / Stonefly":"Hare's Ear",highStained?"#6–10":"#12–16",highStained?"black / coffee":"natural","nymph","A bug to trail behind the egg.");
       add(lowClear?"Zebra Midge":"Prince / Copper John","#14–18", lowClear?"black / red":"natural / copper","nymph","Small trailer for clear water or picky fish.");
@@ -652,8 +645,8 @@ function advise(ev,m){
   if(warm) note="Water's warm — if you do fish, keep them wet, land them fast and release quickly. Often the right call is to rest the trout.";
   else if(blown) note="Most water is unfishable until it drops — give it a day, then fish the drop.";
 
-  const techLabel={streamer:"Streamers",swing:"Swinging streamers","dry-dropper":"Dry-dropper",dry:"Dry fly",nymphing:"Nymphing"}[tech];
-  return {clarity, technique:{name:techLabel, why}, flies:flies.slice(0,4), strategy:strat, note};
+  const altWhy=alt&&alt.score>=ranked[0].score-15?reasonText(alt,1):null;
+  return {clarity, technique:{name:TECHNIQUES[tech], why}, alt:altWhy?{name:TECHNIQUES[alt.tech],why:altWhy}:null, flies:flies.slice(0,4), strategy:strat, note};
 }
 
 /* ===================== HYPERLOCAL FEED (client-side) =====================
@@ -2914,6 +2907,7 @@ function AdvisorPanel({ev,m}){
     <div style={{marginBottom:14,padding:"11px 12px",background:C.bone,border:`1px solid ${C.brass}66`,borderRadius:8}}>
       <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,marginBottom:3}}>{a.technique.name}</div>
       <div style={{fontSize:12.5,color:C.text,lineHeight:1.5}}>{a.technique.why}</div>
+      {a.alt && <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginTop:6}}><b style={{color:C.pine}}>Change-up: {a.alt.name}.</b> {a.alt.why}</div>}
     </div>
     <AdvHead t={"Flies to tie on ("+SPECIES[ev.target].name+")"}/>
     <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
