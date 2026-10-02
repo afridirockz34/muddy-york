@@ -12,10 +12,7 @@ const ROOT = path.join(__dir, "..");
 // paths, so we write them into the repo root next to the app.
 const OUT = ROOT;
 
-const SITE_URL = "https://muddyyorkfishing.ca";  // root domain (app + these pages)
-const APP_URL = "/";                             // the app lives at the root
-const HOME = "/fishing/";                        // marketing landing (root is the app)
-const BRAND = "Muddy York Fishing";
+import { SITE_URL, APP_URL, HOME, BRAND, esc, page } from "../lib/site-shell.js";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
 const src = fs.readFileSync(path.join(ROOT, "source-app.jsx"), "utf8");
@@ -54,124 +51,6 @@ function waterHow(water) {
 }
 const speciesNames = (keys) => [...new Set((keys || []).map((k) => (SPECIES[k] || k).replace(/\s*\(.*\)$/, "")))];
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-// ---- shared shell ----
-function page({ title, description, canonical, body, schema }) {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(description)}"/>
-<link rel="canonical" href="${canonical}"/>
-<meta property="og:type" content="website"/>
-<meta property="og:title" content="${esc(title)}"/>
-<meta property="og:description" content="${esc(description)}"/>
-<meta property="og:url" content="${canonical}"/>
-<meta property="og:image" content="${SITE_URL}/crest.png"/>
-<meta name="twitter:card" content="summary_large_image"/>
-<meta name="theme-color" content="#2C4C3B"/>
-<link rel="icon" type="image/png" href="/crest.png"/>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
-<style>
-:root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:"Public Sans",system-ui,Arial,sans-serif;color:var(--text);background:var(--cream);line-height:1.6;-webkit-font-smoothing:antialiased;}
-h1,h2,h3{font-family:"Playfair Display",Georgia,serif;color:var(--pine);line-height:1.2;}
-a{color:var(--brick);}
-img{max-width:100%;}
-.wrap{max-width:1080px;margin:0 auto;padding:0 20px;}
-header.nav{position:sticky;top:0;z-index:20;background:var(--pine);border-bottom:3px solid var(--gold);}
-.nav .wrap{display:flex;align-items:center;gap:12px;padding:12px 20px;}
-.nav a.brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
-.nav .brand img{width:38px;height:38px;}
-.nav .brand b{font-family:"Playfair Display",serif;font-size:19px;color:#EFE9DB;}
-.nav .links{margin-left:auto;display:flex;gap:18px;align-items:center;}
-.nav .links a{color:#CBD8C9;text-decoration:none;font-weight:600;font-size:14px;}
-.nav .cta{background:var(--brick);color:#fff!important;padding:8px 16px;border-radius:8px;}
-.btn{display:inline-block;font-weight:700;text-decoration:none;padding:13px 22px;border-radius:10px;border:1px solid var(--pine);}
-.btn.primary{background:var(--brick);border-color:var(--brick);color:#fff;}
-.btn.ghost{background:transparent;color:var(--pine);}
-.hero{background:var(--pine);color:#EFE9DB;padding:64px 0;}
-.hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:32px;align-items:center;}
-.hero h1{color:#fff;font-size:42px;font-weight:800;}
-.hero p{color:#CBD8C9;font-size:18px;margin:16px 0 24px;}
-.hero .art{display:flex;justify-content:center;}
-.hero .art img{width:230px;filter:drop-shadow(0 12px 30px rgba(0,0,0,.35));}
-.section{padding:56px 0;}
-.section.alt{background:var(--panel);}
-.section h2{font-size:30px;text-align:center;}
-.section .sub{text-align:center;color:var(--dim);max-width:640px;margin:10px auto 0;}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px;}
-.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;}
-.card h3{font-size:18px;margin-bottom:8px;}
-.card p{color:var(--dim);font-size:14.5px;}
-.price{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:640px;margin:34px auto 0;}
-.plan{background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px;text-align:center;}
-.plan.best{border:2px solid var(--gold);position:relative;}
-.plan .tag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:#3a2f0a;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 12px;border-radius:20px;}
-.plan .amt{font-family:"Playfair Display",serif;font-size:36px;color:var(--pine);font-weight:800;}
-.plan .per{color:var(--dim);font-size:14px;}
-.rivers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:28px;}
-.river-link{display:block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px 16px;text-decoration:none;color:var(--text);}
-.river-link b{color:var(--pine);font-family:"Playfair Display",serif;font-size:16px;}
-.river-link span{display:block;color:var(--dim);font-size:13px;margin-top:2px;}
-.faq{max-width:760px;margin:30px auto 0;}
-.faq details{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:10px;}
-.faq summary{font-weight:700;color:var(--pine);cursor:pointer;}
-.faq p{margin-top:8px;color:var(--dim);}
-.crumbs{font-size:13px;color:var(--dim);padding:18px 0 0;}
-.crumbs a{color:var(--brass);text-decoration:none;}
-.prose{max-width:760px;margin:0 auto;}
-.prose h1{font-size:34px;margin:14px 0 6px;}
-.prose .meta{color:var(--dim);margin-bottom:20px;}
-.prose h2{font-size:23px;margin:28px 0 10px;}
-.prose p{margin:10px 0;}
-.pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--pine);margin:3px 6px 3px 0;}
-.callout{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:22px;margin:26px 0;text-align:center;}
-.callout h3{font-size:20px;margin-bottom:8px;}
-footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;}
-footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;}
-footer a{color:#CBD8C9;text-decoration:none;margin-right:16px;}
-@media(max-width:820px){.hero .wrap{grid-template-columns:1fr;}.hero .art{order:-1;}.grid{grid-template-columns:1fr;}.price{grid-template-columns:1fr;}.nav .links a:not(.cta){display:none;}}
-</style>
-${schema ? `<script type="application/ld+json">${JSON.stringify(schema)}</script>` : ""}
-</head>
-<body>
-<header class="nav"><div class="wrap">
-  <a class="brand" href="${HOME}"><img src="/crest.png" alt="${BRAND} crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
-  <nav class="links">
-    <a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="${HOME}#pricing">Pricing</a>
-    <a class="cta" href="${APP_URL}">Start free</a>
-  </nav>
-</div></header>
-${body}
-<footer><div class="wrap">
-  <div>© ${new Date().getFullYear()} ${BRAND} · Southern Ontario trout &amp; salmon intelligence</div>
-  <div><a href="/rivers/">Rivers</a><a href="/regions/">Regions</a><a href="/guides/">Guides</a><a href="${APP_URL}">Open the app</a></div>
-</div></footer>
-<script>
-/* First-touch acquisition beacon — shares the sessionStorage flag with the app,
-   so the true entry page (this marketing page or the app) is the one recorded. */
-(function(){try{
-  var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
-  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\\./,"");
-    if(h===location.hostname)src="direct";else if(/google\\./.test(h))src="google";else if(/(bing\\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
-    else if(/(facebook|fb\\.|instagram|t\\.co|twitter|x\\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
-  var landing=(location.pathname||"/").slice(0,60);
-  var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:landing,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
-  try{if(!localStorage.getItem("mkAttr"))localStorage.setItem("mkAttr",JSON.stringify(meta));}catch(e){}
-  if(sessionStorage.getItem("mkVisit")==="1")return;sessionStorage.setItem("mkVisit","1");
-  fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({events:[{type:"visit",ref:src,meta:meta},{type:"landing",ref:landing}]})}).catch(function(){});
-}catch(e){}})();
-</script>
-</body></html>`;
-}
 
 // ---- home ----
 function homeBody() {
@@ -651,6 +530,6 @@ fs.writeFileSync(path.join(OUT, "robots.txt"),
   `User-agent: *\nAllow: /\n` +
   ["/marketing/", "/backend/", "/lib/", "/server/", "/docs/", "/.github/", "/source-app.jsx", "/build.mjs", "/package.json"]
     .map((p) => `Disallow: ${p}`).join("\n") +
-  `\nSitemap: ${SITE_URL}/sitemap.xml\n`);
+  `\nSitemap: ${SITE_URL}/sitemap.xml\nSitemap: ${SITE_URL}/blog-sitemap.xml\n`);
 
 console.log(`Built ${RIVERS.length} river pages + ${GUIDES.length} guides + ${REGIONS.length} region pages + /fishing landing + indexes + sitemap (${urls.length} URLs) into repo root.`);

@@ -242,3 +242,20 @@ model RegsChange {
 
   @@index([detectedAt])
 }
+
+// Public blog at muddyyorkfishing.ca/blog, written in the admin dashboard.
+model BlogPost {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String    @default("")      // shown on the index and as the meta description
+  body        String                      // Markdown (lib/markdown.js)
+  coverUrl    String?                     // featured image
+  coverAlt    String    @default("")
+  status      String    @default("draft") // draft | published
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, publishedAt])
+}

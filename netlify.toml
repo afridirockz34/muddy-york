@@ -14,6 +14,26 @@
   status = 200
   force = true
 
+# The blog is rendered by the backend (posts are written in the admin
+# dashboard) and served on the main domain so search engines credit this site.
+[[redirects]]
+  from = "/blog"
+  to = "https://muddy-york.onrender.com/blog/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/blog/*"
+  to = "https://muddy-york.onrender.com/blog/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/blog-sitemap.xml"
+  to = "https://muddy-york.onrender.com/blog-sitemap.xml"
+  status = 200
+  force = true
+
 # publish="." serves the whole repo. Deny direct access to source/dev paths so
 # only the app + SEO pages are reachable. Runtime assets (app.js, /vendor,
 # /assets, /icons, sw.js, manifest) are intentionally NOT blocked.

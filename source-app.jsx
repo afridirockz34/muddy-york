@@ -841,7 +841,7 @@ const listNames=(n)=> n.length<2 ? (n[0]||"") : `${n.slice(0,-1).join(", ")} & $
 const KIND_LABEL={spx:"Species exception",wb:"Waterbody exception",sanct:"Fish sanctuary"};
 // One official entry, quoted verbatim with a link to its exact place on ontario.ca.
 function OfficialEntry({e}){
-  return (<div style={{padding:"9px 11px",background:"#fff",border:`1px solid ${C.lineSoft}`,borderLeft:`3px solid ${C.brass}`,borderRadius:8}}>
+  return (<div style={{padding:"9px 11px",background:"#fff",border:`1px solid ${C.line}`,borderRadius:8}}>
     <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass}}>{KIND_LABEL[e.kind]||"Official rule"}{e.zone?` · Zone ${e.zone}`:""}</div>
     <div style={{fontSize:12.5,color:C.text,lineHeight:1.5,marginTop:3}}>{e.text}</div>
     {e.season && <div style={{fontSize:12,color:C.text,marginTop:4}}><b>Season:</b> {e.season}{e.species?<span style={{color:C.textDim}}> ({e.species})</span>:null}</div>}
@@ -2098,6 +2098,8 @@ function AdminSheet({onClose}){
             </div></>}
         </div>)}
 
+      {head("Blog")}
+      <BlogAdmin/>
       {head("Ontario regulations sync")}
       <RegsAdmin/>
       {head("Billing tools")}
@@ -2120,6 +2122,96 @@ function AdminSheet({onClose}){
       <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
     </div>
     {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); proxyJSON("/api/admin/overview").then(setD).catch(()=>{}); }}/>}
+  </div>);
+}
+// Blog posts for muddyyorkfishing.ca/blog: list, write, edit, publish, delete.
+function BlogAdmin(){
+  const [posts,setPosts]=useState(null),[editing,setEditing]=useState(null); // editing: post object | {} for new
+  const load=()=>proxyJSON("/api/admin/blog").then(r=>setPosts(r.posts||[])).catch(()=>setPosts("error"));
+  useEffect(()=>{ load(); },[]);
+  if(editing) return <BlogEditor post={editing} onDone={()=>{ setEditing(null); load(); }}/>;
+  if(posts===null) return <div style={{fontSize:12.5,color:C.textFaint}}>Loading…</div>;
+  if(posts==="error") return <div style={{fontSize:12.5,color:C.brick}}>Couldn't load posts.</div>;
+  return (<div>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8}}>
+      <div style={{fontSize:12.5,color:C.textDim}}>{posts.filter(p=>p.status==="published").length} published · {posts.filter(p=>p.status!=="published").length} drafts · <a href="/blog/" target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>View blog</a></div>
+      <button onClick={()=>setEditing({})} style={{...btn,background:C.pine,borderColor:C.pine,color:C.headText,padding:"8px 12px",display:"inline-flex",alignItems:"center",gap:5}}><Icon name="plus" size={14}/>New post</button>
+    </div>
+    {posts.length===0 ? <div style={{fontSize:12.5,color:C.textDim}}>No posts yet — write your first one.</div>
+      : <div style={{display:"flex",flexDirection:"column",gap:6}}>{posts.map(p=>(
+        <button key={p.id} onClick={()=>setEditing(p)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",textAlign:"left",padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:9,cursor:"pointer"}}>
+          {p.coverUrl ? <img src={p.coverUrl} alt="" style={{width:52,height:36,objectFit:"cover",borderRadius:5,flexShrink:0}}/> : <div style={{width:52,height:36,borderRadius:5,background:C.bone,flexShrink:0}}/>}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13.5,fontWeight:700,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</div>
+            <div style={{fontSize:11.5,color:C.textDim}}>/blog/{p.slug}/ · edited {fmtChecked(p.updatedAt)}</div>
+          </div>
+          <RegPill tone={p.status==="published"?"green":"amber"} label={p.status==="published"?"Published":"Draft"}/>
+        </button>))}</div>}
+  </div>);
+}
+const slugOf=(s)=>String(s||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80);
+function BlogEditor({post,onDone}){
+  const isNew=!post.id;
+  const [f,setF]=useState({title:post.title||"",slug:post.slug||"",excerpt:post.excerpt||"",body:post.body||"",coverUrl:post.coverUrl||"",coverAlt:post.coverAlt||""});
+  const [slugTouched,setSlugTouched]=useState(!isNew);
+  const [status,setStatus]=useState(post.status||"draft");
+  const [id,setId]=useState(post.id||null);
+  const [busy,setBusy]=useState(""),[err,setErr]=useState(""),[msg,setMsg]=useState("");
+  const bodyRef=useRef(null);
+  const set=(k,v)=>setF(p=>({...p,[k]:v,...(k==="title"&&!slugTouched?{slug:slugOf(v)}:{})}));
+  const inp={width:"100%",padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:14,boxSizing:"border-box"};
+  const label=(t,hint)=>(<div style={{margin:"12px 0 5px"}}>
+    <div style={{fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.4,textTransform:"uppercase",color:C.textDim}}>{t}</div>
+    {hint&&<div style={{fontFamily:sans,fontSize:11.5,color:C.textFaint,marginTop:2,overflowWrap:"anywhere"}}>{hint}</div>}</div>);
+  const upload=async(file,then)=>{ if(!file) return; setBusy("upload"); setErr("");
+    try{ const r=await cloudinaryUpload(file,"/api/admin/blog/image-sign"); then(r.url); }
+    catch(e){ setErr((e&&e.message)||"Upload failed."); } finally{ setBusy(""); } };
+  const insertImage=(url)=>{ const el=bodyRef.current, md=`\n\n![Describe the photo](${url})\n\n`;
+    const at=el?el.selectionStart:f.body.length; set("body",f.body.slice(0,at)+md+f.body.slice(at)); };
+  const save=async(nextStatus)=>{ setBusy("save"); setErr(""); setMsg("");
+    const body={...f,status:nextStatus};
+    try{ const r=id ? await proxyJSON(`/api/admin/blog/${id}`,{method:"PATCH",body}) : await proxyJSON("/api/admin/blog",{method:"POST",body});
+      setId(r.post.id); setStatus(r.post.status); setF(p=>({...p,slug:r.post.slug})); setSlugTouched(true);
+      setMsg(nextStatus==="published"?"Published.":"Saved as draft."); }
+    catch(e){ setErr((e&&e.info&&e.info.error)||"Couldn't save — try again."); } finally{ setBusy(""); } };
+  const del=async()=>{ if(!id||!window.confirm(`Delete "${f.title}"? This can't be undone.`)) return;
+    setBusy("delete"); try{ await proxyJSON(`/api/admin/blog/${id}`,{method:"DELETE"}); onDone(); }catch{ setErr("Couldn't delete — try again."); setBusy(""); } };
+  const live=status==="published";
+  return (<div style={{padding:"12px 12px 14px",background:C.panel,border:`1px solid ${C.line}`,borderRadius:11}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+      <button onClick={onDone} style={{background:"none",border:"none",color:C.pine,fontWeight:700,cursor:"pointer",padding:0,fontSize:13}}>← All posts</button>
+      <RegPill tone={live?"green":"amber"} label={live?"Published":"Draft"}/>
+    </div>
+    {label("Title")}
+    <input style={{...inp,fontSize:16,fontWeight:700}} value={f.title} maxLength={140} placeholder="e.g. Fall steelhead on the Credit: where to start" onChange={e=>set("title",e.target.value)}/>
+    {label("Web address", `muddyyorkfishing.ca/blog/${f.slug||"…"}/`)}
+    <input style={inp} value={f.slug} placeholder="auto from the title" onChange={e=>{ setSlugTouched(true); setF(p=>({...p,slug:slugOf(e.target.value)})); }}/>
+    {label("Summary", `${f.excerpt.length}/158 — shown in Google and on the blog page`)}
+    <textarea style={{...inp,minHeight:58,resize:"vertical"}} value={f.excerpt} maxLength={300} placeholder="One or two sentences on what readers will learn." onChange={e=>set("excerpt",e.target.value)}/>
+    {label("Featured image")}
+    {f.coverUrl && <img src={f.coverUrl} alt="" style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:8,display:"block",marginBottom:6}}/>}
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      <label style={{...btn,borderColor:C.pine,color:C.pine,padding:"8px 12px",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>
+        <Icon name="download" size={14} style={{transform:"rotate(180deg)"}}/>{busy==="upload"?"Uploading…":f.coverUrl?"Replace image":"Upload image"}
+        <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>upload(e.target.files&&e.target.files[0],u=>set("coverUrl",u))}/>
+      </label>
+      {f.coverUrl && <button onClick={()=>set("coverUrl","")} style={{...btn,borderColor:C.line,color:C.textDim,padding:"8px 12px"}}>Remove</button>}
+    </div>
+    <input style={{...inp,marginTop:6}} value={f.coverUrl} placeholder="…or paste an https:// image link" onChange={e=>set("coverUrl",e.target.value.trim())}/>
+    <input style={{...inp,marginTop:6}} value={f.coverAlt} maxLength={200} placeholder="Describe the image (for Google and screen readers)" onChange={e=>set("coverAlt",e.target.value)}/>
+    {label("Post", "## Heading · **bold** · *italic* · [link](https://…) · - list")}
+    <textarea ref={bodyRef} style={{...inp,minHeight:240,resize:"vertical",fontFamily:mono,fontSize:13,lineHeight:1.55}} value={f.body} placeholder={"Write the post here.\n\n## A heading\n\nA paragraph with **bold** words and a [link](https://muddyyorkfishing.ca/rivers/)."} onChange={e=>set("body",e.target.value)}/>
+    <label style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:12.5,color:C.pine,fontWeight:700,cursor:"pointer",marginTop:6}}>
+      <Icon name="plus" size={13}/>{busy==="upload"?"Uploading…":"Add a photo into the post"}
+      <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>upload(e.target.files&&e.target.files[0],insertImage)}/>
+    </label>
+    {err && <div role="alert" style={{fontSize:12.5,color:C.brick,marginTop:10}}>{err}</div>}
+    {msg && <div style={{fontSize:12.5,color:C.pine,marginTop:10,fontWeight:700}}>{msg} {id && <a href={`/blog/${f.slug}/${live?"":"?preview=1"}`} target="_blank" rel="noopener noreferrer" style={{color:C.pine}}>{live?"View post":"Preview"}</a>}</div>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12}}>
+      <button disabled={!!busy} onClick={()=>save("draft")} style={{...btn,borderColor:C.line,color:C.pine,padding:"10px",opacity:busy?0.6:1}}>{busy==="save"?"Saving…":live?"Unpublish":"Save draft"}</button>
+      <button disabled={!!busy} onClick={()=>save("published")} style={{...btn,background:C.pine,borderColor:C.pine,color:C.headText,padding:"10px",opacity:busy?0.6:1}}>{busy==="save"?"Saving…":live?"Update post":"Publish"}</button>
+    </div>
+    {id && <button disabled={!!busy} onClick={del} style={{background:"none",border:"none",color:C.brick,cursor:"pointer",fontSize:12.5,fontWeight:700,marginTop:10,padding:0}}>Delete post</button>}
   </div>);
 }
 // Health of the ontario.ca regulations sync: last check per zone, recent
@@ -2601,8 +2693,8 @@ function NotifPanel({data,onClose,onGoNews,onOpenProfile}){
   </div>);
 }
 // Shared Cloudinary signed direct-upload → returns { url, w, h }.
-async function cloudinaryUpload(file){
-  const sign=await proxyJSON("/posts/photo-sign",{method:"POST"});
+async function cloudinaryUpload(file,signPath="/posts/photo-sign"){
+  const sign=await proxyJSON(signPath,{method:"POST"});
   const fd=new FormData(); fd.append("file",file); fd.append("api_key",sign.apiKey);
   fd.append("timestamp",sign.timestamp); fd.append("folder",sign.folder); fd.append("signature",sign.signature);
   const r=await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/image/upload`,{method:"POST",body:fd});
