@@ -218,3 +218,27 @@ model Session {
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// Official Ontario Fishing Regulations Summary, one row per Fisheries
+// Management Zone page on ontario.ca, refreshed by the regs sync.
+model RegsZone {
+  zone      Int      @id
+  url       String
+  hash      String                        // sha256 of the parsed content
+  data      Json                          // parsed page (lib/regs-parse.js)
+  fetchedAt DateTime                      // when this content was first seen
+  checkedAt DateTime                      // last successful check (changed or not)
+  lastError String?                       // last fetch/parse failure, cleared on success
+  failedAt  DateTime?
+}
+
+// A detected change to an official zone page (what was added / removed).
+model RegsChange {
+  id         String   @id @default(cuid())
+  zone       Int
+  detectedAt DateTime @default(now())
+  added      String[]
+  removed    String[]
+
+  @@index([detectedAt])
+}

@@ -13,7 +13,8 @@ import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
 import { mergeFeed } from "./lib/feed-merge.js";
-import { DEFAULT_REGS, reachRegStatus, reachSpeciesStates, mergeRegs } from "./lib/ontario-regs.js";
+import { statusFor } from "./lib/regs-status.js";
+import { REGS_BASE } from "./lib/regs-parse.js";
 import { applyBlocks } from "./lib/blocks.js";
 import { holdingWater } from "./lib/holding-water.js";
 import { estimateFish } from "./lib/fish-estimate.js";
@@ -249,7 +250,7 @@ const RIVERS = [
     h:{hold:80,struct:70,spawn:86,cold:50,ox:78,gw:50}, history:92, report:85, reportAge:1, conf:86,
     note:"One of Ontario's great steelhead factories — exceptional spring and late-fall runs. Migratory-driven, so out of season it goes quiet." },
   { id:"notty-main", river:"Nottawasaga River", section:"Main stem — Angus to Wasaga",
-    region:"Georgian Bay tributary", zone:"FMZ 16 / mouth 14", water:"Large tributary, soft bottom",
+    region:"Georgian Bay tributary", zone:"FMZ 16", water:"Large tributary, soft bottom",
     species:["STL","CHN"], lat:44.32, lon:-79.88,
     h:{hold:78,struct:70,spawn:72,cold:42,ox:72,gw:40}, history:86, report:78, reportAge:2, conf:82,
     note:"Big spring steelhead push and a notable fall chinook run. Lower-gradient and warm in summer." },
@@ -259,12 +260,12 @@ const RIVERS = [
     h:{hold:68,struct:82,spawn:84,cold:86,ox:88,gw:82}, history:76, report:48, reportAge:6, conf:74,
     note:"Spring-fed feeders that stay cold through July. Strong wild brook-trout habitat that almost never appears in public spot reports." },
   { id:"beaver-lower", river:"Beaver River", section:"Lower — Thornbury below the dam/fishway",
-    region:"Georgian Bay tributary", zone:"FMZ 14", water:"Tributary with fishway",
+    region:"Georgian Bay tributary", zone:"FMZ 16", water:"Tributary with fishway",
     species:["STL","CHN"], lat:44.56, lon:-80.45,
     h:{hold:82,struct:78,spawn:76,cold:60,ox:80,gw:55}, history:85, report:72, reportAge:3, conf:80,
     note:"Famous Georgian Bay steelhead water with a concentrated run at the Thornbury fishway. Spring and fall are the windows." },
   { id:"twelve-mile", river:"Twelve Mile Creek", section:"St. Catharines / Short Hills cold reach",
-    region:"Niagara / inland", zone:"FMZ 17 — check exceptions", water:"Spring-fed wild trout stream",
+    region:"Niagara / inland", zone:"FMZ 16", water:"Spring-fed wild trout stream",
     species:["BKT","BNT"], lat:43.13, lon:-79.25,
     h:{hold:78,struct:82,spawn:78,cold:92,ox:88,gw:90}, history:80, report:50, reportAge:5, conf:76,
     note:"Niagara's only cold-water stream — self-sustaining wild brook trout plus naturalized brown trout. Cold, spring-fed, holds through summer. Heavily protected; special regulations and sanctuary closures apply." },
@@ -289,22 +290,22 @@ const RIVERS = [
     h:{hold:74,struct:74,spawn:80,cold:58,ox:80,gw:60}, history:82, report:68, reportAge:3, conf:80,
     note:"Historic native Atlantic-salmon stream and a key restoration site, with quality steelhead and salmon runs. Holds cold better than most lakeshore creeks." },
   { id:"niagara-lower", river:"Niagara River", section:"Lower — Whirlpool / Devil's Hole drifts",
-    region:"Niagara", zone:"FMZ 17", water:"Massive cold tailrace from Lake Erie",
+    region:"Niagara", zone:"FMZ 20", water:"Massive cold tailrace from Lake Erie",
     species:["STL","BNT","LAT"], lat:43.15, lon:-79.05,
     h:{hold:90,struct:86,spawn:58,cold:70,ox:90,gw:40}, history:88, report:80, reportAge:1, conf:84,
     note:"Enormous, oxygen-rich cold river holding steelhead, big browns and lake trout. Peaks late fall through spring; deep and fishable but slower in high summer." },
   { id:"saugeen-denny", river:"Saugeen River", section:"Lower — Denny's Dam to the mouth (Southampton)",
-    region:"Lake Huron tributary", zone:"FMZ 13", water:"Large tributary below a dam/fishway",
+    region:"Lake Huron tributary", zone:"FMZ 16", water:"Large tributary below a dam/fishway",
     species:["STL","CHN","BNTr"], lat:44.48, lon:-81.35,
     h:{hold:84,struct:78,spawn:78,cold:52,ox:80,gw:48}, history:88, report:78, reportAge:2, conf:82,
     note:"One of Lake Huron's premier steelhead rivers. Big spring and fall runs stack below Denny's Dam and the fishway; large, deep holding pools." },
   { id:"maitland-lower", river:"Maitland River", section:"Lower — Benmiller to Goderich",
-    region:"Lake Huron tributary", zone:"FMZ 13", water:"Mid-large tributary",
+    region:"Lake Huron tributary", zone:"FMZ 16", water:"Mid-large tributary",
     species:["STL","CHN","RBT"], lat:43.72, lon:-81.65,
     h:{hold:78,struct:76,spawn:74,cold:56,ox:78,gw:52}, history:80, report:66, reportAge:4, conf:78,
     note:"Strong Lake Huron steelhead plus fall chinook and coho runs, with resident rainbow and long, deep holding water; browns are an incidental catch. Fishes best spring and fall; warms in mid-summer." },
   { id:"beaver-upper", river:"Beaver River", section:"Upper — Kimberley to below Eugenia",
-    region:"Inland cold-water", zone:"FMZ 14", water:"Spring-fed valley river",
+    region:"Inland cold-water", zone:"FMZ 16", water:"Spring-fed valley river",
     species:["BNT","BKT","RBT"], lat:44.42, lon:-80.55,
     h:{hold:74,struct:80,spawn:80,cold:82,ox:86,gw:78}, history:76, report:52, reportAge:6, conf:76,
     note:"Cold, spring-fed upper Beaver holds wild brook and brown trout through summer — a genuine warm-season option well above the Thornbury runs." },
@@ -329,12 +330,12 @@ const RIVERS = [
     h:{hold:82,struct:76,spawn:66,cold:92,ox:84,gw:58}, history:80, report:58, reportAge:3, conf:82,
     note:"Cold bottom-draw release below Conestogo Dam, stocked heavily with brown trout — a Grand-system sister to the Belwood tailwater that stays trout-cold roughly 15 km downstream through summer." },
   { id:"bighead", river:"Bighead River", section:"Lower — Meaford to Georgian Bay",
-    region:"Georgian Bay tributary", zone:"FMZ 14", water:"Clear limestone tributary",
+    region:"Georgian Bay tributary", zone:"FMZ 16", water:"Clear limestone tributary",
     species:["STL","CHN"], lat:44.605, lon:-80.593,
     h:{hold:78,struct:74,spawn:80,cold:56,ox:80,gw:55}, history:84, report:70, reportAge:3, conf:80,
     note:"Clear limestone Georgian Bay steelhead river at Meaford with naturalized, self-sustaining runs — spring and fall lake-run rainbows plus a fall chinook push. No stocking; wild fish." },
   { id:"sydenham-os", river:"Sydenham River", section:"Lower — Owen Sound below the dam",
-    region:"Georgian Bay tributary", zone:"FMZ 14", water:"Tributary with a dam/year-round reach",
+    region:"Georgian Bay tributary", zone:"FMZ 16", water:"Tributary with a dam/year-round reach",
     species:["STL","CHN"], lat:44.567, lon:-80.943,
     h:{hold:76,struct:72,spawn:74,cold:52,ox:78,gw:50}, history:80, report:66, reportAge:3, conf:78,
     note:"Georgian Bay river through Owen Sound with a year-round section below the dam — spring and fall steelhead and a fall chinook run, plus resident smallmouth." },
@@ -349,7 +350,7 @@ const RIVERS = [
     h:{hold:74,struct:72,spawn:78,cold:54,ox:78,gw:52}, history:80, report:70, reportAge:3, conf:78,
     note:"Accessible east-Durham steelhead-and-salmon creek — strong spring steelhead and a fall chinook run. Low summer flows; a cold-season fishery." },
   { id:"sauble", river:"Sauble River", section:"Sauble Falls to the mouth",
-    region:"Lake Huron tributary", zone:"FMZ 13", water:"Tributary with a falls barrier",
+    region:"Lake Huron tributary", zone:"FMZ 16", water:"Tributary with a falls barrier",
     species:["STL","CHN"], lat:44.660, lon:-81.253,
     h:{hold:76,struct:74,spawn:80,cold:54,ox:78,gw:50}, history:82, report:72, reportAge:3, conf:80,
     note:"Lake Huron steelhead river centred on Sauble Falls — strong spring and fall lake-run rainbows and a smaller fall chinook run, with pike and bass through summer." },
@@ -819,36 +820,98 @@ function RegTag({reg,sec,size="sm"}){
     style={{display:"inline-flex",alignItems:"center",gap:4,cursor:"pointer",fontFamily:sans,fontSize:fs,fontWeight:700,letterSpacing:0.2,padding:pad,borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,whiteSpace:"nowrap"}}>
     <Icon name={t.ic} size={size==="lg"?13:12}/>{reg.label}</button>);
 }
-// In-app regulation detail — keeps anglers on the app; the official link is here
-// for the authoritative check, not a required trip off-site.
+// Season tag for a section: official status when we have the synced entries for
+// it, otherwise "Check regs" (scouted spots, or before the first load).
+function regStatus(sec,regs,now){
+  const bundle=regs&&regs.reaches&&regs.reaches[sec.id];
+  const s=bundle?statusFor(bundle,sec.species,now):null;
+  if(s) return {...s,detail:s.stretches.map(st=>`${st.label}: ${st.stateLabel}`).join(" · ")};
+  return {state:"check",label:"Check regs",tone:"amber",detail:"Confirm this water in the official Ontario regulations."};
+}
+function fmtChecked(iso){ const d=new Date(iso); return isNaN(d)?"":d.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+const RegPill=({tone,label,big})=>{ const t=REG_TONE[tone]||REG_TONE.amber;
+  return (<span style={{display:"inline-flex",alignItems:"center",gap:5,padding:big?"6px 12px":"3px 9px",borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,fontFamily:sans,fontSize:big?13.5:11.5,fontWeight:700,whiteSpace:"nowrap"}}><Icon name={t.ic} size={big?15:12}/>{label}</span>); };
+const extLink={display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,textDecoration:"underline",textUnderlineOffset:2};
+// Species whose rules read the same (state, season, closures, notes) share one card.
+function groupSpecies(list){ const m=new Map();
+  list.forEach(sp=>{ const k=[sp.state,sp.season,sp.closures.map(c=>c.text).join("|"),sp.notes.join("|"),sp.sources[0]&&sp.sources[0].link].join("~");
+    if(!m.has(k)) m.set(k,[]); m.get(k).push(sp); });
+  return [...m.values()]; }
+const listNames=(n)=> n.length<2 ? (n[0]||"") : `${n.slice(0,-1).join(", ")} & ${n[n.length-1]}`;
+const KIND_LABEL={spx:"Species exception",wb:"Waterbody exception",sanct:"Fish sanctuary"};
+// One official entry, quoted verbatim with a link to its exact place on ontario.ca.
+function OfficialEntry({e}){
+  return (<div style={{padding:"9px 11px",background:"#fff",border:`1px solid ${C.lineSoft}`,borderLeft:`3px solid ${C.brass}`,borderRadius:8}}>
+    <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass}}>{KIND_LABEL[e.kind]||"Official rule"}{e.zone?` · Zone ${e.zone}`:""}</div>
+    <div style={{fontSize:12.5,color:C.text,lineHeight:1.5,marginTop:3}}>{e.text}</div>
+    {e.season && <div style={{fontSize:12,color:C.text,marginTop:4}}><b>Season:</b> {e.season}{e.species?<span style={{color:C.textDim}}> ({e.species})</span>:null}</div>}
+    {e.period && <div style={{fontSize:12,color:C.text,marginTop:4}}><b>{e.period}</b></div>}
+    {Array.isArray(e.rules)&&e.rules.length>0 && <ul style={{margin:"5px 0 0",paddingLeft:18,fontSize:12,color:C.text,lineHeight:1.5}}>{e.rules.map((r,i)=><li key={i}>{r}</li>)}</ul>}
+    <a href={e.link} target="_blank" rel="noopener noreferrer" style={{...extLink,marginTop:6}}>Open this rule on ontario.ca<Icon name="external" size={12}/></a>
+  </div>);
+}
+// In-app regulation detail, built from the official Ontario summary: status per
+// legal stretch and species, the verbatim official text, and deep links that
+// open ontario.ca at the exact entry for this water.
 function RegSheet({sec,regs,now,onClose}){
-  const overall=useMemo(()=>reachRegStatus(sec,now,regs),[sec,now,regs]);
-  const rows=useMemo(()=>reachSpeciesStates(sec,now,regs),[sec,now,regs]);
-  const t=REG_TONE[overall.tone]||REG_TONE.amber;
+  const bundle=regs&&regs.reaches&&regs.reaches[sec.id];
+  const st=useMemo(()=>bundle?statusFor(bundle,sec.species,now):null,[bundle,sec,now]);
+  const [lookup,setLookup]=useState(undefined); // scouted spots: official entries naming this water
+  useEffect(()=>{ if(bundle||!API_BASE) return; let live=true;
+    proxyJSON(`/api/regs/lookup?name=${encodeURIComponent(sec.river)}`).then(r=>{ if(live) setLookup(r.entries||[]); }).catch(()=>{ if(live) setLookup([]); });
+    return ()=>{ live=false; }; },[bundle,sec.river]);
+  const allEntries=st?st.stretches.flatMap(x=>x.entries):(lookup||[]);
+  const firstSp=st&&st.stretches[0]&&st.stretches[0].species[0];
+  const primary=allEntries[0]?allEntries[0].link
+    : (firstSp&&firstSp.sources[0]?firstSp.sources[0].link : (st?st.url:REGS_BASE));
+  const head={fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass};
   return (<div onClick={onClose} style={sheetOverlay}>
-    <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
+    <div onClick={e=>e.stopPropagation()} style={sheetPanel} role="dialog" aria-label={`${sec.river} fishing regulations`}>
       <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
       <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
-      <div style={{fontSize:12.5,color:C.textDim,marginBottom:12}}>{sec.section} · {sec.zone}</div>
-      <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,border:`1px solid ${t.bd}`,background:t.bg,color:t.fg,fontFamily:sans,fontSize:13.5,fontWeight:700,marginBottom:12}}>
-        <Icon name={t.ic} size={15}/>{overall.label}</div>
-      <div style={{fontSize:13,color:C.text,lineHeight:1.55,marginBottom:14}}>{overall.detail}</div>
-      <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>By species</div>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-        {rows.map(r=>{ const rt=REG_TONE[r.tone]||REG_TONE.amber; const sp=SPECIES[r.key];
-          return (<div key={r.key} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13.5,fontWeight:700,color:C.text}}>{sp?sp.name:r.key}</div>
-              {r.window && <div style={{fontSize:11.5,color:C.textDim,marginTop:1}}>General season: {r.window}</div>}
-              {r.note && <div style={{fontSize:11.5,color:C.textDim,marginTop:1}}>{r.note}</div>}
+      <div style={{fontSize:12.5,color:C.textDim,marginBottom:12}}>{sec.section}{st?` · Fisheries Management Zone ${st.zone}`:""}</div>
+      {st ? <RegPill big tone={st.tone} label={st.label}/> : <RegPill big tone="amber" label="Check regs"/>}
+
+      {st && st.stretches.map((x,i)=>(<div key={i} style={{marginTop:16}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{x.label}</div>
+          <RegPill tone={x.tone} label={x.stateLabel}/>
+        </div>
+        {x.note && <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginTop:4}}>{x.note}</div>}
+        {(x.review||x.unmatched>0) && <div style={{fontSize:12,color:C.brickDeep,lineHeight:1.5,marginTop:4}}>{x.unmatched>0?"Ontario has changed the wording for this stretch — we're reviewing it. Use the official entry below.":"The rule for this stretch isn't listed by name in the summary — confirm it on ontario.ca."}</div>}
+        {!x.review && !x.unmatched && x.species.length>0 && <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+          {groupSpecies(x.species).map(g=>{ const sp=g[0]; return (<div key={sp.official} style={{padding:"8px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+              <div style={{flex:1,minWidth:0,fontSize:13.5,fontWeight:700,color:C.text}}>{listNames(g.map(z=>z.official))}</div>
+              <RegPill tone={sp.state==="open"?"green":sp.state==="closed"?"red":"amber"} label={sp.state==="open"?"Open":sp.state==="closed"?"Closed":"Check"}/>
             </div>
-            <span style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,border:`1px solid ${rt.bd}`,background:rt.bg,color:rt.fg,fontFamily:sans,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}><Icon name={rt.ic} size={12}/>{r.label}</span>
+            {sp.season && <div style={{fontSize:12,color:C.text,marginTop:3}}>Season: {sp.season}{sp.seasonLabel&&!/all year/i.test(sp.season)?<span style={{color:C.textDim}}> ({sp.seasonLabel} this year)</span>:null}</div>}
+            {sp.closures.map((c,j)=><div key={j} style={{fontSize:12,color:C.brick,marginTop:2}}>{c.text}</div>)}
+            {g.some(z=>z.limits) && <div style={{fontSize:12,color:C.textDim,marginTop:2}}>Limits: {g.length===1?sp.limits:g.filter(z=>z.limits).map(z=>`${z.official} ${z.limits}`).join(" · ")}</div>}
+            {sp.notes.map((n,j)=><div key={j} style={{fontSize:12,color:C.textDim,marginTop:2}}>{n}</div>)}
+            {sp.sources[0] && <a href={sp.sources[0].link} target="_blank" rel="noopener noreferrer" style={{...extLink,fontSize:11.5,marginTop:4}}>{sp.sources[0].label} on ontario.ca<Icon name="external" size={11}/></a>}
           </div>); })}
+        </div>}
+        {x.entries.length>0 && <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+          <div style={head}>Official text</div>
+          {x.entries.map((e,j)=><OfficialEntry key={j} e={e}/>)}
+        </div>}
+      </div>))}
+
+      {!st && (<div style={{marginTop:14}}>
+        {lookup===undefined && API_BASE && <div style={{fontSize:12.5,color:C.textDim}}>Looking up the official rules for {sec.river}…</div>}
+        {Array.isArray(lookup) && lookup.length>0 && (<div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={head}>Official rules that name {sec.river}</div>
+          <div style={{fontSize:12,color:C.textDim,lineHeight:1.5}}>Pick the one that covers where you'll fish. Anywhere not listed follows the zone-wide seasons.</div>
+          {lookup.map((e,j)=><OfficialEntry key={j} e={e}/>)}
+        </div>)}
+        {Array.isArray(lookup) && lookup.length===0 && <div style={{fontSize:12.5,color:C.text,lineHeight:1.55}}>No water-specific rules name {sec.river}, so the zone-wide seasons for its Fisheries Management Zone apply. Check the zone map to confirm which zone it's in.</div>}
+      </div>)}
+
+      <div style={{fontSize:11.5,color:C.textDim,lineHeight:1.5,margin:"16px 0 12px"}}>
+        From the Ontario Fishing Regulations Summary{regs&&regs.checkedAt?`, last checked ${fmtChecked(regs.checkedAt)}`:""}. The Summary is Ontario's guide to the regulations made under the Fisheries Act.
       </div>
-      <div style={{padding:"9px 11px",background:`${C.brass}1a`,border:`1px solid ${C.brass}55`,borderRadius:9,fontSize:12,color:C.text,lineHeight:1.5,marginBottom:14}}>
-        General Ontario zone guidance. Many waters carry specific exceptions and sanctuary closures — confirm this exact reach in the official regulations before fishing.
-      </div>
-      <a href={overall.regsUrl} target="_blank" rel="noopener noreferrer" style={{...btnBig,width:"100%",justifyContent:"center",textDecoration:"none",borderColor:C.pine,color:C.pine}}><Icon name="search" size={15}/>Official Ontario regulations</a>
+      <a href={primary} target="_blank" rel="noopener noreferrer" style={{...btnBig,width:"100%",justifyContent:"center",textDecoration:"none",background:C.pine,borderColor:C.pine,color:C.headText}}><Icon name="search" size={15}/>Open the {sec.river} rules on ontario.ca</a>
       <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:8}}>Close</button>
     </div>
   </div>);
@@ -1385,7 +1448,7 @@ export default function App(){
   const [me,setMe]=useState(null);
   const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
   const [bootSlow,setBootSlow]=useState(false);   // show a "waking the server" note during a cold start
-  const [regs,setRegs]=useState(DEFAULT_REGS);    // Ontario season data (backend feed over bundled default)
+  const [regs,setRegs]=useState(null);            // official Ontario regs per section (synced from ontario.ca by the backend)
   const [regDetail,setRegDetail]=useState(null);  // reach whose in-app regulation sheet is open
   useEffect(()=>{ const h=(e)=>setRegDetail(e.detail&&e.detail.sec); window.addEventListener("mk-reg",h); return ()=>window.removeEventListener("mk-reg",h); },[]);
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
@@ -1596,7 +1659,7 @@ export default function App(){
       const nt=await dbGet("notes"); if(Array.isArray(nt)) setNotes(nt);
       const nsi=await dbGet("notesSince"); if(nsi) noteSinceRef.current=nsi;
       const nsy=await dbGet("notesSynced"); if(Array.isArray(nsy)) noteSyncedRef.current=nsy;
-      if(API_BASE){ const rc=await dbGet("regs:last"); if(rc) setRegs(mergeRegs(rc)); proxyJSON("/api/regulations").then(r=>{ setRegs(mergeRegs(r)); dbSet("regs:last",r); }).catch(()=>{}); }
+      if(API_BASE){ const rc=await dbGet("regs2:last"); if(rc&&rc.reaches) setRegs(rc); proxyJSON("/api/regs/reaches").then(r=>{ if(r&&r.reaches){ setRegs(r); dbSet("regs2:last",r); } }).catch(()=>{}); }
       if(API_BASE) proxyJSON("/api/reach-activity").then(d=>setCatchActivity(d.activity||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/reach-trending").then(d=>setTrending(d.trending||{})).catch(()=>{});
       if(API_BASE) proxyJSON("/api/stocking-news").then(d=>setStockNews(Array.isArray(d.items)?d.items:[])).catch(()=>{});
@@ -1715,7 +1778,7 @@ export default function App(){
 
   const ranked=useMemo(()=>{
     const nudge=(ref)=>catchNudge((catchActivity[ref]||{}).momentum);
-    const reg=(s)=>reachRegStatus(s,now,regs);
+    const reg=(s)=>regStatus(s,regs,now);
     const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified",reg:reg(s)}; const n=nudge(s.id);
       return {...ev,opportunity:Math.min(100,ev.opportunity+n),confidence:Math.min(98,ev.confidence+Math.round(n/2))}; });
     const auto=discovered.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"auto",reg:reg(s)}; const n=nudge(s.id);
@@ -1816,7 +1879,7 @@ export default function App(){
           </div>
           <div style={{fontSize:11.5,color:C.textDim,lineHeight:1.5,marginBottom:14,display:"flex",gap:6,alignItems:"flex-start"}}>
             <Icon name="alert" size={13} style={{marginTop:1,flexShrink:0,color:C.brass}}/>
-            <span>Season tags are general Ontario zone guidance — many waters have specific exceptions and sanctuary closures. Always confirm the <a href={regs.regsUrl} target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>current regulations</a> for the exact water before fishing.</span>
+            <span>Season tags come from the official <a href={REGS_BASE} target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>Ontario Fishing Regulations Summary</a>, checked twice a day.{regs&&regs.checkedAt?` Last checked ${fmtChecked(regs.checkedAt)}.`:""} Tap a tag for the exact rules for that water.</span>
           </div>
 
           {riversView==="map" && isPremium
@@ -2035,6 +2098,8 @@ function AdminSheet({onClose}){
             </div></>}
         </div>)}
 
+      {head("Ontario regulations sync")}
+      <RegsAdmin/>
       {head("Billing tools")}
       <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Re-sync members from live Stripe — repairs anyone whose access drifted. Enter an email to fix one, or sweep everyone.</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -2055,6 +2120,43 @@ function AdminSheet({onClose}){
       <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
     </div>
     {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); proxyJSON("/api/admin/overview").then(setD).catch(()=>{}); }}/>}
+  </div>);
+}
+// Health of the ontario.ca regulations sync: last check per zone, recent
+// official changes, and app sections whose official entry no longer matches.
+function RegsAdmin(){
+  const [d,setD]=useState(null),[busy,setBusy]=useState(false),[out,setOut]=useState(null);
+  const load=()=>proxyJSON("/api/admin/regs").then(setD).catch(()=>setD({error:true}));
+  useEffect(()=>{ load(); },[]);
+  const run=async()=>{ setBusy(true); setOut(null);
+    try{ setOut(await proxyJSON("/api/admin/regs/sync",{method:"POST"})); await load(); }
+    catch{ setOut({error:true}); } finally{ setBusy(false); } };
+  if(!d) return <div style={{fontSize:12.5,color:C.textFaint}}>Loading…</div>;
+  if(d.error) return <div style={{fontSize:12.5,color:C.brick}}>Couldn't load the sync status.</div>;
+  const ok=d.zones.filter(z=>!z.missing&&!z.lastError);
+  const lastCheck=ok.length?new Date(Math.min(...ok.map(z=>+new Date(z.checkedAt)))):null;
+  const failing=d.zones.filter(z=>z.missing||z.lastError);
+  const row={fontSize:12,color:C.text,lineHeight:1.5};
+  return (<div>
+    <div style={{fontSize:12.5,color:C.text,lineHeight:1.5}}>
+      {ok.length}/20 zone pages current{lastCheck?` · oldest check ${fmtChecked(lastCheck.toISOString())}`:""}. Checked automatically twice a day; you're emailed when Ontario changes anything.
+    </div>
+    {failing.length>0 && <div style={{...row,color:C.brick,marginTop:6}}>{failing.map(z=>`Zone ${z.zone}: ${z.missing?"not loaded yet":z.lastError}`).join(" · ")}</div>}
+    {d.unmatched.length>0 && (<div style={{marginTop:8,padding:"9px 11px",background:`${C.brick}10`,border:`1px solid ${C.brick}44`,borderRadius:9}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.brick,marginBottom:4}}>Needs review — showing "Check regs" until fixed</div>
+      {d.unmatched.map((u,i)=><div key={i} style={row}>{u.id} · {u.stretch}: {u.spec}</div>)}
+    </div>)}
+    {d.changes.length>0 && (<div style={{marginTop:8}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.pine,marginBottom:4}}>Recent official changes</div>
+      {d.changes.slice(0,6).map(c=>(<details key={c.id} style={{marginBottom:4}}>
+        <summary style={{...row,cursor:"pointer"}}>Zone {c.zone} · {fmtChecked(c.detectedAt)} · +{c.added.length} / −{c.removed.length}</summary>
+        {c.added.map((x,i)=><div key={"a"+i} style={{...row,color:C.pine}}>+ {x}</div>)}
+        {c.removed.map((x,i)=><div key={"r"+i} style={{...row,color:C.brick}}>− {x}</div>)}
+      </details>))}
+    </div>)}
+    <button disabled={busy} onClick={run} style={{...btn,borderColor:C.pine,color:C.pine,padding:"9px 13px",marginTop:10,opacity:busy?0.5:1}}>{busy?"Checking ontario.ca…":"Check now"}</button>
+    {out && (out.error ? <div style={{...row,color:C.brick,marginTop:6}}>Check failed — try again.</div>
+      : <div style={{...row,marginTop:6}}>Checked {out.checked}/20 · {out.changed.length?`changed: ${out.changed.map(c=>"Zone "+c.zone).join(", ")}`:"no changes"}{out.failed.length?` · ${out.failed.length} couldn't be read`:""}.</div>)}
   </div>);
 }
 function UserProfileSheet({email,onClose,onDeleted}){
