@@ -10,7 +10,7 @@ describe("trial on signup", () => {
   beforeEach(resetDb);
   afterAll(() => prisma.$disconnect());
 
-  // No no-card trial: the 14-day trial starts only at checkout (see webhook tests).
+  // No no-card trial: the free trial starts only at checkout (see webhook tests).
   it("new signup is free until checkout", async () => {
     const s = await app.inject({ method: "POST", url: "/auth/signup", payload: { email: "t@b.com", password: "supersecret1", displayName: "u_t@b.com" } });
     const cookie = s.cookies.find((c) => c.name === cookieName);

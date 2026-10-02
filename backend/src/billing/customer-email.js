@@ -19,10 +19,10 @@ const money = (cents, currency) =>
 export function welcomeEmail(user) {
   return emailCustomer(
     user,
-    "Welcome to Muddy York Fishing — your 14-day trial is live",
+    "Welcome to Muddy York Fishing. Your 7-day trial is live",
     `Hi${user.displayName ? " " + user.displayName : ""},
 
-Welcome to the club. Your 14-day free trial is active, so every river, spot, strategy and your personal guide are unlocked.
+Welcome to the club. Your 7-day free trial is active, so every river, spot, strategy and your personal guide are unlocked.
 
 You won't be charged until the trial ends, and you can cancel anytime from your account in the app.
 

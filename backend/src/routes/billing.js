@@ -79,7 +79,9 @@ export default async function billingRoutes(app) {
         customer: customerId,
         line_items: [{ price, quantity: 1 }],
         client_reference_id: user.id,
-        subscription_data: { trial_period_days: 14 },
+        // New trials are 7 days. Trials already running keep the end date
+        // Stripe set when they started.
+        subscription_data: { trial_period_days: 7 },
         allow_promotion_codes: true, // show the "Add promotion code" field at checkout
         return_url: `${config.frontendOrigin}/?checkout=complete`,
       });

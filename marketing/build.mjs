@@ -61,7 +61,7 @@ function homeBody() {
   <div>
     <h1>Know where the fish are — every morning.</h1>
     <p>${BRAND} reads live conditions on 30+ Southern Ontario trout &amp; salmon rivers, ranks them, and tells you where to go, when it's prime, and what fly to tie on. Spend less time guessing, more time catching.</p>
-    <a class="btn primary" href="${APP_URL}">Start your free 14-day trial</a>
+    <a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a>
     &nbsp; <a class="btn ghost" href="/rivers/">Explore the rivers</a>
   </div>
   <div class="art"><img src="/crest.png" alt="${BRAND}"/></div>
@@ -82,7 +82,7 @@ function homeBody() {
 
 <section class="section alt" id="pricing"><div class="wrap">
   <h2>Membership</h2>
-  <p class="sub">Start with a 14-day free trial. Cancel anytime.</p>
+  <p class="sub">Start with a 7-day free trial. Cancel anytime.</p>
   <div class="price">
     <div class="plan"><div class="amt">$9.99</div><div class="per">per month</div><p style="color:var(--dim);margin:14px 0;">Full access, billed monthly.</p><a class="btn ghost" href="${APP_URL}">Start free</a></div>
     <div class="plan best"><div class="tag">Best value</div><div class="amt">$59.99</div><div class="per">per year</div><p style="color:var(--dim);margin:14px 0;">Two months free vs. monthly.</p><a class="btn primary" href="${APP_URL}">Start free</a></div>
@@ -103,9 +103,9 @@ function homeBody() {
     <details><summary>Where does it work?</summary><p>Rivers and tributaries across Southern Ontario within about two hours of Toronto — Lake Ontario, Erie, Huron and Georgian Bay systems. Coverage keeps growing.</p></details>
     <details><summary>Is it for beginners?</summary><p>Yes. It tells you where to go, when it's prime, and what to tie on in plain language — while giving experienced anglers a real data edge.</p></details>
     <details><summary>Do you share my fishing spots?</summary><p>Never. Your exact GPS and private notes stay private to you. Community activity is shown only at a reach level.</p></details>
-    <details><summary>How much is it?</summary><p>$9.99/month or $59.99/year, with a 14-day free trial. Cancel anytime.</p></details>
+    <details><summary>How much is it?</summary><p>$9.99/month or $59.99/year, with a 7-day free trial. Cancel anytime.</p></details>
   </div>
-  <div class="callout" style="margin-top:34px;"><h3>Ready to fish smarter?</h3><a class="btn primary" href="${APP_URL}">Start your free 14-day trial</a></div>
+  <div class="callout" style="margin-top:34px;"><h3>Ready to fish smarter?</h3><a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a></div>
 </div></section>`;
 }
 
@@ -122,7 +122,7 @@ function riverBody(r) {
     const info = SP_INFO[k]; if (!info) return "";
     return `<li><b>${esc(SPECIES[k] || k)}</b> — best in ${esc(info.season)}. Approach: ${esc(info.tactic)}.</li>`;
   }).filter(Boolean).join("");
-  const cta = (label) => `<div class="callout"><h3>See today's ${esc(r.river)} conditions</h3><p style="color:var(--dim);margin-bottom:14px;">Live opportunity score, the fly &amp; technique for today, depth &amp; likely fish, plus parking and access — free for 14 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
+  const cta = (label) => `<div class="callout"><h3>See today's ${esc(r.river)} conditions</h3><p style="color:var(--dim);margin-bottom:14px;">Live opportunity score, the fly &amp; technique for today, depth &amp; likely fish, plus parking and access. Free for 7 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
   const faqs = [
     { q: `What fish are in the ${r.river} (${r.section})?`, a: `This reach holds ${spList}. ${BRAND} shows which are most active today based on the season and live water conditions.` },
     { q: `When is the best time to fish the ${r.river}?`, a: `It depends on your target and the water. ${(r.species || []).map((k) => SP_INFO[k] ? `${SPECIES[k]} run best in ${SP_INFO[k].season}` : "").filter(Boolean).slice(0, 2).join("; ")}. ${BRAND} scores the exact window each morning.` },
@@ -163,7 +163,7 @@ function riverBody(r) {
   <div class="rivers-grid">${nearby.map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("")}</div>
   <p style="margin-top:14px;"><a href="/rivers/">← Browse all ${RIVERS.length}+ Southern Ontario rivers</a>${(() => { const reg = REGIONS.find((x) => x.filter(r)); return reg ? ` · <a href="/regions/${reg.slug}/">${esc(reg.h1)} →</a>` : ""; })()}</p>
 
-  ${cta("Start your free 14-day trial")}
+  ${cta("Start your free 7-day trial")}
 </article></div></section>`,
     schema: [
       {
@@ -310,7 +310,7 @@ const GUIDES = [
   },
 ];
 
-const guideCta = (label) => `<div class="callout"><h3>Fish Southern Ontario on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the fly &amp; technique for today, depth &amp; likely fish, and access for 30+ rivers — free for 14 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
+const guideCta = (label) => `<div class="callout"><h3>Fish Southern Ontario on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the fly &amp; technique for today, depth &amp; likely fish, and access for 30+ rivers. Free for 7 days.</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
 
 function guideBody(g) {
   const rivers = RIVERS.filter(g.filter);
@@ -329,7 +329,7 @@ function guideBody(g) {
   <h2>Frequently asked</h2>
   ${g.faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></details>`).join("")}
   <p style="margin-top:18px;"><a href="/rivers/">Browse all ${RIVERS.length}+ Southern Ontario rivers →</a></p>
-  ${guideCta("Start your free 14-day trial")}
+  ${guideCta("Start your free 7-day trial")}
 </article></div></section>`,
     schema: [
       { "@context": "https://schema.org", "@type": "Article", headline: g.h1, description: g.desc, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },
@@ -418,7 +418,7 @@ function regionBody(g) {
   <details><summary>What can I catch in this region?</summary><p>These waters hold ${esc(species.join(", "))}. ${BRAND} shows which are most active today based on the season and live conditions.</p></details>
   <details><summary>Do I need a fishing licence in Ontario?</summary><p>Yes — a valid Ontario fishing licence with an Outdoors Card is required for most anglers. Always confirm the current regulations, seasons and any sanctuary closures for the exact water.</p></details>
   <p style="margin-top:18px;"><a href="/rivers/">Browse all ${RIVERS.length}+ Southern Ontario rivers →</a> · <a href="/guides/">Ontario fishing guides →</a></p>
-  ${guideCta("Start your free 14-day trial")}
+  ${guideCta("Start your free 7-day trial")}
 </article></div></section>`,
     schema: [
       { "@context": "https://schema.org", "@type": "Article", headline: g.h1, description: g.desc, mainEntityOfPage: url, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },

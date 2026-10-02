@@ -87,7 +87,7 @@ function postHtml(p, more, preview) {
   <div class="body">${renderMarkdown(p.body)}</div>
   <div class="callout"><h3>Know which rivers are fishing — every morning</h3>
     <p style="color:var(--dim);margin-bottom:14px">Live conditions, official Ontario season status and fly picks for 30+ Southern Ontario rivers.</p>
-    <a class="btn primary" href="${APP_URL}">Start your free 14-day trial</a></div>
+    <a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a></div>
 </article>
 ${more.length ? `<section style="max-width:1080px;margin:0 auto 40px"><h2 style="font-size:24px;margin:10px 0 0">More from the blog</h2><div class="posts">${more.map(card).join("")}</div></section>` : ""}
 </div>`;

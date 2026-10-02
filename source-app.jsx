@@ -7,8 +7,8 @@ import { deriveHabitat } from "./lib/habitat-proxy.js";
 import { fetchWithFallback } from "./lib/http.js";
 import { applySourcePenalty, sourceBadge } from "./lib/scoring-extra.js";
 import { gmapsDirections, directionsUrl, gmapsPin, gImages } from "./lib/deeplinks.js";
-import { entitlementLabel, isPremiumMe, planPrice } from "./lib/entitlement-ui.js";
-import { Crest, Icon } from "./lib/brand.jsx";
+import { entitlementLabel, isPremiumMe, planPrice, planMonthly, annualSavingPct, TRIAL_DAYS } from "./lib/entitlement-ui.js";
+import { Crest, Icon, iconPath } from "./lib/brand.jsx";
 import { RADIUS_PRESETS, radiusLabel } from "./lib/radius.js";
 import { newNote, hasPin, gmapsPinUrl } from "./lib/notes-model.js";
 import { syncNotes } from "./lib/notes-sync.js";
@@ -847,6 +847,7 @@ function OfficialEntry({e}){
 // legal stretch and species, the verbatim official text, and deep links that
 // open ontario.ca at the exact entry for this water.
 function RegSheet({sec,regs,now,onClose}){
+  useScrollLock();
   const bundle=regs&&regs.reaches&&regs.reaches[sec.id];
   const st=useMemo(()=>bundle?statusFor(bundle,sec.species,now):null,[bundle,sec,now]);
   const [lookup,setLookup]=useState(undefined); // scouted spots: official entries naming this water
@@ -932,6 +933,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   const [tick,setTick]=useState(0);
   const [parking,setParking]=useState(undefined);   // undefined | "loading" | "error" | [ ]
   const [full,setFull]=useState(false);              // full-screen map mode
+  useScrollLock(full);
   rankedRef.current=ranked;
   // Leaflet needs a size recalc when the container resizes (fullscreen toggle).
   useEffect(()=>{ const map=mapRef.current; if(!map) return; const id=setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },240); return ()=>clearTimeout(id); },[full]);
@@ -1046,13 +1048,17 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
     {ev && (<div style={{position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
       <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{ev.sec.river}</div>
-          <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}{distOf(ev.sec)!=null?` · ${distOf(ev.sec)} km away`:""}</div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,minWidth:0}}>{ev.sec.river}</div>
+            {onToggleSave && <StarButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}
+          </div>
+          <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}</div>
+          {distOf(ev.sec)!=null && <div style={{display:"flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:14,fontWeight:700,color:C.pine,marginTop:4}}><Icon name="pin" size={14}/>{distOf(ev.sec)} km away</div>}
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
         <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
       </div>
-      <ActionBar ev={ev} isSaved={isSaved} onToggleSave={onToggleSave} signedIn={signedIn}/>
+      <ActionBar ev={ev} signedIn={signedIn}/>
       <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
@@ -1141,7 +1147,9 @@ function catColor(cat){ return /weather/i.test(cat)?C.pine : /water/i.test(cat)?
 function FeedCard({it}){
   const col=catColor(it.category);
   const handle=it.external?(it.source||"Reports"):"Muddy York";
-  return (<div style={{background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
+  return (<div style={{background:C.panel,border:`1px solid ${it.savedPin?C.brass:C.lineSoft}`,borderRadius:14,padding:15,marginBottom:12,boxShadow:"0 2px 8px rgba(30,40,30,.05)"}}>
+    {it.savedPin && <div style={{display:"inline-flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brickDeep,marginBottom:8}}>
+      <svg width={13} height={13} viewBox="0 0 24 24" fill={C.brass} stroke={C.brass} strokeWidth={1.9} dangerouslySetInnerHTML={{__html:iconPath("save")}}/>Your saved river</div>}
     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
       <div style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:`1px solid ${C.line}`}}><Crest size={38}/></div>
       <div style={{flex:1,minWidth:0}}>
@@ -1294,7 +1302,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
+function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1329,8 +1337,13 @@ function NewsView({derived, stockNews=[], flowNews=[], newsUrl, onSaveUrl, perso
   // Real user posts (newest-first, real timestamps) sit above the auto-intel feed.
   // De-dupe defensively so no repeated news slips through (posts by id, derived
   // items by normalized title).
+  // News about the user's saved rivers is pinned to the top of the feed.
+  const savedKeys=savedRivers.map(n=>String(n).toLowerCase().replace(/\s+(river|creek)$/,"")).filter(k=>k.length>2);
+  const aboutSaved=it=>it.saved||savedKeys.some(k=>`${it.river||""} ${it.title||""}`.toLowerCase().includes(k));
+  const pinned=derivedAll.filter(aboutSaved).slice(0,5).map(it=>({...it,kind:"derived",savedPin:true}));
+  const pinnedIds=new Set(pinned.map(it=>it.id));
   const seenFeed=new Set();
-  const all=mergeFeed(posts,derivedAll).filter(it=>{
+  const all=[...pinned,...mergeFeed(posts,derivedAll.filter(it=>!pinnedIds.has(it.id)))].filter(it=>{
     const key=it.kind==="post"?("p:"+it.id):("d:"+String(it.title||"").toLowerCase().trim());
     if(seenFeed.has(key)) return false; seenFeed.add(key); return true;
   });
@@ -1683,6 +1696,19 @@ export default function App(){
 
   const distOf=useCallback(sec=>userLoc?haversineKm(userLoc.lat,userLoc.lon,sec.lat,sec.lon):null,[userLoc]);
   const isSaved=useCallback(id=>saved.some(s=>s.id===id),[saved]);
+  // Saved rivers belong to the account: on sign-in, pull the server's list and
+  // merge it with this device's (and upload anything only saved here).
+  const meId=me&&me.user&&me.user.id;
+  useEffect(()=>{ if(!(API_BASE&&meId)) return; let live=true;
+    proxyJSON("/saved-spots").then(r=>{ if(!live) return; const server=(r&&r.spots)||[];
+      setSaved(prev=>{
+        const byId=new Map(prev.map(x=>[x.id,x]));
+        server.forEach(sp=>{ if(!byId.has(sp.ref)) byId.set(sp.ref,{id:sp.ref,label:sp.river,section:sp.section,lat:sp.lat,lon:sp.lon,habitat:sp.habitat,species:sp.species,history:sp.history,source:sp.source,savedAt:sp.createdAt}); });
+        const onServer=new Set(server.map(sp=>sp.ref));
+        prev.filter(x=>!onServer.has(x.id)&&x.habitat).forEach(x=>proxyJSON("/saved-spots",{method:"POST",body:{ref:x.id,river:x.label,section:x.section,lat:x.lat,lon:x.lon,source:x.source||"verified",habitat:x.habitat,species:x.species,history:x.history}}).catch(()=>{}));
+        const next=[...byId.values()]; dbSet("saved",next); return next; });
+    }).catch(()=>{});
+    return ()=>{ live=false; }; },[meId]);
   const toggleSave=useCallback((sec)=>{
     setSaved(prev=>{ const ex=prev.some(s=>s.id===sec.id);
       const rec={id:sec.id,label:sec.river,section:sec.section,lat:sec.lat,lon:sec.lon,
@@ -1769,7 +1795,12 @@ export default function App(){
     RIVERS.forEach(s=>{ const d=haversineKm(userLoc.lat,userLoc.lon,s.lat,s.lon); if(!best||d<best.d) best={s,d}; });
     return best; },[userLoc]);
 
+  // Scores and season tags move slowly, so re-rank every 15 minutes rather than
+  // on every one-minute clock tick (re-ranking dozens of cards mid-scroll janks).
+  const scoreSlot=Math.floor(now.getTime()/9e5);
+  const scoreNow=useMemo(()=>new Date(),[scoreSlot]); // eslint-disable-line react-hooks/exhaustive-deps
   const ranked=useMemo(()=>{
+    const now=scoreNow;
     const nudge=(ref)=>catchNudge((catchActivity[ref]||{}).momentum);
     const reg=(s)=>regStatus(s,regs,now);
     const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified",reg:reg(s)}; const n=nudge(s.id);
@@ -1780,7 +1811,7 @@ export default function App(){
     // below open/uncertain ones (still shown, marked "Closed"), then by score.
     const openRank=(e)=> e.reg && e.reg.state==="closed" ? 0 : 1;
     return [...curated,...auto].sort((a,b)=> (openRank(b)-openRank(a)) || (b.opportunity-a.opportunity));
-  },[month,now,condFor,discovered,catchActivity,regs]);
+  },[month,scoreNow,condFor,discovered,catchActivity,regs]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   // When a location is set, only show water within the chosen radius.
   const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
@@ -1822,8 +1853,7 @@ export default function App(){
         input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:${C.brick};border:2px solid ${C.bone};cursor:pointer;}
         .seg{font-family:${sans};font-size:10px;letter-spacing:.5px;padding:6px 9px;border-radius:4px;cursor:pointer;border:1px solid ${C.line};background:${C.bone};color:${C.textDim};}
         .seg.on{background:${C.brick};border-color:${C.brick};color:${C.bone};}
-        .mk-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-        @media (min-width:600px){.mk-actions{grid-template-columns:repeat(4,1fr);}}
+        .mk-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
         .tabs::-webkit-scrollbar{display:none;} .tabs{scrollbar-width:none;-ms-overflow-style:none;}
         @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
         @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important;}}
@@ -1868,16 +1898,17 @@ export default function App(){
 
           <div style={{display:"flex",gap:5,background:C.panelHi,padding:4,borderRadius:11,marginBottom:10}}>
             <button onClick={()=>setRiversView("list")} style={segBtn(riversView==="list")}><Icon name="list" size={16}/>List</button>
-            <button onClick={()=> isPremium ? (setRiversView("map"),logEvent("open_map")) : openUpgrade()} style={segBtn(riversView==="map"&&isPremium)}><Icon name={isPremium?"map":"lock"} size={16}/>Map</button>
+            <button onClick={()=>{ setRiversView("map"); logEvent(isPremium?"open_map":"map_preview"); }} style={segBtn(riversView==="map")}><Icon name="map" size={16}/>Map</button>
           </div>
           <div style={{fontSize:11.5,color:C.textDim,lineHeight:1.5,marginBottom:14,display:"flex",gap:6,alignItems:"flex-start"}}>
             <Icon name="alert" size={13} style={{marginTop:1,flexShrink:0,color:C.brass}}/>
             <span>Season tags come from the official <a href={REGS_BASE} target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>Ontario Fishing Regulations Summary</a>, checked twice a day.{regs&&regs.checkedAt?` Last checked ${fmtChecked(regs.checkedAt)}.`:""} Tap a tag for the exact rules for that water.</span>
           </div>
 
+          {riversView==="map" && !isPremium && <MapPreview ranked={ranked} onUpgrade={openUpgrade}/>}
           {riversView==="map" && isPremium
             ? <MapView ranked={rankedNear} userLoc={userLoc} radiusM={radiusM} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
-            : (<>
+            : riversView==="map" ? null : (<>
               {/* First run: no location + nothing scouted yet — ask for radius, then scout. */}
               {isPremium && !userLoc && discovered.length===0 && discoStatus!=="loading" && (
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:12,padding:"24px 18px",marginBottom:14,background:C.panel,border:`1px solid ${C.brass}66`,borderRadius:14}}>
@@ -1915,7 +1946,7 @@ export default function App(){
         </>)}
 
         {/* ===================== NEWS TAB ===================== */}
-        {tab==="news" && <NewsView derived={feed} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
+        {tab==="news" && <NewsView derived={feed} savedRivers={[...new Set(saved.map(s=>s.label))]} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
           onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
           onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
@@ -1942,7 +1973,7 @@ export default function App(){
       {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
       {regDetail && <RegSheet sec={regDetail} regs={regs} now={now} onClose={()=>setRegDetail(null)}/>}
-      {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
+      {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><ScrollLock/><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
@@ -1965,10 +1996,11 @@ const metaEm={fontWeight:500,color:C.textDim};
 const hint={fontFamily:sans,fontSize:11.5,color:C.amberDeep,marginBottom:10};
 const notePill={fontFamily:sans,fontSize:11.5,fontWeight:600,padding:"3px 9px",borderRadius:20,border:`1px solid ${C.line}`,background:C.bone,color:C.textDim};
 const sheetOverlay={position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:2000,display:"flex",alignItems:"flex-end",justifyContent:"center"};
-const sheetPanel={width:"100%",maxWidth:520,maxHeight:"84vh",overflowY:"auto",background:C.panel,borderRadius:"18px 18px 0 0",padding:"14px 18px calc(20px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 30px rgba(0,0,0,.25)"};
+const sheetPanel={width:"100%",maxWidth:520,maxHeight:"84vh",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",background:C.panel,borderRadius:"18px 18px 0 0",padding:"14px 18px calc(20px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 30px rgba(0,0,0,.25)"};
 function segBtn(on){ return {flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"9px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:600,background:on?C.pine:"transparent",color:on?C.headText:C.textDim}; }
 
 function LeaderboardSheet({onClose}){
+  useScrollLock();
   const [rows,setRows]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/api/catch-leaderboard").then(d=>{ if(live) setRows(d.catches||[]); }).catch(()=>{ if(live) setRows([]); }); return ()=>{live=false;}; },[]);
   const when=d=>d<=0?"today":d===1?"yesterday":`${d}d ago`;
@@ -1993,6 +2025,7 @@ function LeaderboardSheet({onClose}){
   </div>);
 }
 function HelpSheet({me,onClose}){
+  useScrollLock();
   const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[sent,setSent]=useState(false),[err,setErr]=useState("");
   const send=async()=>{ const m=msg.trim(); if(m.length<3){ setErr("Please write a message."); return; } setErr(""); setBusy(true);
     try{ await proxyJSON("/support",{method:"POST",body:{message:m}}); setSent(true); }
@@ -2014,6 +2047,7 @@ function HelpSheet({me,onClose}){
   </div>);
 }
 function AdminSheet({onClose}){
+  useScrollLock();
   const [d,setD]=useState(null);
   const [profileEmail,setProfileEmail]=useState(null);
   const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
@@ -2307,6 +2341,7 @@ function UserProfileSheet({email,onClose,onDeleted}){
   </div>);
 }
 function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp,onAdmin}){
+  useScrollLock();
   useEffect(()=>{ const h=e=>{ if(e.key==="Escape") onClose(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[onClose]);
   const link=(icon,label,active,onClick)=>(<button onClick={onClick} style={{display:"flex",alignItems:"center",gap:12,width:"100%",textAlign:"left",padding:"11px 12px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:14.5,fontWeight:600,background:active?"rgba(212,175,55,.16)":"transparent",color:active?C.brass:"#D6E0D4"}}><Icon name={icon} size={19}/>{label}</button>);
   return (<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,22,16,.5)",zIndex:2500,display:"flex",justifyContent:"flex-end"}}>
@@ -2329,6 +2364,7 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp
   </div>);
 }
 function RadiusSheet({current,onPick,onClose}){
+  useScrollLock();
   return (<div onClick={onClose} style={sheetOverlay}>
     <div onClick={e=>e.stopPropagation()} style={sheetPanel}>
       <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
@@ -2472,21 +2508,21 @@ function AlertPrefs(){
     catch(e){ const m=e&&e.message; setPush(m==="denied"?"denied":m==="unconfigured"?"unconfigured":m==="unsupported"?"unsupported":"off"); }
   };
   const note={fontSize:11,color:C.textDim,marginTop:6,lineHeight:1.45};
-  return (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
-    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:8}}>Condition alerts</div>
+  return (<div style={{marginTop:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+    <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:4}}>Alerts for your saved rivers</div>
+    <div style={{fontSize:13,color:C.text,display:"flex",justifyContent:"space-between",alignItems:"baseline",marginTop:4}}><span>Alert me when a saved river reaches</span><span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:scoreColor(p.alertThreshold)}}>{p.alertThreshold}</span></div>
+    <input type="range" min="50" max="95" step="5" value={p.alertThreshold} aria-label="Alert level" style={{width:"100%",marginTop:8}} onChange={e=>save({...p,alertThreshold:+e.target.value})}/>
+    <div style={{...{fontSize:11,color:C.textDim,lineHeight:1.45},display:"flex",justifyContent:"space-between",marginBottom:10}}><span>50 · more alerts</span><span>95 · only the best days</span></div>
     <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:"pointer"}}>
-      <input type="checkbox" checked={p.alertEmail} onChange={e=>save({...p,alertEmail:e.target.checked})}/> Email me when my water hits prime
+      <input type="checkbox" checked={p.alertEmail} onChange={e=>save({...p,alertEmail:e.target.checked})}/> Email me
     </label>
     <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:push==="busy"||push==="unsupported"||push==="unconfigured"?"default":"pointer",marginTop:10,opacity:push==="unsupported"||push==="unconfigured"?0.6:1}}>
-      <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push notifications to this device
+      <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push notifications on this device
     </label>
-    {push!=="unsupported"&&push!=="unconfigured" && <div style={note}>Covers prime-condition alerts and when someone likes or comments on your posts.</div>}
-    {push==="denied" && <div style={note}>Notifications are blocked — enable them for this site in your browser settings.</div>}
+    {push!=="unsupported"&&push!=="unconfigured" && <div style={note}>We check your saved rivers every hour and alert you at most once a day per river. Push also covers likes and comments on your posts.</div>}
+    {push==="denied" && <div style={note}>Notifications are blocked. Turn them on for this site in your browser settings.</div>}
     {push==="unsupported" && <div style={note}>This browser can't do push. On iPhone, add the app to your Home Screen first, then enable it here.</div>}
     {push==="unconfigured" && <div style={note}>Push isn't switched on for the server yet.</div>}
-    <div style={{marginTop:12,fontSize:11,color:C.textDim,display:"flex",justifyContent:"space-between"}}><span>Alert threshold</span><span style={{fontFamily:mono,color:C.text}}>{p.alertThreshold}/100</span></div>
-    <input type="range" min="50" max="95" value={p.alertThreshold} style={{width:"100%",marginTop:6}} onChange={e=>save({...p,alertThreshold:+e.target.value})}/>
-    <div style={note}>Alerts fire for your saved water when its opportunity score crosses this threshold.</div>
   </div>);
 }
 // Account is a normal in-frame page (top bar + bottom nav stay visible), reached
@@ -2513,6 +2549,7 @@ function SavedRivers({saved,ranked,distOf,onUnsave,goRivers}){
           <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} aria-label={`Remove ${s.label}`} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6,display:"flex"}}><Icon name="close" size={16}/></button>
         </div>); })}
     </div>)}
+    {saved.length>0 && <AlertPrefs/>}
   </div>);
 }
 function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUnsave,goRivers}){
@@ -2520,27 +2557,41 @@ function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUns
   const [err,setErr]=useState("");
   const logout=async()=>{ if(onLogout) return onLogout(); try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
   const startCheckout=(plan)=> onCheckout&&onCheckout(plan);
-  const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing — try again."); } };
+  const portal=async()=>{ setErr(""); try{ const {url}=await proxyJSON("/billing/portal",{method:"POST"}); if(url) window.location=url; }catch{ setErr("Couldn't open billing. Try again."); } };
   if(!(me&&me.user)) return null;
   return (<div>
     <SectionTitle t="Your account"/>
     <div style={{fontSize:13.5,color:C.text}}>{me.user.email}</div>
     <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
-    {err&&<div style={{marginTop:10,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
-    {!premium ? (<div style={{marginTop:14}}>
-      <div style={{fontSize:12.5,color:C.text,marginBottom:8,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots Ontario-wide, the full live map, fly strategies and a personal guide, from just {planPrice("monthly")}. A growing community, so your map keeps getting better. No charge today.</div>
-      <button onClick={()=>startCheckout("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px"}}>Start trial — annual {planPrice("annual")}</button>
-      <button onClick={()=>startCheckout("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:8}}>Monthly — {planPrice("monthly")}</button>
-    </div>) : (<button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:14}}>Manage subscription</button>)}
+    {!premium && <UpgradeCard onPick={startCheckout}/>}
     <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} goRivers={goRivers}/>
     <AvatarEditor me={me} onAuth={onAuth}/>
     <DisplayNameEditor me={me} onAuth={onAuth}/>
     <BlockedAnglers/>
-    <AlertPrefs/>
+    {premium && (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
+      <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>Membership</div>
+      <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Change your plan, update your card or cancel. Your access continues to the end of the period you've paid for.</div>
+      <button onClick={portal} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px"}}>Manage subscription</button>
+      {err&&<div style={{marginTop:8,fontSize:12,color:C.brick,lineHeight:1.4}}>{err}</div>}
+    </div>)}
     <button onClick={logout} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"10px",marginTop:16,marginBottom:8}}>Sign out</button>
   </div>);
 }
+const MEMBER_POINTS=["Live map and daily river rankings","Official season status for every stretch","Fly strategies for today's water","Alerts when your saved rivers hit prime"];
+const PITCH="30+ rivers and hundreds of spots Ontario-wide with regulations.";
+// Free accounts: the membership offer, priced per month so the plans compare.
+function UpgradeCard({onPick}){
+  return (<div style={{marginTop:14,padding:"14px 14px 12px",background:`${C.brass}14`,border:`1px solid ${C.brass}66`,borderRadius:12}}>
+    <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,lineHeight:1.35}}>{PITCH}</div>
+    <ul style={{listStyle:"none",padding:0,margin:"10px 0 12px"}}>{MEMBER_POINTS.map(t=>(<li key={t} style={{display:"flex",gap:7,alignItems:"flex-start",fontSize:13,color:C.text,lineHeight:1.45,marginBottom:4}}>
+      <span style={{color:C.pine,display:"flex",marginTop:2}}><Icon name="check" size={14}/></span>{t}</li>))}</ul>
+    <button onClick={()=>onPick("annual")} style={{...btn,borderColor:C.brick,background:C.brick,color:C.bone,width:"100%",padding:"11px",fontSize:13.5}}>Yearly · {planMonthly("annual")} <span style={{fontWeight:500,opacity:0.85}}>billed {planPrice("annual").replace("/yr"," a year")}</span></button>
+    <button onClick={()=>onPick("monthly")} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginTop:8,fontSize:13.5}}>Monthly · {planMonthly("monthly")}</button>
+    <div style={{fontSize:11.5,color:C.textDim,marginTop:8,textAlign:"center"}}>{TRIAL_DAYS} days free on either plan. Cancel anytime.</div>
+  </div>);
+}
 function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
+  useScrollLock();
   const [data,setData]=useState(null),[busy,setBusy]=useState(false);
   const load=useCallback(()=>{ setData(null); proxyJSON(`/users/${encodeURIComponent(userId)}/profile`).then(setData).catch(()=>setData({error:true})); },[userId]);
   useEffect(()=>{ load(); },[load]);
@@ -2576,6 +2627,7 @@ function ProfileModal({userId,me,onClose,onOpenProfile,...postProps}){
 }
 const gateBtn={width:"100%",padding:"13px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:sans,fontSize:15,fontWeight:700,display:"block",boxSizing:"border-box"};
 function ResetModal({token,onDone}){
+  useScrollLock();
   const [pw,setPw]=useState(""),[pw2,setPw2]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
   const submit=async()=>{ setErr("");
@@ -2598,6 +2650,7 @@ function ResetModal({token,onDone}){
   </div>);
 }
 function SignInGate({onAuth,providers={}}){
+  useScrollLock();
   const [mode,setMode]=useState("signup"); // signup | signin | forgot
   const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[username,setUsername]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
@@ -2658,11 +2711,12 @@ function SignInGate({onAuth,providers={}}){
             {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
-      <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>Join the club — 30+ rivers &amp; spots across Ontario, fly strategies and a personal guide, growing all the time. Free to start.</div>
+      <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>{PITCH} Free to start.</div>
     </div>
   </div>);
 }
 function NotifPanel({data,onClose,onGoNews,onOpenProfile}){
+  useScrollLock();
   const list=(data&&data.notifications)||[];
   const when=(iso)=>{ const s=Math.max(0,(Date.now()-new Date(iso).getTime())/1000);
     if(s<60) return "just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
@@ -2713,11 +2767,12 @@ function loadStripeJs(){
   });
 }
 function CheckoutModal({plan:initialPlan,onClose}){
+  useScrollLock();
   const [plan,setPlan]=useState(initialPlan||"annual");
   const [err,setErr]=useState(""),[loading,setLoading]=useState(true);
   const mountRef=useRef(null), ecRef=useRef(null), planRef=useRef(plan);
   planRef.current=plan;
-  const trialDate=useMemo(()=>new Date(Date.now()+14*86400000).toLocaleDateString(undefined,{month:"long",day:"numeric"}),[]);
+  const trialDate=useMemo(()=>new Date(Date.now()+TRIAL_DAYS*86400000).toLocaleDateString(undefined,{month:"long",day:"numeric"}),[]);
   const mount=useCallback(async()=>{
     setErr(""); setLoading(true);
     try{ ecRef.current&&ecRef.current.destroy(); }catch{} ecRef.current=null;
@@ -2734,31 +2789,123 @@ function CheckoutModal({plan:initialPlan,onClose}){
       ecRef.current=ec;
       if(mountRef.current){ ec.mount(mountRef.current); setLoading(false); }
     }catch(e){ const why=e&&e.info&&e.info.error;
-      setErr(why?`Checkout error: ${why}`:"Checkout is unavailable right now — please try again. You can keep using the free plan meanwhile."); setLoading(false); }
+      setErr(why==="invalid email"?((e.info&&e.info.message)||"Your account email looks invalid."):why?`Checkout error: ${why}`:"Checkout isn't available right now. Try again in a moment."); setLoading(false); }
   },[]);
   useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
   const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
-  const tabBtn=(p,label)=>(<button onClick={()=>changePlan(p)} style={{flex:1,fontFamily:sans,fontSize:13,fontWeight:700,padding:"9px 8px",borderRadius:8,cursor:"pointer",border:`1px solid ${plan===p?C.brick:C.line}`,background:plan===p?C.brick:"#fff",color:plan===p?C.bone:C.pine}}>{label}</button>);
-  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:9000,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+  const planCard=(p)=>{ const on=plan===p, yearly=p==="annual";
+    return (<button onClick={()=>changePlan(p)} aria-pressed={on} style={{flex:1,textAlign:"left",padding:"11px 12px",borderRadius:10,cursor:"pointer",position:"relative",
+      border:`2px solid ${on?C.brick:C.line}`,background:on?`${C.brick}0d`:"#fff"}}>
+      {yearly && <span style={{position:"absolute",top:-9,right:10,background:C.brass,color:C.pine,fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.4,padding:"2px 7px",borderRadius:10}}>SAVE {annualSavingPct()}%</span>}
+      <div style={{fontFamily:sans,fontSize:12,fontWeight:700,color:C.textDim,textTransform:"uppercase",letterSpacing:0.6}}>{yearly?"Yearly":"Monthly"}</div>
+      <div style={{fontFamily:serif,fontSize:22,fontWeight:700,color:C.pine,marginTop:2}}>{planMonthly(p).replace("/mo","")}<span style={{fontFamily:sans,fontSize:13,fontWeight:600,color:C.textDim}}>/mo</span></div>
+      <div style={{fontFamily:sans,fontSize:11.5,color:C.textDim,marginTop:2}}>{yearly?`Billed ${planPrice("annual").replace("/yr","")} a year`:"Billed monthly"}</div>
+    </button>); };
+  return (<div style={{position:"fixed",inset:0,background:"rgba(20,26,20,.72)",zIndex:9000,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch"}}>
     <div style={{width:"100%",maxWidth:520,margin:"0 auto",minHeight:"100%",boxSizing:"border-box",background:C.panel,padding:"calc(18px + env(safe-area-inset-top)) 18px calc(40px + env(safe-area-inset-bottom))"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-        <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your free trial</div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine}}>Start your {TRIAL_DAYS}-day free trial</div>
         <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={22}/></button>
       </div>
-      <div style={{background:`${C.brass}14`,border:`1px solid ${C.brass}55`,borderRadius:10,padding:"13px 14px",marginBottom:12}}>
-        <div style={{fontFamily:serif,fontSize:15.5,fontWeight:700,color:C.pine,lineHeight:1.35,marginBottom:7}}>Catch your next best fish — 30+ rivers &amp; spots, Ontario-wide.</div>
-        <div style={{fontFamily:sans,fontSize:12.5,color:C.text,lineHeight:1.55}}>Unlock the full live map and ranked list, hidden spots, fly strategies, and a personal on-the-water guide — from just {planPrice("monthly")}.</div>
-        <div style={{fontFamily:sans,fontSize:11.5,color:C.textDim,lineHeight:1.55,marginTop:8}}>Muddy York Fishing is a members' club — a community that keeps growing, so new rivers and spots are added over time and your map only gets better.</div>
+      <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,lineHeight:1.35,marginBottom:8}}>{PITCH}</div>
+      <ul style={{listStyle:"none",padding:0,margin:"0 0 14px"}}>{MEMBER_POINTS.map(t=>(<li key={t} style={{display:"flex",gap:7,alignItems:"flex-start",fontSize:13.5,color:C.text,lineHeight:1.45,marginBottom:5}}>
+        <span style={{color:C.pine,display:"flex",marginTop:2}}><Icon name="check" size={15}/></span>{t}</li>))}</ul>
+      <div style={{display:"flex",gap:10,marginBottom:12}}>{planCard("annual")}{planCard("monthly")}</div>
+      <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:14,padding:"10px 12px",background:"#fff",border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
+        <b>$0 today.</b> Your trial ends {trialDate}. Cancel before then and you pay nothing.
       </div>
-      <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:12}}>
-        <b>You won't be charged today.</b> Billing starts after your 14-day free trial on {trialDate} — cancel anytime before then.
-      </div>
-      <div style={{display:"flex",gap:8,marginBottom:14}}>{tabBtn("annual",`Annual · ${planPrice("annual")}`)}{tabBtn("monthly",`Monthly · ${planPrice("monthly")}`)}</div>
       {err&&<div style={{fontSize:12.5,color:C.brick,lineHeight:1.45,marginBottom:12}}>{err}<button onClick={mount} style={{...btn,borderColor:C.brick,color:C.brick,marginLeft:8}}>Retry</button></div>}
       {loading&&!err&&<div style={{fontFamily:sans,fontSize:13,color:C.textDim,padding:"24px 0",textAlign:"center"}}>Loading secure checkout…</div>}
       <div ref={mountRef}/>
-      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"12px",marginTop:16}}>Maybe later — continue on the free plan</button>
+      <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"12px",marginTop:16}}>Not now</button>
     </div>
+  </div>);
+}
+// Freeze the page behind an open sheet or modal so scrolling inside it never
+// drags the page underneath (iOS especially). Nested sheets share one lock.
+let scrollLocks=0, lockedY=0;
+function useScrollLock(active=true){
+  useEffect(()=>{
+    if(!active) return;
+    const b=document.body;
+    if(scrollLocks++===0){ lockedY=window.scrollY;
+      Object.assign(b.style,{position:"fixed",top:`-${lockedY}px`,left:"0",right:"0",width:"100%",overflow:"hidden"}); }
+    return ()=>{ if(--scrollLocks===0){ Object.assign(b.style,{position:"",top:"",left:"",right:"",width:"",overflow:""}); window.scrollTo(0,lockedY); } };
+  },[active]);
+}
+function ScrollLock(){ useScrollLock(); return null; }
+// Save toggle shown as a star beside a river's name.
+function StarButton({saved,onClick,size=22}){
+  return (<button onClick={(e)=>{ e.stopPropagation(); onClick(); }} aria-pressed={saved} aria-label={saved?"Saved. Tap to remove":"Save this river"} title={saved?"Saved":"Save"}
+    style={{background:"none",border:"none",padding:4,margin:-4,cursor:"pointer",display:"inline-flex",color:saved?C.brass:C.textFaint,flexShrink:0}}>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={saved?C.brass:"none"} stroke="currentColor" strokeWidth={1.9} strokeLinejoin="round" dangerouslySetInnerHTML={{__html:iconPath("save")}}/>
+  </button>);
+}
+// ── Free-account previews: show members' view on a good day, then offer the trial.
+const previewCta=(onUpgrade,label)=>(<button onClick={onUpgrade} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:12,background:C.brick,borderColor:C.brick,color:C.bone,fontWeight:700}}><Icon name="lock" size={15}/>{label}</button>);
+const SampleTag=({t="Sample"})=>(<span style={{fontFamily:sans,fontSize:10,fontWeight:800,letterSpacing:0.8,textTransform:"uppercase",padding:"2px 8px",borderRadius:10,background:C.pine,color:C.headText}}>{t}</span>);
+// The member map, drawn for real but frozen, with a sample river card on top.
+function MapPreview({ranked,onUpgrade}){
+  const elRef=useRef(null);
+  const [ready,setReady]=useState(!!window.L);
+  useEffect(()=>{ if(ready) return; const id=setInterval(()=>{ if(window.L){ clearInterval(id); setReady(true); } },300); return ()=>clearInterval(id); },[ready]);
+  const pins=useMemo(()=>ranked.filter(e=>e.source==="verified"),[ranked]);
+  const best=pins.find(e=>!(e.reg&&e.reg.state==="closed"))||pins[0];
+  useEffect(()=>{
+    const L=window.L; if(!ready||!L||!elRef.current) return;
+    const map=L.map(elRef.current,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,tap:false})
+      .setView([43.45,-79.75],8);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,detectRetina:true,attribution:"Tiles © Esri"}).addTo(map);
+    pins.forEach(e=>{ const col=scoreColor(e.opportunity), ring=regColor(e.reg&&e.reg.tone);
+      L.marker([e.sec.lat,e.sec.lon],{interactive:false,icon:L.divIcon({className:"",iconSize:[30,30],iconAnchor:[15,15],
+        html:`<div style="width:26px;height:26px;border-radius:50%;background:${C.bone};border:3px solid ${ring};display:flex;align-items:center;justify-content:center;font-family:${serif};font-weight:700;font-size:11.5px;color:${col}">${e.opportunity}</div>`})}).addTo(map); });
+    setTimeout(()=>{ try{ map.invalidateSize(); }catch{} },200);
+    return ()=>{ try{ map.remove(); }catch{} };
+  },[ready,pins]);
+  const feat=(icon,title,text)=>(<div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 0",borderTop:`1px solid ${C.lineSoft}`}}>
+    <span style={{color:C.pine,display:"flex",marginTop:1}}><Icon name={icon} size={18}/></span>
+    <div><div style={{fontSize:13.5,fontWeight:700,color:C.text}}>{title}</div><div style={{fontSize:12.5,color:C.textDim,lineHeight:1.45,marginTop:1}}>{text}</div></div></div>);
+  return (<div style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+    <div style={{position:"relative",height:300,background:C.bone}}>
+      <div ref={elRef} style={{position:"absolute",inset:0}} aria-hidden="true"/>
+      <div style={{position:"absolute",top:10,left:10,zIndex:500}}><SampleTag t="Member map"/></div>
+      {best && <div style={{position:"absolute",left:10,right:10,bottom:10,zIndex:500,background:C.panel,border:`1px solid ${C.line}`,borderRadius:11,padding:"10px 12px",display:"flex",alignItems:"center",gap:12,boxShadow:"0 6px 20px rgba(0,0,0,.22)"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine}}>{best.sec.river}</div>
+          <div style={{fontSize:12,color:C.textDim}}>{best.sec.section}</div>
+          <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>{best.reg && <RegPill tone={best.reg.tone} label={best.reg.label}/>}<RegPill tone="green" label="Parking 6 min walk"/></div>
+        </div>
+        <Gauge value={best.opportunity} size={54} stroke={6}/>
+      </div>}
+    </div>
+    <div style={{padding:"12px 14px 14px"}}>
+      <div style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine,marginBottom:4}}>Every river on one live map</div>
+      <div style={{fontSize:13,color:C.textDim,lineHeight:1.5,marginBottom:6}}>{PITCH}</div>
+      {feat("map","Live scores on every pin","See which rivers are fishing best right now, ranked every morning.")}
+      {feat("check","Season status at a glance","Green is open, red is closed, straight from the Ontario regulations.")}
+      {feat("drive","Parking and the walk in","Nearest parking, the drive and the walk to the water for each spot.")}
+      {feat("search","Scout new water","Find hundreds of spots within your radius, not just the famous ones.")}
+      {previewCta(onUpgrade,`Unlock the map. ${TRIAL_DAYS} days free`)}
+    </div>
+  </div>);
+}
+// The member strategy for this river on a prime morning, shown as a sample.
+function StrategyPreview({ev,m,onUpgrade}){
+  const sample=useMemo(()=>{
+    const run=SPECIES[ev.target]&&SPECIES[ev.target].mode==="run";
+    const t=Date.now(), iso=(d)=>new Date(t+d*60000).toISOString();
+    const cond=run ? {...ev.cond,temp:9,flow:"Normal",cloud:85,wind:8,pressureTrend:-2,sunrise:iso(-30),sunset:iso(600)}
+                   : {...ev.cond,temp:15,flow:"Low / clear",cloud:20,wind:5,pressureTrend:0,sunrise:iso(-700),sunset:iso(30)};
+    return {...ev,cond};
+  },[ev]);
+  return (<div style={{marginTop:12,padding:"12px 12px 14px",background:C.bone,border:`1px solid ${C.brass}66`,borderRadius:11}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><SampleTag/><span style={{fontSize:12.5,color:C.textDim}}>{ev.sec.river} on a prime {SPECIES[ev.target]&&SPECIES[ev.target].mode==="run"?"morning":"evening"}</span></div>
+    <div style={{position:"relative",maxHeight:330,overflow:"hidden"}}>
+      <AdvisorPanel ev={sample} m={m} noScroll/>
+      <div style={{position:"absolute",left:0,right:0,bottom:0,height:90,background:`linear-gradient(to bottom, ${C.bone}00, ${C.bone})`}}/>
+    </div>
+    <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginTop:4}}>Members get this for every river, worked out from today's water, light and weather: the technique, the exact flies and how to fish them.</div>
+    {previewCta(onUpgrade,`Unlock strategies. ${TRIAL_DAYS} days free`)}
   </div>);
 }
 function Locked({premium,onUpgrade,children,label="Upgrade to unlock"}){
@@ -2895,10 +3042,10 @@ function CatchForm({sec, signedIn, compact, startOpen, onCancel}){
 }
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
 // The expanded fly/strategy content, shared by the card and the map panel.
-function AdvisorPanel({ev,m}){
+function AdvisorPanel({ev,m,noScroll}){
   const ref=useRef(null);
   const a=useMemo(()=>advise(ev,m),[ev,m]);
-  useEffect(()=>{ if(ref.current) ref.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[]);
+  useEffect(()=>{ if(!noScroll&&ref.current) ref.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[]);
   const tag=(txt,strong)=>(<span style={{fontFamily:sans,fontSize:10,letterSpacing:0.5,padding:"1px 7px",borderRadius:3,
     border:`1px solid ${strong?C.brass:C.line}`,background:strong?`${C.brass}22`:C.bone,color:strong?C.brickDeep:C.textDim}}>{txt}</span>);
   const roleTag={dry:"Dry",nymph:"Nymph / dropper",streamer:"Streamer"};
@@ -2934,28 +3081,26 @@ function AdvisorPanel({ev,m}){
 function Advisor({ev,m,premium=true,onUpgrade}){
   const [open,setOpen]=useState(false);
   return (<div style={{marginTop:14,paddingTop:12,borderTop:`2px dotted ${C.line}`}}>
-    <button onClick={()=> premium ? setOpen(o=>{ if(!o) logEvent("view_reach",ev.sec.id,{via:"advisor"}); return !o; }) : (onUpgrade&&onUpgrade())} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
-      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
-    {open && premium && <AdvisorPanel ev={ev} m={m}/>}
+    <button onClick={()=> setOpen(o=>{ if(!o&&premium) logEvent("view_reach",ev.sec.id,{via:"advisor"}); return !o; })} style={{display:"inline-flex",alignItems:"center",gap:7,fontFamily:sans,fontSize:12.5,letterSpacing:0.3,fontWeight:700,padding:"8px 12px",borderRadius:8,
+      cursor:"pointer",background:C.bone,border:`1px solid ${C.brass}`,color:C.pine}}><Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies<Icon name="chevron" size={14} style={{transform:open?"rotate(180deg)":"none",transition:"transform .2s"}}/></button>
+    {open && (premium ? <AdvisorPanel ev={ev} m={m}/> : <StrategyPreview ev={ev} m={m} onUpgrade={onUpgrade}/>)}
   </div>);
 }
 // The four reach actions as one aligned grid (2×2 on phones, one row when wide).
 // The catch form opens full-width underneath instead of squeezing into the row.
-function ActionBar({ev,isSaved,onToggleSave,signedIn}){
+function ActionBar({ev,signedIn}){
   const sec=ev.sec;
   const [logOpen,setLogOpen]=useState(false);
-  const saved=onToggleSave&&isSaved(sec.id);
   const t=ev.reg?(REG_TONE[ev.reg.tone]||REG_TONE.amber):null;
-  const cell={display:"flex",alignItems:"center",justifyContent:"center",gap:6,minHeight:40,padding:"8px 10px",borderRadius:9,
-    fontFamily:sans,fontSize:12.5,fontWeight:700,cursor:"pointer",textDecoration:"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+  const cell={display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,minHeight:50,padding:"7px 4px",borderRadius:9,
+    fontFamily:sans,fontSize:11.5,fontWeight:700,lineHeight:1.15,textAlign:"center",whiteSpace:"nowrap",cursor:"pointer",textDecoration:"none",
     border:`1px solid ${C.line}`,background:C.bone,color:C.pine};
   const openRegs=()=>window.dispatchEvent(new CustomEvent("mk-reg",{detail:{sec}}));
   return (<div style={{marginTop:12}}>
     <div className="mk-actions">
-      {t && <button onClick={openRegs} title={ev.reg.detail} style={{...cell,borderColor:t.bd,background:t.bg,color:t.fg}}><Icon name={t.ic} size={14}/>{ev.reg.label}</button>}
-      {onToggleSave && <button onClick={()=>onToggleSave(sec)} style={{...cell,...(saved?{borderColor:C.brass,background:`${C.brass}22`,color:C.brickDeep}:{})}}><Icon name="save" size={14}/>{saved?"Saved":"Save"}</button>}
-      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)} style={cell}><Icon name="map" size={14}/>Directions</a>
-      {API_BASE && <button onClick={()=>setLogOpen(o=>!o)} style={{...cell,...(logOpen?{borderColor:C.brass,background:`${C.brass}18`}:{})}}><Icon name="plus" size={14}/>Log a catch</button>}
+      {t && <button onClick={openRegs} title={ev.reg.detail} style={{...cell,borderColor:t.bd,background:t.bg,color:t.fg}}><Icon name={t.ic} size={16}/>{ev.reg.label}</button>}
+      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)} style={cell}><Icon name="map" size={16}/>Directions</a>
+      {API_BASE && <button onClick={()=>setLogOpen(o=>!o)} style={{...cell,...(logOpen?{borderColor:C.brass,background:`${C.brass}18`}:{})}}><Icon name="plus" size={16}/>Log a catch</button>}
     </div>
     {logOpen && <CatchForm sec={sec} signedIn={signedIn} startOpen onCancel={()=>setLogOpen(false)}/>}
   </div>);
@@ -2971,12 +3116,16 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
       <div style={{flex:1,minWidth:0}}>
         {rank<=3 && <div style={{fontFamily:serif,fontSize:13,fontWeight:700,color:C.brass,marginBottom:1}}>No.{rank}</div>}
-        <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
-        <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}{dist!=null?<span style={{color:C.textFaint,fontFamily:mono,fontSize:11}}> · {dist} km away</span>:null}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,minWidth:0}}>{sec.river}</div>
+          {onToggleSave && <StarButton saved={isSaved(sec.id)} onClick={()=>onToggleSave(sec)}/>}
+        </div>
+        <div style={{fontSize:12.5,color:C.textDim,marginTop:2}}>{sec.section}</div>
+        {dist!=null && <div style={{display:"flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:14.5,fontWeight:700,color:C.pine,marginTop:5}}><Icon name="pin" size={15}/>{dist} km away</div>}
       </div>
       <Gauge value={ev.opportunity} label="Opportunity"/>
     </div>
-    <ActionBar ev={ev} isSaved={isSaved} onToggleSave={onToggleSave} signedIn={signedIn}/>
+    <ActionBar ev={ev} signedIn={signedIn}/>
     <ConditionsStrip cond={cd} opp={ev.opportunity} warm={ev.warmStress}/>
     {/* Score breakdown — full-width bars under the conditions box */}
     <div style={{width:"100%",marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:9}}>
@@ -2986,12 +3135,12 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     </div>
     {/* Two expandable sections */}
     <div style={{display:"flex",gap:8,marginTop:12}}>
-      <button onClick={()=> premium ? toggle("adv") : (onUpgrade&&onUpgrade())} style={bottomBtn(panel==="adv")}>
-        <Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies{premium && <Icon name="chevron" size={13} style={{transform:panel==="adv"?"rotate(180deg)":"none",transition:"transform .2s"}}/>}</button>
+      <button onClick={()=>toggle("adv")} style={bottomBtn(panel==="adv")}>
+        <Icon name={premium?"fly":"lock"} size={15}/>Strategy &amp; flies<Icon name="chevron" size={13} style={{transform:panel==="adv"?"rotate(180deg)":"none",transition:"transform .2s"}}/></button>
       <button onClick={()=>toggle("depth")} style={bottomBtn(panel==="depth")}>
         <Icon name="pin" size={15}/>Depth &amp; fish<Icon name="chevron" size={13} style={{transform:panel==="depth"?"rotate(180deg)":"none",transition:"transform .2s"}}/></button>
     </div>
-    {panel==="adv" && premium && <AdvisorPanel ev={ev} m={m}/>}
+    {panel==="adv" && (premium ? <AdvisorPanel ev={ev} m={m}/> : <StrategyPreview ev={ev} m={m} onUpgrade={onUpgrade}/>)}
     {panel==="depth" && <DepthFish sec={sec} logged={logged}/>}
   </div>);
 }

@@ -48,7 +48,7 @@ export default async function authRoutes(app) {
     if (config.checkEmailDomain && !(await domainAcceptsMail(email)))
       return reply.code(400).send({ error: "invalid email", message: "That email domain can't receive mail — check the spelling." });
     if (await isNameTaken(displayName)) return reply.code(409).send({ error: "username taken" });
-    // No no-card trial: the 14-day trial starts only after checkout with a card.
+    // No no-card trial: the free trial starts only after checkout with a card.
     let user;
     try {
       user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), displayName } });
