@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm } from "./lib/discovery.js";
+import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm, isRiverSpot } from "./lib/discovery.js";
 import { elevations } from "./lib/terrain.js";
 import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
@@ -544,7 +544,7 @@ function waterLabel(s){ return s.waterType==="lake"?"Lake / launch":s.waterType=
 function discoveredNote(s, t){ return `Auto-discovered from OpenStreetMap${t.isTailwater?" below a dam (likely cold tailwater)":""}. Habitat and species are estimated from terrain — confirm access, regulations and seasons before fishing.`; }
 
 async function discoverSecs(loc, radiusM){
-  const key=`disco:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`;
+  const key=`disco2:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v2: rivers and river spots only
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return {list:c.list, wxUrl:c.wxUrl||null}; }catch(e){}
   const body="data="+encodeURIComponent(buildOverpassQuery(loc.lat,loc.lon,radiusM));
   let json;
@@ -1504,6 +1504,9 @@ export default function App(){
     try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{}
     try{ dbSet("me:last",{user:null,entitlement:"free"}); }catch{}
     try{ localStorage.removeItem("mkAttrSent"); }catch{}
+    // Saved rivers belong to the account: clear this device's copy so the next
+    // person to sign in here doesn't inherit (or upload) them.
+    setSaved([]); try{ dbSet("saved",[]); dbSet("saved:synced",true); }catch{}
     setMe({user:null,entitlement:"free"}); setTab("rivers");
   },[]);
   // Link first-touch attribution + device to the account once signed in.
@@ -1631,12 +1634,21 @@ export default function App(){
 
   // The one Scout action: refresh location, then scout at the current radius.
   // Replaces the separate "use my location" step.
+  // While scouting, the list and map make way for a "Scouting new rivers" panel;
+  // it stays up at least a moment so a quick (cached) scout still reads as one.
+  const [scouting,setScouting]=useState(false);
   const scout=useCallback(async(r)=>{
     if(!isPremium){ openUpgrade(); return; }
-    const loc=await getPosition();
-    if(!loc) return; // denial/unsupported already shown via locStatus
-    await discoverNearby(r||radiusM, loc);
+    setScouting(true); const t0=Date.now();
+    try{
+      const loc=await getPosition();
+      if(loc) await discoverNearby(r||radiusM, loc); // denial/unsupported shows via locStatus
+    } finally {
+      const wait=1200-(Date.now()-t0); if(wait>0) await new Promise(res=>setTimeout(res,wait));
+      setScouting(false);
+    }
   },[isPremium,getPosition,discoverNearby,radiusM,openUpgrade]);
+  const isScouting=scouting||discoStatus==="loading";
 
   useEffect(()=>{
     if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{});
@@ -1650,6 +1662,7 @@ export default function App(){
       const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
       // Restore the last scouted spots so they persist until the next scout.
       const disc=await dbGet("discovered:last");
+      if(disc&&Array.isArray(disc.list)) disc.list=disc.list.filter(isRiverSpot);
       if(disc&&Array.isArray(disc.list)&&disc.list.length){
         setDiscovered(disc.list); setDiscoStatus("done");
         discoSuperRef.current={radius:disc.radius||0,list:disc.list};
@@ -1889,8 +1902,8 @@ export default function App(){
         {tab==="rivers" && (<>
           <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-            <button onClick={()=>scout()} disabled={locStatus==="locating"||discoStatus==="loading"} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine}}>
-              <Icon name={isPremium?"search":"lock"} size={13}/>{locStatus==="locating"?"Locating…":discoStatus==="loading"?"Scouting…":!isPremium?"Scout rivers near me":discovered.length?`${discovered.length} nearby · Re-scout`:"Scout rivers near me"}</button>
+            <button onClick={()=>scout()} disabled={isScouting} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine,opacity:isScouting?0.75:1}}>
+              <Icon name={isPremium?"search":"lock"} size={13}/>{isScouting?"Scouting…":!isPremium?"Scout rivers near me":discovered.length?`${discovered.length} nearby · Re-scout`:"Scout rivers near me"}</button>
             <button onClick={loadWeather} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={13}/>Refresh</button>
           </div>
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
@@ -1905,12 +1918,17 @@ export default function App(){
             <span>Season tags come from the official <a href={REGS_BASE} target="_blank" rel="noopener noreferrer" style={{color:C.pine,fontWeight:700}}>Ontario Fishing Regulations Summary</a>, checked twice a day.{regs&&regs.checkedAt?` Last checked ${fmtChecked(regs.checkedAt)}.`:""} Tap a tag for the exact rules for that water.</span>
           </div>
 
-          {riversView==="map" && !isPremium && <MapPreview ranked={ranked} onUpgrade={openUpgrade}/>}
-          {riversView==="map" && isPremium
+          {isScouting && isPremium && (<div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:10,padding:"40px 16px",marginBottom:14,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14}}>
+            <div style={{animation:"pulse 1.4s ease-in-out infinite"}}><Avatar src="icons/crest.png" size={72}/></div>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>Scouting new rivers</div>
+            <div style={{fontSize:13,color:C.textDim,maxWidth:280,lineHeight:1.5}}>Checking live conditions on the water within {radiusLabel(radiusM)} of you.</div>
+          </div>)}
+          {!isScouting && riversView==="map" && !isPremium && <MapPreview ranked={ranked} onUpgrade={openUpgrade}/>}
+          {riversView==="map" && isPremium && !isScouting
             ? <MapView ranked={rankedNear} userLoc={userLoc} radiusM={radiusM} m={month} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave} premium={isPremium} onUpgrade={openUpgrade} signedIn={!!(me&&me.user)} activity={catchActivity}/>
-            : riversView==="map" ? null : (<>
+            : (riversView==="map" || (isScouting && isPremium)) ? null : (<>
               {/* First run: no location + nothing scouted yet — ask for radius, then scout. */}
-              {isPremium && !userLoc && discovered.length===0 && discoStatus!=="loading" && (
+              {isPremium && !userLoc && discovered.length===0 && (
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:12,padding:"24px 18px",marginBottom:14,background:C.panel,border:`1px solid ${C.brass}66`,borderRadius:14}}>
                   <Avatar src="icons/crest.png" size={60}/>
                   <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>Find the best rivers near you</div>
@@ -1918,11 +1936,6 @@ export default function App(){
                   <button onClick={()=>setRadiusOpen(true)} style={{...btnBig,padding:"7px 12px",fontSize:12.5,borderColor:C.line,color:C.pine}}><Icon name="radius" size={14}/>Radius: {radiusLabel(radiusM)}</button>
                   <button onClick={()=>scout()} disabled={locStatus==="locating"} style={{...btnBig,padding:"11px 20px",fontSize:14,background:C.brass,borderColor:C.brass,color:C.pine,fontWeight:700}}><Icon name="search" size={16}/>{locStatus==="locating"?"Locating…":"Scout rivers near me"}</button>
                 </div>)}
-              {discoStatus==="loading" && (<div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",gap:10,padding:"26px 16px",marginBottom:14,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:14}}>
-                <div style={{animation:"pulse 1.4s ease-in-out infinite"}}><Avatar src="icons/crest.png" size={64}/></div>
-                <div style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine}}>Scouting…</div>
-                <div style={{fontSize:13,color:C.textDim,maxWidth:280,lineHeight:1.5}}>Finding the best rivers around you within {radiusLabel(radiusM)}. Your top picks are ready below.</div>
-              </div>)}
               {warmAny && (top3[0]?.cond.temp>=19) && (<div style={{display:"flex",gap:10,padding:"11px 13px",marginBottom:14,background:`${C.red}12`,border:`1px solid ${C.red}44`,borderRadius:11,fontSize:13,color:C.text,lineHeight:1.5}}>
                 <span style={{color:C.red,fontWeight:800}}>!</span><span>Warm-water caution: hooked trout rarely survive release at these temperatures. Favour cold tailwater and spring creeks, or rest the trout today.</span></div>)}
               {userLoc && rankedNear.length===0 && <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.6,marginBottom:14,padding:"13px 14px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>No mapped water within {radiusLabel(radiusM)} of you. Widen your search radius from the menu to see more.</div>}
@@ -1971,7 +1984,7 @@ export default function App(){
       {boardOpen && <LeaderboardSheet onClose={()=>setBoardOpen(false)}/>}
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
-      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); if(isPremium){ userLoc?discoverNearby(m):scout(m); } setRadiusOpen(false);}} onClose={()=>setRadiusOpen(false)}/>}
+      {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); setRadiusOpen(false); if(isPremium) scout(m);}} onClose={()=>setRadiusOpen(false)}/>}
       {regDetail && <RegSheet sec={regDetail} regs={regs} now={now} onClose={()=>setRegDetail(null)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><ScrollLock/><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
@@ -2561,12 +2574,15 @@ function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUns
   if(!(me&&me.user)) return null;
   return (<div>
     <SectionTitle t="Your account"/>
-    <div style={{fontSize:13.5,color:C.text}}>{me.user.email}</div>
+    {me.user.displayName && <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{me.user.displayName}</div>}
+    <div style={{fontSize:13.5,color:C.text,marginTop:2}}>{me.user.email}</div>
     <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginTop:4}}>{entitlementLabel(me)}</div>
     {!premium && <UpgradeCard onPick={startCheckout}/>}
-    <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} goRivers={goRivers}/>
     <AvatarEditor me={me} onAuth={onAuth}/>
-    <DisplayNameEditor me={me} onAuth={onAuth}/>
+    {/* Usernames are set at sign-up and shown above; only an account without one
+        (e.g. signed in with Google) gets to pick it here. */}
+    {!me.user.displayName && <DisplayNameEditor me={me} onAuth={onAuth}/>}
+    <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} goRivers={goRivers}/>
     <BlockedAnglers/>
     {premium && (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
       <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>Membership</div>
@@ -2853,7 +2869,7 @@ function MapPreview({ranked,onUpgrade}){
   const best=pins.find(e=>!(e.reg&&e.reg.state==="closed"))||pins[0];
   useEffect(()=>{
     const L=window.L; if(!ready||!L||!elRef.current) return;
-    const map=L.map(elRef.current,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,tap:false})
+    const map=L.map(elRef.current,{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,tap:false})
       .setView([43.45,-79.75],8);
     L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,detectRetina:true,attribution:"Tiles © Esri"}).addTo(map);
     pins.forEach(e=>{ const col=scoreColor(e.opportunity), ring=regColor(e.reg&&e.reg.tone);
@@ -2886,6 +2902,7 @@ function MapPreview({ranked,onUpgrade}){
       {feat("drive","Parking and the walk in","Nearest parking, the drive and the walk to the water for each spot.")}
       {feat("search","Scout new water","Find hundreds of spots within your radius, not just the famous ones.")}
       {previewCta(onUpgrade,`Unlock the map. ${TRIAL_DAYS} days free`)}
+      <div style={{fontSize:10,color:C.textFaint,marginTop:8,textAlign:"center"}}>Map tiles © Esri</div>
     </div>
   </div>);
 }
@@ -2901,7 +2918,7 @@ function StrategyPreview({ev,m,onUpgrade}){
   return (<div style={{marginTop:12,padding:"12px 12px 14px",background:C.bone,border:`1px solid ${C.brass}66`,borderRadius:11}}>
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><SampleTag/><span style={{fontSize:12.5,color:C.textDim}}>{ev.sec.river} on a prime {SPECIES[ev.target]&&SPECIES[ev.target].mode==="run"?"morning":"evening"}</span></div>
     <div style={{position:"relative",maxHeight:330,overflow:"hidden"}}>
-      <AdvisorPanel ev={sample} m={m} noScroll/>
+      <AdvisorPanel ev={sample} m={m} sample/>
       <div style={{position:"absolute",left:0,right:0,bottom:0,height:90,background:`linear-gradient(to bottom, ${C.bone}00, ${C.bone})`}}/>
     </div>
     <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginTop:4}}>Members get this for every river, worked out from today's water, light and weather: the technique, the exact flies and how to fish them.</div>
@@ -3042,7 +3059,8 @@ function CatchForm({sec, signedIn, compact, startOpen, onCancel}){
 }
 function AdvHead({t}){ return <div style={{fontFamily:sans,fontSize:10,letterSpacing:1.2,textTransform:"uppercase",color:C.brass,fontWeight:700,marginBottom:6}}>{t}</div>; }
 // The expanded fly/strategy content, shared by the card and the map panel.
-function AdvisorPanel({ev,m,noScroll}){
+function AdvisorPanel({ev,m,sample}){
+  const noScroll=sample; // the free sample: no auto-scroll, nothing clickable
   const ref=useRef(null);
   const a=useMemo(()=>advise(ev,m),[ev,m]);
   useEffect(()=>{ if(!noScroll&&ref.current) ref.current.scrollIntoView({behavior:"smooth",block:"nearest"}); },[]);
@@ -3062,8 +3080,10 @@ function AdvisorPanel({ev,m,noScroll}){
         <div style={{display:"flex",alignItems:"baseline",gap:7,flexWrap:"wrap"}}>
           <span style={{fontFamily:serif,fontSize:14.5,fontWeight:700,color:C.pine}}>{f.name}</span>
           {f.role&&tag(roleTag[f.role]||f.role)}{tag(f.size,true)}{tag(f.color)}
-          <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
-            style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>
+          {noScroll
+            ? <span style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,whiteSpace:"nowrap",cursor:"default"}}><Icon name="search" size={13}/>See it</span>
+            : <a href={gImages(f.name.split(" / ")[0]+" fly")} target="_blank" rel="noopener noreferrer"
+            style={{display:"inline-flex",alignItems:"center",gap:4,fontFamily:sans,fontSize:11,fontWeight:700,letterSpacing:0.3,color:C.brick,textDecoration:"none",whiteSpace:"nowrap"}}><Icon name="search" size={13}/>See it</a>}
         </div>
         <div style={{fontSize:12,color:C.textDim,marginTop:3,lineHeight:1.45}}>{f.reason}</div>
       </div>))}

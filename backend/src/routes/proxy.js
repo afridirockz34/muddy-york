@@ -22,7 +22,7 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
     try {
       const res = await proxyFetch(OVERPASS_HOSTS,
         { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query) },
-        { retries: 1, timeoutMs: 12000 });
+        { retries: 1, timeoutMs: 25000 }); // big-radius queries can take ~20 s on a busy server
       json = await res.json();
     } catch { reply.code(502).send({ error: "upstream unavailable" }); return null; }
     cache.set(key, json, ttl);

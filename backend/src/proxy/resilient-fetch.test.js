@@ -21,3 +21,13 @@ describe("resilientFetch", () => {
     await expect(resilientFetch(["u1", "u2"], {}, { retries: 0, fetchImpl: f, backoffMs: 0 })).rejects.toBeTruthy();
   });
 });
+
+describe("resilientFetch headers", () => {
+  it("identifies the app to public map services, keeping caller headers", async () => {
+    const f = vi.fn().mockResolvedValue(ok());
+    await resilientFetch(["u1"], { method: "POST", headers: { "Content-Type": "x" } }, { retries: 0, fetchImpl: f });
+    const h = f.mock.calls[0][1].headers;
+    expect(h["User-Agent"]).toMatch(/^MuddyYorkFishing\//);
+    expect(h["Content-Type"]).toBe("x");
+  });
+});
