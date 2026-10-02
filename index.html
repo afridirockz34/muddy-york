@@ -46,12 +46,23 @@
     input,select,textarea{font-size:16px !important;}
     .boot{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#2C4C3B;
       color:#EFE9DB;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:16px;padding:24px;text-align:center;}
+    .boot-title{font-size:22px;font-style:normal;margin:0 0 8px;}
+    .boot-line{margin:0;}
+    .boot-about{max-width:420px;margin:14px auto 0;font-family:Helvetica,Arial,sans-serif;font-style:normal;font-size:12.5px;line-height:1.5;color:#B7C7B7;}
+    .boot-about a{color:#D4AF37;}
     noscript{display:block;padding:40px;color:#2A2A2A;font-family:Helvetica,Arial,sans-serif;text-align:center;}
   </style>
 </head>
 <body>
-  <div id="root"><div class="boot">Sorting the tackle box…</div></div>
-  <noscript>This app needs JavaScript enabled.</noscript>
+  <!-- Readable without JavaScript: web filters and search engines categorize the
+       site from this text (the app replaces it as soon as it loads). -->
+  <div id="root"><div class="boot"><div>
+    <h1 class="boot-title">Muddy York Fishing</h1>
+    <p class="boot-line">Sorting the tackle box…</p>
+    <p class="boot-about">An Ontario sport fishing app: daily river conditions, fishing reports, fly fishing strategies and official Ontario fishing regulations for trout, steelhead and salmon on 30+ rivers and hundreds of spots across Southern Ontario.</p>
+    <p class="boot-about"><a href="/fishing/">About the app</a> · <a href="/rivers/">Ontario fishing rivers</a> · <a href="/guides/">Fishing guides</a> · <a href="/blog/">Fishing blog</a></p>
+  </div></div></div>
+  <noscript>Muddy York Fishing needs JavaScript to run the app. Read about it at muddyyorkfishing.ca/fishing/.</noscript>
   <script>window.MUDDY_API_BASE="/bk";</script>
   <script src="./app.js" defer></script>
 </body>
