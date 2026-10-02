@@ -259,3 +259,11 @@ model BlogPost {
 
   @@index([status, publishedAt])
 }
+
+// Last good answer from the public OpenStreetMap services (Overpass) per
+// query, so scouting and parking still work when those servers are busy.
+model MapDataCache {
+  key       String   @id
+  data      Json
+  fetchedAt DateTime
+}

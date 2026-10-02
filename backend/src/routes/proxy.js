@@ -1,4 +1,5 @@
 import { makeCache } from "../proxy/cache.js";
+import { prisma } from "../db.js";
 import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
@@ -15,17 +16,28 @@ const r3 = (n) => Math.round(n * 1000) / 1000;
 export default function proxyRoutes(proxyFetch = resilientFetch) {
   const cache = makeCache();
 
+  // Overpass is a free public service and often overloaded. Answers are kept in
+  // memory and in Postgres: a fresh stored copy is served without asking
+  // Overpass at all, and a stale one is served when Overpass fails (rivers and
+  // parking lots barely change). Only with no copy at all does the app see 502.
   async function overpass(query, key, ttl, reply) {
     const hit = cache.get(key);
     if (hit) return hit;
+    const stored = await prisma.mapDataCache.findUnique({ where: { key } }).catch(() => null);
+    if (stored && Date.now() - new Date(stored.fetchedAt).getTime() < ttl) { cache.set(key, stored.data, ttl); return stored.data; }
     let json;
     try {
       const res = await proxyFetch(OVERPASS_HOSTS,
         { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query) },
-        { retries: 1, timeoutMs: 25000 }); // big-radius queries can take ~20 s on a busy server
+        { retries: 0, timeoutMs: 20000 }); // each server once; a busy one can take ~20 s
       json = await res.json();
-    } catch { reply.code(502).send({ error: "upstream unavailable" }); return null; }
+      if (!json || !Array.isArray(json.elements)) throw new Error("bad overpass payload");
+    } catch {
+      if (stored) { cache.set(key, stored.data, 60 * 60 * 1000); return stored.data; }
+      reply.code(502).send({ error: "upstream unavailable" }); return null;
+    }
     cache.set(key, json, ttl);
+    prisma.mapDataCache.upsert({ where: { key }, create: { key, data: json, fetchedAt: new Date() }, update: { data: json, fetchedAt: new Date() } }).catch(() => {});
     return json;
   }
 
@@ -33,8 +45,10 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
     app.get("/api/discover", async (req, reply) => {
       const lat = num(req.query.lat), lon = num(req.query.lon), radiusM = num(req.query.radiusM) || 30000;
       if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
-      const key = `disc:${r3(lat)},${r3(lon)}:${radiusM}`;
-      const json = await overpass(buildDiscoverQuery(lat, lon, radiusM), key, 7 * DAY, reply);
+      // Snap the search centre to a ~2 km grid so nearby anglers share one answer.
+      const clat = Math.round(lat * 50) / 50, clon = Math.round(lon * 50) / 50;
+      const key = `disc:${clat},${clon}:${radiusM}`;
+      const json = await overpass(buildDiscoverQuery(clat, clon, radiusM), key, 14 * DAY, reply);
       if (json) return json;
     });
 
