@@ -521,6 +521,100 @@ fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
 }));
 urls.push(SITE_URL + "/regions/");
 
+// ---- trust pages: privacy, terms, contact ----
+const UPDATED = "October 2, 2026";
+const CONTACT = "info@muddyyorkfishing.ca";
+const LEGAL = [
+  { slug: "privacy", title: "Privacy policy", desc: "How Muddy York Fishing collects, uses and protects your information.", body: `
+<p class="meta">Last updated ${UPDATED}</p>
+<p>Muddy York Fishing ("we", "us") runs the Muddy York Fishing app and the website at muddyyorkfishing.ca. This policy explains what we collect, why, and the choices you have. We follow Canada's Personal Information Protection and Electronic Documents Act (PIPEDA).</p>
+<h2>What we collect</h2>
+<ul>
+<li><b>Account details:</b> your email address, the username you choose, an optional profile picture, and your password (stored only as a secure hash). If you sign in with Google or Apple, we receive your name and email from them.</li>
+<li><b>Your fishing activity:</b> rivers you save, notes you write, catches you log, posts, comments and likes, and your alert settings. Logged catches are tied to a river section, never to your exact position.</li>
+<li><b>Location:</b> when you tap Scout or Use my location, your phone's location is used to find water near you. It is kept on your device and sent to our servers only to look up nearby rivers, parking and weather. If you drop a pin on a private note, that pin is saved with the note.</li>
+<li><b>Membership and payments:</b> Stripe processes all payments. We never see or store your card number; we keep your Stripe customer ID and subscription status.</li>
+<li><b>Notifications:</b> if you turn on push notifications, we store your device's push subscription so we can send alerts.</li>
+<li><b>Usage:</b> basic, first-party analytics such as which screens are opened and how you found us (for example a search engine or a link). We do not use third-party advertising trackers and we do not sell your information.</li>
+</ul>
+<h2>How we use it</h2>
+<ul>
+<li>To run the app: rank rivers, show conditions and regulations, save your rivers and notes, and sync them across your devices.</li>
+<li>To send what you ask for: condition alerts for your saved rivers, password resets, membership receipts and replies to support requests. Every non-essential email has an unsubscribe link.</li>
+<li>To keep the community safe: moderate reported posts and enforce our <a href="/terms/">terms</a>.</li>
+<li>To improve the app, using usage information in aggregate.</li>
+</ul>
+<h2>Services we rely on</h2>
+<p>We share only what each service needs to do its job: Stripe (payments), Resend (email), Cloudinary (photo hosting), Render and Neon (our servers and database), Netlify (the website), Google and Apple (if you choose them to sign in), Open-Meteo (weather for the rivers you view), and OpenStreetMap, Esri and Water Survey of Canada (maps, river and gauge data). Some of these providers store data outside Canada, including in the United States.</p>
+<h2>Cookies and storage</h2>
+<p>We use one essential cookie to keep you signed in. The app also stores your saved rivers, notes and settings on your device so it works quickly and offline.</p>
+<h2>How long we keep it</h2>
+<p>We keep your information while your account is open. When you ask us to delete your account, we delete your profile and content. Payment records are kept as long as tax law requires.</p>
+<h2>Your choices and rights</h2>
+<ul>
+<li>See, correct or download the information we hold about you.</li>
+<li>Delete your account and its content.</li>
+<li>Turn off email or push alerts at any time in your Profile.</li>
+<li>Withdraw consent, or make a complaint to the Office of the Privacy Commissioner of Canada.</li>
+</ul>
+<p>To make a request, email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
+<h2>Children</h2>
+<p>The app is not directed at children under 13, and we do not knowingly collect their information.</p>
+<h2>Changes</h2>
+<p>If we change this policy in a meaningful way, we will update the date above and tell members in the app or by email.</p>` },
+  { slug: "terms", title: "Terms of service", desc: "The terms for using the Muddy York Fishing app and website.", body: `
+<p class="meta">Last updated ${UPDATED}</p>
+<p>These terms apply to the Muddy York Fishing app and the website at muddyyorkfishing.ca. By creating an account or using the app, you agree to them.</p>
+<h2>Your account</h2>
+<p>You need to be at least 13 to use the app, and the age of majority in your province to buy a membership. Keep your login private; you are responsible for activity on your account. Give us a real email address so we can reach you about your account.</p>
+<h2>Membership, trial and billing</h2>
+<ul>
+<li>A membership is billed monthly or yearly, at the price shown when you sign up, plus any applicable taxes.</li>
+<li>New members get a 7-day free trial. You will not be charged if you cancel before the trial ends; otherwise billing starts automatically when it does.</li>
+<li>Memberships renew automatically until you cancel. You can cancel anytime from Manage subscription in your Profile. Access continues to the end of the period you have paid for.</li>
+<li>Payments are handled by Stripe. If you think you were charged in error, email us and we will make it right.</li>
+<li>If we change prices, we will tell you before your next renewal, and you can cancel before it applies.</li>
+</ul>
+<h2>Fishing information and regulations</h2>
+<p>Conditions, scores, strategies and season status are estimates to help you plan. Season and regulation information is drawn from the official Ontario Fishing Regulations Summary and checked regularly, but the Summary is a guide and the legal regulations are made under the Fisheries Act. You are responsible for holding a valid licence and for following all fishing regulations, sanctuary closures and access rules for the water you fish.</p>
+<h2>Safety and access</h2>
+<p>Rivers are dangerous, especially in high or cold water. Fishing is at your own risk. Parking and access information comes from public map data and may be wrong or out of date. Respect private property and posted signs, and only enter land where you are allowed to be.</p>
+<h2>Your content</h2>
+<p>You own the posts, photos, notes and comments you create. By posting publicly you allow us to show that content in the app. Do not post anything illegal, abusive, misleading, or that shares someone else's private information or exact private fishing locations without permission. We may remove content or suspend accounts that break these rules.</p>
+<h2>Acceptable use</h2>
+<p>Do not copy, scrape, resell or reverse-engineer the app or its data, interfere with its operation, or use it for anything unlawful.</p>
+<h2>Our liability</h2>
+<p>The app is provided as is. To the extent the law allows, we are not liable for indirect or consequential losses, or for injury, fines or loss arising from fishing, travel or relying on information in the app. Our total liability is limited to the amount you paid us in the 12 months before the claim. Nothing in these terms limits rights you have under consumer protection law.</p>
+<h2>Changes and ending these terms</h2>
+<p>We may update these terms and will tell members about meaningful changes. You can stop using the app and delete your account at any time.</p>
+<h2>Governing law</h2>
+<p>These terms are governed by the laws of Ontario and the federal laws of Canada that apply there.</p>
+<h2>Contact</h2>
+<p>Questions about these terms: <a href="mailto:${CONTACT}">${CONTACT}</a>. Read our <a href="/privacy/">privacy policy</a>.</p>` },
+  { slug: "contact", title: "Contact us", desc: "Get in touch with Muddy York Fishing for help with the app, your membership or partnerships.", body: `
+<p>Muddy York Fishing is an Ontario sport fishing app built in Toronto for trout, steelhead and salmon anglers across Southern Ontario.</p>
+<h2>Email</h2>
+<p><a href="mailto:${CONTACT}">${CONTACT}</a></p>
+<p>We read every message and usually reply within one business day.</p>
+<h2>Help with the app</h2>
+<p>Members can also send a message from <b>Help and support</b> in the app's menu. It reaches the same inbox and includes your account, so we can help faster.</p>
+<h2>Membership and billing</h2>
+<p>Change your plan, update your card or cancel anytime from <b>Profile → Manage subscription</b> in the app, or email us.</p>
+<h2>Fishing reports, guiding and partnerships</h2>
+<p>Run a guide service, fly shop or conservation group, or have a river report to share? We would like to hear from you.</p>` },
+];
+for (const g of LEGAL) {
+  const dir = path.join(OUT, g.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const body = `<section class="section"><div class="wrap"><article class="prose">
+<div class="crumbs"><a href="${HOME}">Home</a> › ${esc(g.title)}</div>
+<h1>${esc(g.title)}</h1>
+${g.body}
+</article></div></section>`;
+  fs.writeFileSync(path.join(dir, "index.html"), page({ title: `${g.title} | ${BRAND}`, description: g.desc, canonical: `${SITE_URL}/${g.slug}/`, body }));
+  urls.push(`${SITE_URL}/${g.slug}/`);
+}
+
 // sitemap + robots
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +

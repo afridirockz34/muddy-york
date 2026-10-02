@@ -2372,7 +2372,10 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp
       {onHelp && link("comment","Help & support",false,onHelp)}
       {!isStandalonePWA() && link("download","Install app",false,()=>{ onClose(); window.dispatchEvent(new Event("mk-open-install")); })}
       <div style={{height:1,background:"rgba(255,255,255,.13)",margin:"9px 2px"}}/>
-      <div style={{fontFamily:sans,fontSize:12,color:"#8FA394",padding:"8px 12px",lineHeight:1.5}}>Before you fish — confirm open seasons, limits and sanctuary closures in the current Ontario regulations.</div>
+      <div style={{fontFamily:sans,fontSize:12,color:"#8FA394",padding:"8px 12px",lineHeight:1.5}}>Before you fish, confirm open seasons, limits and sanctuary closures in the current Ontario regulations.</div>
+      <div style={{fontFamily:sans,fontSize:12,padding:"4px 12px",display:"flex",gap:14}}>
+        {[["Contact","/contact/"],["Privacy","/privacy/"],["Terms","/terms/"]].map(([t,h])=><a key={h} href={h} target="_blank" rel="noopener noreferrer" style={{color:"#B7C7B7"}}>{t}</a>)}
+      </div>
     </div>
   </div>);
 }
@@ -2725,6 +2728,7 @@ function SignInGate({onAuth,providers={}}){
             <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
             <button disabled={busy||(touched&&!!emailErr)} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:(busy||(touched&&emailErr))?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
             {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
+            {mode==="signup" && <div style={{textAlign:"center",marginTop:10,fontSize:11.5,color:"#B7C7B7",lineHeight:1.5}}>By creating an account you agree to the <a href="/terms/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Terms</a> and <a href="/privacy/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Privacy policy</a>.</div>}
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
       <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>{PITCH} Free to start.</div>
