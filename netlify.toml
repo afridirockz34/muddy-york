@@ -28,6 +28,20 @@
   status = 200
   force = true
 
+# Zone regulation pages, rendered by the backend from the official summary it
+# syncs twice a day.
+[[redirects]]
+  from = "/regulations"
+  to = "https://muddy-york.onrender.com/regulations/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/regulations/*"
+  to = "https://muddy-york.onrender.com/regulations/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/blog-sitemap.xml"
   to = "https://muddy-york.onrender.com/blog-sitemap.xml"

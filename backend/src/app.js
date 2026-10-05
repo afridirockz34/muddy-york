@@ -22,6 +22,7 @@ import regulationsRoutes from "./routes/regulations.js";
 import supportRoutes from "./routes/support.js";
 import proxyRoutes from "./routes/proxy.js";
 import blogRoutes from "./routes/blog.js";
+import regsPagesRoutes from "./routes/regs-pages.js";
 import { requirePremium } from "./billing/require-premium.js";
 
 export function buildApp(opts = {}) {
@@ -33,6 +34,7 @@ export function buildApp(opts = {}) {
   app.register(unsubscribeRoutes);
   app.register(regulationsRoutes);
   app.register(blogRoutes);
+  app.register(regsPagesRoutes);
   app.register(supportRoutes);
   app.register(authRoutes);
   app.register(googleRoutes);

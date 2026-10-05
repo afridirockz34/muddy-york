@@ -26,6 +26,24 @@ export default async function regulationsRoutes(app) {
     };
   });
 
+  // Today's official status for one section, for the public river pages:
+  // /api/regs/status?id=credit-lower&sp=STL,CHN
+  app.get("/api/regs/status", async (req, reply) => {
+    const id = String(req.query?.id || "");
+    if (!REACH_REGS[id]) return reply.code(404).send({ error: "unknown section" });
+    const sp = String(req.query?.sp || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 8);
+    const { zones, rows } = await currentZones();
+    const b = resolveReach(id, zones);
+    const s = b && statusFor(b, sp.length ? sp : speciesHint(), new Date());
+    if (!s) return reply.code(503).send({ error: "regulations not loaded yet" });
+    reply.header("Cache-Control", "public, max-age=900");
+    return {
+      state: s.state, label: s.label, tone: s.tone, zone: s.zone,
+      stretches: s.stretches.map((st) => ({ label: st.label, state: st.state, stateLabel: st.stateLabel })),
+      checkedAt: oldest(rows.filter((r) => r.zone === b.zone).map((r) => r.checkedAt)),
+    };
+  });
+
   // Official entries naming a water, across every zone — for spots the app
   // discovers on the fly (not in the curated list).
   app.get("/api/regs/lookup", async (req, reply) => {

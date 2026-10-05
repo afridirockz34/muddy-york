@@ -103,3 +103,30 @@ describe("regs lookup matching", () => {
     expect(r.entries.every((e) => /Humber River/i.test(e.text))).toBe(true);
   });
 });
+
+describe("regs status endpoint", () => {
+  beforeEach(async () => { await resetDb(); await resetRegs(); await seedIfEmpty(); });
+  it("returns today's official status for one section and species", async () => {
+    const r = await app.inject({ method: "GET", url: "/api/regs/status?id=credit-lower&sp=STL,CHN" });
+    expect(r.statusCode).toBe(200);
+    expect(["open", "closed", "check", "some", "varies"]).toContain(r.json().state);
+    expect(r.json().stretches.length).toBe(2);
+    expect((await app.inject({ method: "GET", url: "/api/regs/status?id=nope" })).statusCode).toBe(404);
+  });
+});
+
+describe("zone regulation pages", () => {
+  beforeEach(async () => { await resetDb(); await resetRegs(); await seedIfEmpty(); });
+  it("renders the index and a zone page with official seasons", async () => {
+    const idx = await app.inject({ method: "GET", url: "/regulations/" });
+    expect(idx.statusCode).toBe(200);
+    expect(idx.body).toContain('href="/regulations/zone-16/"');
+    const z = await app.inject({ method: "GET", url: "/regulations/zone-16/" });
+    expect(z.statusCode).toBe(200);
+    expect(z.body).toMatch(/<title>Zone 16 Fishing Regulations \d{4}: Seasons &amp; Limits<\/title>/);
+    expect(z.body).toContain("Rainbow trout");
+    expect(z.body).toContain("fourth Saturday in April to September 30");
+    expect(z.body).toContain('href="/rivers/credit-river-lower-mouth-to-streetsville/"');
+    expect((await app.inject({ method: "GET", url: "/regulations/zone-99/" })).statusCode).toBe(302);
+  });
+});
