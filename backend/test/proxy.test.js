@@ -94,6 +94,17 @@ describe("discover route (Overpass) cache", () => {
     expect(res.json().elements[0].tags.name).toBe("Credit River");
     expect(down).toHaveBeenCalledTimes(1);
   });
+  it("answers with an older copy at once while busy servers are retried in the background", async () => {
+    await prisma.mapDataCache.deleteMany();
+    await buildApp({ proxyFetch: stub(body) }).inject({ method: "GET", url });
+    await new Promise((r) => setTimeout(r, 50));
+    await prisma.mapDataCache.updateMany({ data: { fetchedAt: new Date(0) } });
+    const hang = vi.fn().mockImplementation(() => new Promise(() => {})); // never answers
+    const t0 = Date.now();
+    const res = await buildApp({ proxyFetch: hang }).inject({ method: "GET", url });
+    expect(res.statusCode).toBe(200);
+    expect(Date.now() - t0).toBeLessThan(1000);
+  });
   it("serves a fresh stored answer without asking Overpass", async () => {
     const f = stub(body);
     await buildApp({ proxyFetch: stub(body) }).inject({ method: "GET", url: "/api/discover?lat=44.0&lon=-80.0&radiusM=30000" });

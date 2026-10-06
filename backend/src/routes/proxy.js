@@ -47,6 +47,14 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
     if (hit) return hit;
     const stored = await prisma.mapDataCache.findUnique({ where: { key } }).catch(() => null);
     if (stored && Date.now() - new Date(stored.fetchedAt).getTime() < ttl) { cache.set(key, stored.data, ttl); return stored.data; }
+    // An older copy goes back right away and is refreshed in the background.
+    // Waiting on busy servers first meant the answer arrived after Netlify's
+    // ~26 s proxy limit, so people got an error even though we had the data.
+    if (stored) {
+      cache.set(key, stored.data, 60 * 60 * 1000);
+      refresh(query, key, shape, timeoutMs);
+      return stored.data;
+    }
     let json;
     try {
       const res = await proxyFetch(OVERPASS_HOSTS,
@@ -62,6 +70,24 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
     cache.set(key, json, ttl);
     prisma.mapDataCache.upsert({ where: { key }, create: { key, data: json, fetchedAt: new Date() }, update: { data: json, fetchedAt: new Date() } }).catch(() => {});
     return json;
+  }
+
+  const refreshing = new Set();
+  function refresh(query, key, shape, timeoutMs) {
+    if (refreshing.has(key)) return;
+    refreshing.add(key);
+    proxyFetch(OVERPASS_HOSTS,
+      { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query) },
+      { retries: 0, timeoutMs })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json || !Array.isArray(json.elements)) return;
+        const data = shape(json);
+        cache.set(key, data, 60 * 60 * 1000);
+        return prisma.mapDataCache.upsert({ where: { key }, create: { key, data, fetchedAt: new Date() }, update: { data, fetchedAt: new Date() } });
+      })
+      .catch(() => {})
+      .finally(() => refreshing.delete(key));
   }
 
   return async function (app) {
