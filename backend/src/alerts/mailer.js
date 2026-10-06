@@ -21,7 +21,8 @@ export async function sendMail({ to, subject, text, replyTo }, opts = {}) {
   }
 }
 
-export async function sendAlertEmail(to, spot, opportunity, opts = {}) {
+export async function sendAlertEmail(to, spot, opportunity, others = [], opts = {}) {
+  if (!Array.isArray(others)) { opts = others || {}; others = []; }
   const { fetchImpl = fetch } = opts;
   const apiKey = process.env.RESEND_API_KEY || config.resend.apiKey;
   if (!apiKey) return false;
@@ -32,8 +33,10 @@ export async function sendAlertEmail(to, spot, opportunity, opts = {}) {
       body: JSON.stringify({
         from: config.resend.from,
         to,
-        subject: `Prime conditions on the ${spot.river}`,
-        text: `${spot.river} — ${spot.section} is showing prime conditions right now (opportunity ${opportunity}/100). Tight lines.\n\n— Muddy York Fishing`,
+        subject: others.length ? `Prime conditions on ${others.length + 1} of your rivers` : `Prime conditions on the ${spot.river}`,
+        text: `${spot.river}, ${spot.section}, is showing prime conditions right now (opportunity ${opportunity}/100).`
+          + (others.length ? `\n\nAlso in the zone: ${others.map((o) => `${o.river} (${o.section})`).join(", ")}.` : "")
+          + `\n\nWe only alert when a saved river first reaches your threshold, at most twice a week per river. Change it any time under Saved rivers in the app.\n\nTight lines,\nMuddy York Fishing`,
       }),
     });
     return !!(res && res.ok);

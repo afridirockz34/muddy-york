@@ -20,7 +20,10 @@
 <style>
 :root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:"Public Sans",system-ui,Arial,sans-serif;color:var(--text);background:var(--cream);line-height:1.6;-webkit-font-smoothing:antialiased;}
+html{background:var(--ink);}
+body{font-family:"Public Sans",system-ui,Arial,sans-serif;color:var(--text);background:var(--cream);line-height:1.6;-webkit-font-smoothing:antialiased;
+  min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
+body>*{flex-shrink:0;width:100%;min-width:0;}
 h1,h2,h3{font-family:"Playfair Display",Georgia,serif;color:var(--pine);line-height:1.2;}
 a{color:var(--brick);}
 img{max-width:100%;}
@@ -76,7 +79,7 @@ header.nav{position:sticky;top:0;z-index:20;background:var(--pine);border-bottom
 .pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--pine);margin:3px 6px 3px 0;}
 .callout{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:22px;margin:26px 0;text-align:center;}
 .callout h3{font-size:20px;margin-bottom:8px;}
-footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;}
+footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;margin-top:auto;}
 footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;}
 footer a{color:#CBD8C9;text-decoration:none;margin-right:16px;}
 .live-status{margin:10px 0 14px;font-size:13px;color:var(--dim);display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -132,8 +135,28 @@ body.has-sticky{padding-bottom:70px;}}
     <li>Weekdays are quieter than weekends at the popular spots.</li>
   </ul>
 
+  <h2>The run, week by week</h2>
+  <ul>
+    <li><b>August:</b> Chinook gather off the mouth of the Sydenham River and in the harbour. Very few fish are in the river yet.</li>
+    <li><b>Early to mid September:</b> the first good rain pulls the first fish upstream. They move mostly at night and early in the morning.</li>
+    <li><b>Mid September to mid October:</b> the peak. Fish stack below barriers and run the ladders in waves, often a day or two after rain.</li>
+    <li><b>Late October:</b> most salmon have spawned and died. Spawned out fish with pale, frayed fins and carcasses on the gravel are a normal end to the run.</li>
+    <li><b>November:</b> steelhead and lake run brown trout move in behind the salmon to feed on loose eggs.</li>
+  </ul>
+  <p>Every year is different. A dry September can hold fish in the lake for weeks, then one heavy rain brings them all in at once.</p>
+
+  <h2>Watching responsibly</h2>
+  <ul>
+    <li>Stay behind railings at fish ladders and dams, where banks are steep and slippery.</li>
+    <li>Keep dogs leashed and back from the water.</li>
+    <li>Do not throw anything at the fish or try to touch them. They are exhausted.</li>
+    <li>Leave the gravel alone. The pale, cleaned patches are spawning beds (redds) with eggs in them.</li>
+    <li>Park only in marked lots and respect neighbours on residential streets.</li>
+  </ul>
+
   <h2>Can you fish for salmon here?</h2>
   <p>Parts of the Sydenham are sanctuaries. From the Mill Dam to 177 metres downstream is closed all year. From the base of Inglis Falls down to the line at the Chinese (Rainbow) Bridge in Harrison Park, no fishing is allowed from September 1 to 30.</p>
+  <p>Where fishing is allowed, snagging is not. Ontario's rules say a fish hooked anywhere other than the mouth must be released right away. Atlantic salmon, which are being restored to Lake Ontario, must be released in these rivers.</p>
   <p class="src">From the official Ontario Fishing Regulations Summary. Full stretch-by-stretch rules are on the <a href="/rivers/sydenham-river-lower-owen-sound-below-the-dam/">Sydenham River fishing guide</a>.</p>
 
   <div class="callout"><h3>Plan your trip to Owen Sound</h3><p style="color:var(--dim);margin-bottom:14px;">Muddy York Fishing shows live conditions on the Sydenham River every morning, whether your stretch is open, and what to fish if you're casting.</p><a class="btn primary" href="/">Start your free 7-day trial</a></div>

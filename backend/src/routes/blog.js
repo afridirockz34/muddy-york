@@ -18,6 +18,8 @@ export const slugify = (s) => String(s || "").toLowerCase().normalize("NFKD").re
   .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 // Serve Cloudinary covers resized and in the best format for the browser.
 const img = (url, w) => (url && url.includes("/image/upload/") ? url.replace("/image/upload/", `/image/upload/f_auto,q_auto,c_limit,w_${w}/`) : url);
+// Social cards and structured data need an absolute image URL.
+const abs = (url) => (url && url.startsWith("/") ? SITE_URL + url : url);
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric", timeZone: "America/Toronto" });
 const readMins = (md) => Math.max(1, Math.round(markdownText(md).split(" ").length / 220));
 const descOf = (p) => (p.excerpt || markdownText(p.body)).slice(0, 158);
@@ -48,6 +50,10 @@ const BLOG_CSS = `<style>
 .article .body img{border-radius:10px;margin:14px 0;}
 .article .body blockquote{border-left:3px solid var(--gold);padding:4px 0 4px 16px;margin:18px 0;color:var(--dim);font-style:italic;}
 .article .body hr{border:none;border-top:1px solid var(--line);margin:28px 0;}
+.article .body table{border-collapse:collapse;width:100%;min-width:420px;margin:16px 0;font-size:15px;}
+.article .body th,.article .body td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);}
+.article .body th{color:var(--pine);font-family:"Playfair Display",Georgia,serif;}
+.article .body blockquote a{font-weight:700;}
 .preview-bar{background:var(--brick);color:#fff;text-align:center;padding:9px;font-weight:700;font-size:14px;}
 @media(max-width:820px){.blog-head h1,.article h1{font-size:30px;}}
 </style>`;
@@ -64,11 +70,11 @@ function indexHtml(posts, pageNo, hasNext) {
   const body = `<section class="blog-head"><div class="wrap"><h1>The ${esc(BRAND)} blog</h1>
   <p>Fishing reports, technique guides and river know-how for Southern Ontario trout, steelhead and salmon.</p></div></section>
 <div class="wrap">
-  ${posts.length ? `<div class="posts">${posts.map(card).join("")}</div>` : `<p style="margin:40px 0;color:var(--dim)">New posts are on the way — check back soon.</p>`}
+  ${posts.length ? `<div class="posts">${posts.map(card).join("")}</div>` : `<p style="margin:40px 0;color:var(--dim)">New posts are on the way. Check back soon.</p>`}
   <div class="pager">${pageNo > 1 ? `<a href="/blog/${pageNo > 2 ? `?page=${pageNo - 1}` : ""}">← Newer posts</a>` : "<span></span>"}${hasNext ? `<a href="/blog/?page=${pageNo + 1}">Older posts →</a>` : ""}</div>
 </div>`;
   return page({
-    title: `Blog — Ontario fishing reports & guides | ${BRAND}`,
+    title: `Ontario Fishing Blog: Reports & Guides | ${BRAND}`,
     description: "Fishing reports, technique guides and river know-how for Southern Ontario trout, steelhead and salmon anglers.",
     canonical, body, extraHead: `${BLOG_CSS}\n<link rel="alternate" type="application/rss+xml" title="${esc(BRAND)} blog" href="${SITE_URL}/blog/feed.xml"/>`,
     schema: { "@context": "https://schema.org", "@type": "Blog", name: `${BRAND} blog`, url: `${SITE_URL}/blog/`,
@@ -78,26 +84,26 @@ function indexHtml(posts, pageNo, hasNext) {
 
 function postHtml(p, more, preview) {
   const canonical = postUrl(p);
-  const body = `${preview ? `<div class="preview-bar">Draft preview — only you can see this. Not published.</div>` : ""}
+  const body = `${preview ? `<div class="preview-bar">Draft preview. Only you can see this. Not published.</div>` : ""}
 <div class="wrap"><div class="crumbs"><a href="/blog/">Blog</a> › ${esc(p.title)}</div>
 <article class="article">
   <h1>${esc(p.title)}</h1>
   <div class="post-meta">${p.publishedAt ? `${fmtDate(p.publishedAt)} · ` : ""}${readMins(p.body)} min read</div>
   ${p.coverUrl ? `<figure class="hero-img"><img src="${esc(img(p.coverUrl, 1400))}" alt="${esc(p.coverAlt || p.title)}"/></figure>` : ""}
   <div class="body">${renderMarkdown(p.body)}</div>
-  <div class="callout"><h3>Know which rivers are fishing — every morning</h3>
+  <div class="callout"><h3>Know which rivers are fishing, every morning</h3>
     <p style="color:var(--dim);margin-bottom:14px">Live conditions, official Ontario season status and fly picks for 30+ Southern Ontario rivers.</p>
     <a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a></div>
 </article>
 ${more.length ? `<section style="max-width:1080px;margin:0 auto 40px"><h2 style="font-size:24px;margin:10px 0 0">More from the blog</h2><div class="posts">${more.map(card).join("")}</div></section>` : ""}
 </div>`;
   return page({
-    title: `${p.title} | ${BRAND}`, description: descOf(p), canonical, body, ogType: "article",
-    ogImage: p.coverUrl ? img(p.coverUrl, 1200) : undefined,
+    title: `${p.title} | ${BRAND}`, description: descOf(p), canonical, body, ogType: "article", stickyCta: "Start free",
+    ogImage: p.coverUrl ? abs(img(p.coverUrl, 1200)) : undefined,
     extraHead: `${BLOG_CSS}${preview ? '\n<meta name="robots" content="noindex"/>' : ""}${p.publishedAt ? `\n<meta property="article:published_time" content="${new Date(p.publishedAt).toISOString()}"/>` : ""}`,
     schema: {
       "@context": "https://schema.org", "@type": "BlogPosting", headline: p.title, description: descOf(p),
-      image: p.coverUrl ? [img(p.coverUrl, 1200)] : undefined, datePublished: p.publishedAt || undefined, dateModified: p.updatedAt,
+      image: p.coverUrl ? [abs(img(p.coverUrl, 1200))] : undefined, datePublished: p.publishedAt || undefined, dateModified: p.updatedAt,
       mainEntityOfPage: canonical, author: { "@type": "Organization", name: BRAND, url: SITE_URL },
       publisher: { "@type": "Organization", name: BRAND, logo: { "@type": "ImageObject", url: `${SITE_URL}/crest.png` } },
     },
@@ -167,7 +173,7 @@ export default async function blogRoutes(app) {
     if (b.coverAlt !== undefined) out.coverAlt = str(b.coverAlt, 200);
     if (b.coverUrl !== undefined) {
       const u = str(b.coverUrl, 600);
-      if (u && !/^https:\/\//i.test(u)) errs.push("featured image must be an https URL");
+      if (u && !/^(https:\/\/|\/(?!\/))/i.test(u)) errs.push("featured image must be an https URL or a site path");
       out.coverUrl = u || null;
     }
     if (b.slug !== undefined && String(b.slug).trim()) out.slug = slugify(b.slug);

@@ -21,6 +21,7 @@ model User {
   trialEnd         DateTime?
   alertEmail       Boolean       @default(true)
   alertThreshold   Int           @default(75)
+  lastAlertAt      DateTime?
   emailOptOut      Boolean       @default(false)
   createdAt        DateTime      @default(now())
   sessions         Session[]
@@ -195,6 +196,8 @@ model SavedSpot {
   species     Json
   history     Int       @default(60)
   lastAlertAt DateTime?
+  alertArmed  Boolean   @default(true)
+  alertLog    Json      @default("[]")
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 

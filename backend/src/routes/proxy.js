@@ -3,6 +3,7 @@ import { prisma } from "../db.js";
 import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
+import { discoverSpots } from "../discovery/tiles.js";
 import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
 import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
 import { parseStocking } from "../../../lib/stocking.js";
@@ -10,6 +11,27 @@ import { stockingNews } from "../../../lib/stocking-news.js";
 import { flowNews } from "../../../lib/flow-news.js";
 
 const DAY = 864e5;
+
+// Discovery answers can be over a megabyte, almost all of it river outlines.
+// Keep one outline point every ~250 m (plenty to place spots and match access
+// points) and only the tags the app reads, before caching or sending to phones.
+const KEEP_TAGS = ["name", "waterway", "leisure", "place"];
+export function compactDiscover(json) {
+  const near = (a, b) => Math.abs(a.lat - b.lat) < 0.00225 && Math.abs(a.lon - b.lon) < 0.003;
+  const elements = (json.elements || []).map((e) => {
+    const tags = {}; for (const k of KEEP_TAGS) if (e.tags && e.tags[k] != null) tags[k] = e.tags[k];
+    const o = { type: e.type, id: e.id, tags };
+    if (e.lat != null) { o.lat = +e.lat.toFixed(5); o.lon = +e.lon.toFixed(5); }
+    if (e.center) o.center = { lat: +e.center.lat.toFixed(5), lon: +e.center.lon.toFixed(5) };
+    if (Array.isArray(e.geometry)) {
+      const g = []; for (const p of e.geometry) { if (!p) continue; if (!g.length || !near(g[g.length - 1], p)) g.push({ lat: +p.lat.toFixed(5), lon: +p.lon.toFixed(5) }); }
+      const last = e.geometry[e.geometry.length - 1]; if (last && g.length && g[g.length - 1] !== last) g.push({ lat: +last.lat.toFixed(5), lon: +last.lon.toFixed(5) });
+      o.geometry = g;
+    }
+    return o;
+  });
+  return { elements };
+}
 const num = (v) => (v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
 const r3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -20,7 +42,7 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
   // memory and in Postgres: a fresh stored copy is served without asking
   // Overpass at all, and a stale one is served when Overpass fails (rivers and
   // parking lots barely change). Only with no copy at all does the app see 502.
-  async function overpass(query, key, ttl, reply) {
+  async function overpass(query, key, ttl, reply, { shape = (j) => j, timeoutMs = 20000 } = {}) {
     const hit = cache.get(key);
     if (hit) return hit;
     const stored = await prisma.mapDataCache.findUnique({ where: { key } }).catch(() => null);
@@ -29,9 +51,10 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
     try {
       const res = await proxyFetch(OVERPASS_HOSTS,
         { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(query) },
-        { retries: 0, timeoutMs: 20000 }); // each server once; a busy one can take ~20 s
+        { retries: 0, timeoutMs }); // each server once; a busy one can take ~20 s
       json = await res.json();
       if (!json || !Array.isArray(json.elements)) throw new Error("bad overpass payload");
+      json = shape(json);
     } catch {
       if (stored) { cache.set(key, stored.data, 60 * 60 * 1000); return stored.data; }
       reply.code(502).send({ error: "upstream unavailable" }); return null;
@@ -47,9 +70,20 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
       // Snap the search centre to a ~2 km grid so nearby anglers share one answer.
       const clat = Math.round(lat * 50) / 50, clon = Math.round(lon * 50) / 50;
-      const key = `disc:${clat},${clon}:${radiusM}`;
-      const json = await overpass(buildDiscoverQuery(clat, clon, radiusM), key, 14 * DAY, reply);
+      const key = `disc2:${clat},${clon}:${radiusM}`; // v2: no element cap, creek centres, town names
+      const json = await overpass(buildDiscoverQuery(clat, clon, radiusM), key, 14 * DAY, reply, { shape: compactDiscover, timeoutMs: 32000 });
       if (json) return json;
+    });
+
+    // Ready-made scout: spots from the shared tiles (src/discovery/tiles.js).
+    app.get("/api/discover-spots", async (req, reply) => {
+      const lat = num(req.query.lat), lon = num(req.query.lon);
+      const radiusM = Math.min(Math.max(num(req.query.radiusM) || 30000, 1000), 160000);
+      if (lat === null || lon === null) return reply.code(400).send({ error: "lat and lon required" });
+      const r = await discoverSpots({ lat, lon }, radiusM, { fetchImpl: proxyFetch });
+      if (!r.spots.length && r.partial) return reply.code(502).send({ error: "upstream unavailable" });
+      reply.header("Cache-Control", r.partial ? "no-store" : "public, max-age=3600");
+      return r;
     });
 
     app.get("/api/parking", async (req, reply) => {

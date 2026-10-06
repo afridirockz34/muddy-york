@@ -4,8 +4,8 @@ import { sendPushToUser } from "../push/sender.js";
 import { fetchWeather } from "./weather.js";
 
 // Check every saved river once an hour and alert (push + email) when one
-// crosses its owner's threshold. runAlerts de-dups with a 20 h cooldown per
-// river, so hourly checks never spam.
+// crosses its owner's threshold. Alerts are edge-triggered (see decide.js):
+// once per crossing, at most twice a week per river, one message per user per 12 h.
 export function scheduleAlerts(log = console) {
   let running = false;
   const run = async () => {

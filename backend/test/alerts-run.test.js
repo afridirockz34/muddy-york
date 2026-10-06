@@ -22,6 +22,31 @@ describe("runAlerts", () => {
     expect(r2.sent).toBe(0);
   });
 
+  it("stays quiet while a river stays prime, even days later", async () => {
+    const user = await prisma.user.create({ data: { email: "q@b.com", alertEmail: true, alertThreshold: 60 } });
+    await prisma.savedSpot.create({ data: { userId: user.id, ref: "q", river: "R", section: "S",
+      lat: 43.7, lon: -80.3, habitat, species: ["BNT"], history: 90 } });
+    const fetchWeather = vi.fn().mockResolvedValue({ airMean: 10, days: 4, flow: "Normal" });
+    const sendEmail = vi.fn().mockResolvedValue(true);
+    let total = 0;
+    for (let h = 0; h < 72; h += 1) {
+      total += (await runAlerts({ now: new Date(Date.parse("2026-05-15T12:00:00Z") + h * 3600000), fetchWeather, sendEmail })).sent;
+    }
+    expect(total).toBe(1);
+  });
+
+  it("bundles several prime rivers into one message", async () => {
+    const user = await prisma.user.create({ data: { email: "m@b.com", alertEmail: true, alertThreshold: 60 } });
+    for (const ref of ["a", "b", "c"]) await prisma.savedSpot.create({ data: { userId: user.id, ref, river: "R" + ref, section: "S",
+      lat: 43.7, lon: -80.3, habitat, species: ["BNT"], history: 90 } });
+    const sendEmail = vi.fn().mockResolvedValue(true);
+    const r = await runAlerts({ now: new Date("2026-05-15T12:00:00Z"),
+      fetchWeather: vi.fn().mockResolvedValue({ airMean: 10, days: 4, flow: "Normal" }), sendEmail });
+    expect(r.sent).toBe(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail.mock.calls[0][3]).toHaveLength(2);
+  });
+
   it("skips users with alertEmail off", async () => {
     const user = await prisma.user.create({ data: { email: "o@b.com", alertEmail: false, alertThreshold: 10 } });
     await prisma.savedSpot.create({ data: { userId: user.id, ref: "y", river: "R", section: "S",

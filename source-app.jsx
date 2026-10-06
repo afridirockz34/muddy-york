@@ -539,39 +539,68 @@ const OVERPASS_HOSTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
-function sectionLabel(s){ return s.kind==="slipway"?"Boat launch":s.kind==="access"?"Fishing access":s.isTailwater?"Tailwater reach":"River reach"; }
+function sectionLabel(s){
+  const base=s.kind==="access"?"Fishing access":s.isTailwater?"Tailwater reach":s.waterType==="stream"?"Creek reach":"River reach";
+  return s.near?`${base} near ${s.near}`:base; }
 function waterLabel(s){ return s.waterType==="lake"?"Lake / launch":s.waterType==="stream"?"Named stream":"Named river"; }
 function discoveredNote(s, t){ return `Auto-discovered from OpenStreetMap${t.isTailwater?" below a dam (likely cold tailwater)":""}. Habitat and species are estimated from terrain — confirm access, regulations and seasons before fishing.`; }
 
 async function discoverSecs(loc, radiusM){
-  const key=`disco2:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v2: rivers and river spots only
-  try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<7*864e5) return {list:c.list, wxUrl:c.wxUrl||null}; }catch(e){}
+  const key=`disco3:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v3: several spots per river, zones
+  try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<(c.partial?3600e3:7*864e5)) return {list:c.list,zoneB:c.zoneB||{}}; }catch(e){}
   const body="data="+encodeURIComponent(buildOverpassQuery(loc.lat,loc.lon,radiusM));
-  let json;
   const directOverpass=async()=>{ const res=await fetchWithFallback(OVERPASS_HOSTS,
       {method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body},{retries:1}); return res.json(); };
-  try{
-    json = API_BASE ? await proxyJSON(`/api/discover?lat=${loc.lat}&lon=${loc.lon}&radiusM=${radiusM}`) : await directOverpass();
-  }catch(e){
-    try{ json=await directOverpass(); }catch(e2){ return null; }
+  // Normally the backend answers from shared, pre-scouted tiles (fast, and the
+  // same spots for everyone nearby). Straight to Overpass only as a fallback.
+  let spots=null, partial=false;
+  if(API_BASE){
+    try{ const d=await proxyJSON(`/api/discover-spots?lat=${loc.lat}&lon=${loc.lon}&radiusM=${radiusM}`);
+      if(d&&Array.isArray(d.spots)){ spots=d.spots; partial=!!d.partial; } }catch(e){}
   }
-  const spots=parseOverpassSpots(json,loc);
+  if(!spots){
+    try{ spots=parseOverpassSpots(await directOverpass(),loc,radiusM); }catch(e){ return null; }
+  }
   const elev=await elevations(spots.map(s=>({lat:s.lat,lon:s.lon})));
   const list=spots.map((s,i)=>{
     const traits={waterType:s.waterType, elevationM:elev[i],
       nearGreatLakeKm:nearGreatLakeKm(s.lat,s.lon), isTailwater:s.isTailwater};
     const species=inferSpecies(traits);
     const h=deriveHabitat(traits);
-    return { id:"auto-"+s.id, river:s.name, section:sectionLabel(s), region:"Discovered",
+    return { id:"auto-"+s.id, river:s.river||s.name, section:sectionLabel(s), region:"Discovered",
       zone:"Check regs", water:waterLabel(s), species, lat:s.lat, lon:s.lon, h,
       history:55, report:0, reportAge:24, conf:60, note:discoveredNote(s,traits), source:"auto" };
   });
-  const wxUrl="https://api.open-meteo.com/v1/forecast?latitude="+
+  // Which fisheries management zone each spot is in (official boundaries), and
+  // whether any rule names the water. One request for the whole scout.
+  let zoneB={};
+  if(API_BASE && list.length){
+    try{ const z=await proxyJSON("/api/regs/zones-at",{method:"POST",body:{points:list.map(s=>({lat:s.lat,lon:s.lon,name:s.river}))}});
+      (z.points||[]).forEach((p,i)=>{ if(p&&p.zone!=null&&list[i]){ list[i].fmz=p.zone; list[i].zone=`FMZ ${p.zone}`; list[i].regNamed=p.named||0; } });
+      for(const [zn,info] of Object.entries(z.zones||{})) if(info&&info.bundle) zoneB[zn]={...info.bundle,page:info.page};
+    }catch(e){}
+  }
+  try{ await dbSet(key,{ts:Date.now(),list,zoneB,partial}); }catch(e){}
+  return { list, zoneB };
+}
+// Live weather for any set of spots, in batches so a big scout never builds an
+// over-long URL. Returns {id: parsedStation}.
+function wxUrlFor(list){
+  return "https://api.open-meteo.com/v1/forecast?latitude="+
     list.map(s=>s.lat).join(",")+"&longitude="+list.map(s=>s.lon).join(",")+
     "&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,pressure_msl,cloud_cover"+
     "&hourly=pressure_msl&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset&past_days=5&forecast_days=3&timezone=America%2FToronto";
-  try{ await dbSet(key,{ts:Date.now(),list,wxUrl}); }catch(e){}
-  return { list, wxUrl };
+}
+async function fetchWxFor(list){
+  const add={};
+  for(let i=0;i<list.length;i+=50){
+    const chunk=list.slice(i,i+50);
+    try{ const res=await fetch(wxUrlFor(chunk)); if(!res.ok) continue;
+      const data=await res.json(); const arr=Array.isArray(data)?data:[data];
+      chunk.forEach((s,j)=>{ const p=arr[j]?parseStation(arr[j]):null; if(p) add[s.id]=p; });
+    }catch(e){}
+  }
+  return add;
 }
 
 /* ============================== UI HELPERS ================================= */
@@ -857,13 +886,13 @@ function RegSheet({sec,regs,now,onClose}){
   const allEntries=st?st.stretches.flatMap(x=>x.entries):(lookup||[]);
   const firstSp=st&&st.stretches[0]&&st.stretches[0].species[0];
   const primary=allEntries[0]?allEntries[0].link
-    : (firstSp&&firstSp.sources[0]?firstSp.sources[0].link : (st?st.url:REGS_BASE));
+    : (firstSp&&firstSp.sources[0]?firstSp.sources[0].link : (st?st.url:(sec.fmz!=null?`${REGS_BASE}/fisheries-management-zone-${sec.fmz}`:REGS_BASE)));
   const head={fontFamily:sans,fontSize:10,letterSpacing:0.8,textTransform:"uppercase",fontWeight:700,color:C.brass};
   return (<div onClick={onClose} style={sheetOverlay}>
     <div onClick={e=>e.stopPropagation()} style={sheetPanel} role="dialog" aria-label={`${sec.river} fishing regulations`}>
       <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
       <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{sec.river}</div>
-      <div style={{fontSize:12.5,color:C.textDim,marginBottom:12}}>{sec.section}{st?` · Fisheries Management Zone ${st.zone}`:""}</div>
+      <div style={{fontSize:12.5,color:C.textDim,marginBottom:12}}>{sec.section}{st?` · Fisheries Management Zone ${st.zone}`:sec.fmz!=null?` · Fisheries Management Zone ${sec.fmz}`:""}</div>
       {st ? <RegPill big tone={st.tone} label={st.label}/> : <RegPill big tone="amber" label="Check regs"/>}
 
       {st && st.stretches.map((x,i)=>(<div key={i} style={{marginTop:16}}>
@@ -899,8 +928,10 @@ function RegSheet({sec,regs,now,onClose}){
           <div style={{fontSize:12,color:C.textDim,lineHeight:1.5}}>Pick the one that covers where you'll fish. Anywhere not listed follows the zone-wide seasons.</div>
           {lookup.map((e,j)=><OfficialEntry key={j} e={e}/>)}
         </div>)}
-        {Array.isArray(lookup) && lookup.length===0 && <div style={{fontSize:12.5,color:C.text,lineHeight:1.55}}>No water-specific rules name {sec.river}, so the zone-wide seasons for its Fisheries Management Zone apply. Check the zone map to confirm which zone it's in.</div>}
+        {Array.isArray(lookup) && lookup.length===0 && <div style={{fontSize:12.5,color:C.text,lineHeight:1.55}}>No water-specific rules name {sec.river}, so the zone-wide seasons for {sec.fmz!=null?`Zone ${sec.fmz}`:"its Fisheries Management Zone"} apply.</div>}
       </div>)}
+      {(()=>{ const z=st?st.zone:sec.fmz; if(z==null) return null;
+        return (<a href={`/regulations/zone-${z}/`} target="_blank" rel="noopener noreferrer" style={{...extLink,marginTop:14}}>All Zone {z} seasons and exceptions<Icon name="external" size={12}/></a>); })()}
 
       <div style={{fontSize:11.5,color:C.textDim,lineHeight:1.5,margin:"16px 0 12px"}}>
         From the Ontario Fishing Regulations Summary{regs&&regs.checkedAt?`, last checked ${fmtChecked(regs.checkedAt)}`:""}. The Summary is Ontario's guide to the regulations made under the Fisheries Act.
@@ -933,7 +964,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   const [tick,setTick]=useState(0);
   const [parking,setParking]=useState(undefined);   // undefined | "loading" | "error" | [ ]
   const [full,setFull]=useState(false);              // full-screen map mode
-  useScrollLock(full);
+  const phone=usePhone();
   rankedRef.current=ranked;
   // Leaflet needs a size recalc when the container resizes (fullscreen toggle).
   useEffect(()=>{ const map=mapRef.current; if(!map) return; const id=setTimeout(()=>{ try{map.invalidateSize();}catch(e){} },240); return ()=>clearTimeout(id); },[full]);
@@ -942,6 +973,29 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   const sig=ranked.map(e=>e.sec.id+":"+e.opportunity).join(",");
   const ev = sel? ranked.find(e=>e.sec.id===sel) : null;
   const sec = ev?ev.sec:null;
+  // Phones: a tapped river opens as a sheet over the bottom 70% of a locked,
+  // full-screen map; the top 30% keeps the spot in view. Nothing behind it
+  // scrolls or pans, and the map controls step aside until it closes.
+  const inspect=phone&&!!ev;
+  useScrollLock(full||inspect);
+  const viewRef=useRef(null);
+  useEffect(()=>{
+    const map=mapRef.current; if(!map||!inspect||!sec) return;
+    if(!viewRef.current) viewRef.current={c:map.getCenter(),z:map.getZoom()};
+    const H=["dragging","touchZoom","doubleClickZoom","scrollWheelZoom","boxZoom","keyboard"];
+    H.forEach(h=>{ try{ map[h]&&map[h].disable(); }catch(e){} });
+    const id=setTimeout(()=>{ try{
+      map.invalidateSize();
+      map.setView([sec.lat,sec.lon],Math.max(map.getZoom(),13),{animate:false});
+      map.panBy([0,Math.round(map.getSize().y*0.35)],{animate:false}); // spot sits in the middle of the top 30%
+    }catch(e){} },60);
+    return ()=>{ clearTimeout(id); H.forEach(h=>{ try{ map[h]&&map[h].enable(); }catch(e){} }); };
+  },[inspect,sel]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{ // back to the view the angler had before tapping
+    const map=mapRef.current; if(inspect||!map||!viewRef.current) return;
+    const v=viewRef.current; viewRef.current=null;
+    setTimeout(()=>{ try{ map.invalidateSize(); map.setView(v.c,v.z,{animate:false}); }catch(e){} },60);
+  },[inspect]);
 
   useEffect(()=>{
     const L=window.L;
@@ -1027,13 +1081,16 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   const hasL = typeof window!=="undefined" && !!window.L;
   const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
 
-  return (<div style={full
-      ? {position:"fixed",inset:0,zIndex:2200,background:C.panel,display:"flex",flexDirection:"column"}
+  const cover=full||inspect;
+  return (<div className={inspect?"mk-map-inspect":undefined} style={cover
+      ? {position:"fixed",inset:0,zIndex:2200,background:C.panel,display:"flex",flexDirection:"column",overscrollBehavior:"none"}
       : {position:"relative",marginBottom:8,zIndex:0,isolation:"isolate"}}>
-    <div ref={elRef} style={full
+    <style>{`.mk-map-inspect .leaflet-control-container{display:none}`}</style>
+    <div ref={elRef} style={cover
       ? {flex:1,width:"100%",background:C.panelHi}
       : {height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
-    {hasL && <button onClick={()=>setFull(f=>!f)} aria-label={full?"Exit full screen":"Full screen map"}
+    {inspect && <div onClick={()=>setSel(null)} aria-hidden="true" style={{position:"absolute",left:0,right:0,top:0,height:"30%",zIndex:1250,cursor:"pointer"}}/>}
+    {hasL && !inspect && <button onClick={()=>setFull(f=>!f)} aria-label={full?"Exit full screen":"Full screen map"}
       style={{position:"absolute",top:full?"calc(10px + env(safe-area-inset-top))":10,right:10,zIndex:1400,display:"inline-flex",alignItems:"center",gap:6,padding:"8px 12px",borderRadius:9,cursor:"pointer",fontFamily:sans,fontSize:12.5,fontWeight:700,background:C.panel,border:`1px solid ${C.line}`,color:C.pine,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
       <Icon name={full?"close":"map"} size={15}/>{full?"Close map":"Full screen"}</button>}
     {!hasL && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",textAlign:"center",padding:24,fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine}}>Loading the map — this part needs a connection.</div>}
@@ -1045,7 +1102,11 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
       </div>
       <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:4}}>Ring = Ontario season · number = today's opportunity · tap a marker for the report</div>
     </div>)}
-    {ev && (<div style={{position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
+    {ev && (<div role="dialog" aria-label={`${ev.sec.river} report`} style={inspect
+      ? {position:"absolute",left:0,right:0,bottom:0,height:"70%",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",touchAction:"pan-y",
+         background:C.panel,borderRadius:"18px 18px 0 0",padding:"10px 16px calc(18px + env(safe-area-inset-bottom))",boxShadow:"0 -10px 30px rgba(0,0,0,.28)",zIndex:1300}
+      : {position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",overscrollBehavior:"contain",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
+      {inspect && <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>}
       <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1376,7 +1437,22 @@ function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, 
         : shown.map(it=> it.kind==="post"
             ? <PostCard key={it.id} p={it} {...postProps}/>
             : <FeedCard key={it.id} it={it}/>)}
-    {cat!=="Following" && postsCursor && <button onClick={onLoadMore} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px",marginBottom:14}}>Load more posts</button>}
+    {cat!=="Following" && postsCursor && <LoadMoreSentinel onLoadMore={onLoadMore}/>}
+  </div>);
+}
+// Instagram-style feed: when the end of the list scrolls near, pull the next
+// page automatically. The button stays as a fallback for old browsers.
+function LoadMoreSentinel({onLoadMore}){
+  const ref=useRef(null); const [busy,setBusy]=useState(false);
+  const fire=useCallback(async()=>{ if(busy) return; setBusy(true); try{ await onLoadMore(); } finally { setBusy(false); } },[busy,onLoadMore]);
+  useEffect(()=>{
+    const el=ref.current; if(!el||typeof IntersectionObserver==="undefined") return;
+    const io=new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)) fire(); },{rootMargin:"600px 0px"});
+    io.observe(el); return ()=>io.disconnect();
+  },[fire]);
+  return (<div ref={ref} style={{padding:"14px 0 18px",textAlign:"center"}}>
+    {busy ? <span style={{fontFamily:sans,fontSize:12.5,color:C.textFaint}}>Loading more posts…</span>
+      : typeof IntersectionObserver==="undefined" && <button onClick={fire} style={{...btn,borderColor:C.line,color:C.pine,width:"100%",padding:"10px"}}>Load more posts</button>}
   </div>);
 }
 
@@ -1455,6 +1531,7 @@ export default function App(){
   const [bootReady,setBootReady]=useState(false); // hold the brand splash for a beat on every open
   const [bootSlow,setBootSlow]=useState(false);   // show a "waking the server" note during a cold start
   const [regs,setRegs]=useState(null);            // official Ontario regs per section (synced from ontario.ca by the backend)
+  const [zoneB,setZoneB]=useState({});            // zone-wide bundles for scouted spots, by zone number
   const [regDetail,setRegDetail]=useState(null);  // reach whose in-app regulation sheet is open
   useEffect(()=>{ const h=(e)=>setRegDetail(e.detail&&e.detail.sec); window.addEventListener("mk-reg",h); return ()=>window.removeEventListener("mk-reg",h); },[]);
   const [checkoutPlan,setCheckoutPlan]=useState(null);   // plan string when embedded checkout is open
@@ -1573,7 +1650,7 @@ export default function App(){
       RIVERS.forEach((r,i)=>{ const p=arr[i]?parseStation(arr[i]):null; if(p) map[r.id]=p; });
       if(Object.keys(map).length===0) throw new Error("empty");
       const ts=new Date();
-      setWx(map); setStatus("live"); setUpdated(ts);
+      setWx(prev=>({...prev,...map})); setStatus("live"); setUpdated(ts);
       dbSet("wx:last",{map,ts:ts.toISOString()});
       maybeLog(map);
     }catch(e){ setStatus(f=>f==="live"?"live":"fallback"); setUpdated(new Date()); }
@@ -1601,6 +1678,17 @@ export default function App(){
   }),[fetchUserWx]);
   const requestLocation=useCallback(()=>{ getPosition(); },[getPosition]);
 
+  // Scouted spots' weather is kept on device like the curated rivers', so a
+  // revisit shows every condition straight away, then refreshes in place.
+  const refreshDiscoWx=useCallback(async(list)=>{
+    if(!list||!list.length) return;
+    const add=await fetchWxFor(list);
+    if(!Object.keys(add).length) return;
+    setWx(prev=>({...prev,...add}));
+    dbSet("wxd:last",{map:add,ts:Date.now()});
+  },[]);
+  const discoListRef=useRef([]);
+  useEffect(()=>{ discoListRef.current=discovered; },[discovered]);
   const discoverNearby=useCallback(async(r,locArg)=>{
     const loc=locArg||userLoc;
     if(!loc){ requestLocation(); return; }
@@ -1620,17 +1708,12 @@ export default function App(){
     if(out==null){ setDiscoStatus("error"); return; }
     discoSuperRef.current={radius:want,list:out.list};
     setDiscovered(out.list);
+    if(out.zoneB&&Object.keys(out.zoneB).length){ setZoneB(prev=>{ const n={...prev,...out.zoneB}; dbSet("zoneb:last",n); return n; }); }
     // Persist the scouted set so it survives reloads — until the next scout.
     dbSet("discovered:last",{lat:loc.lat,lon:loc.lon,radius:want,list:out.list,ts:Date.now()});
-    if(out.wxUrl){
-      try{ const res=await fetch(out.wxUrl); if(res.ok){ const data=await res.json();
-        const arr=Array.isArray(data)?data:[data]; const add={};
-        out.list.forEach((s,i)=>{ const p=arr[i]?parseStation(arr[i]):null; if(p) add[s.id]=p; });
-        setWx(prev=>({...prev,...add}));
-      } }catch(e){}
-    }
+    await refreshDiscoWx(out.list);
     setDiscoStatus("done");
-  },[userLoc,radiusM,requestLocation]);
+  },[userLoc,radiusM,requestLocation,refreshDiscoWx]);
 
   // The one Scout action: refresh location, then scout at the current radius.
   // Replaces the separate "use my location" step.
@@ -1657,7 +1740,7 @@ export default function App(){
       // instantly instead of waiting on a cold backend; refreshMe revalidates.
       if(API_BASE){ try{ const cm=await dbGet("me:last"); if(cm&&cm.user) setMe(prev=>prev||cm); }catch{} }
       const cached=await dbGet("wx:last");
-      if(cached&&cached.map){ setWx(cached.map); setUpdated(new Date(cached.ts)); }
+      if(cached&&cached.map){ setWx(prev=>({...cached.map,...prev})); setUpdated(new Date(cached.ts)); }
       const rr=await dbGet("radius:last"); if(typeof rr==="number") setRadiusM(rr);
       const loc=await dbGet("loc:last"); if(loc){ setUserLoc(loc); setLocStatus("on"); fetchUserWx(loc.lat,loc.lon); }
       // Restore the last scouted spots so they persist until the next scout.
@@ -1666,6 +1749,10 @@ export default function App(){
       if(disc&&Array.isArray(disc.list)&&disc.list.length){
         setDiscovered(disc.list); setDiscoStatus("done");
         discoSuperRef.current={radius:disc.radius||0,list:disc.list};
+        const zb=await dbGet("zoneb:last"); if(zb&&typeof zb==="object") setZoneB(zb);
+        const dw=await dbGet("wxd:last");
+        if(dw&&dw.map) setWx(prev=>({...dw.map,...prev}));
+        if(!dw||Date.now()-dw.ts>20*60*1000) refreshDiscoWx(disc.list);
       }
       const log=await dbGet("log:entries"); if(log) setLogCount(log.length);
       const sv=await dbGet("saved"); if(Array.isArray(sv)){ setSaved(sv);
@@ -1686,10 +1773,10 @@ export default function App(){
       const nu=await dbGet("newsEndpoint"); if(typeof nu==="string") setNewsUrl(nu);
     })();
     loadWeather();
-    const t1=setInterval(()=>liveRef.current&&liveRef.current(),30*60*1000);
+    const t1=setInterval(()=>{ liveRef.current&&liveRef.current(); refreshDiscoWx(discoListRef.current); },30*60*1000);
     const t2=setInterval(()=>setNow(new Date()),60*1000);
     return ()=>{clearInterval(t1);clearInterval(t2);};
-  },[loadWeather,fetchUserWx]);
+  },[loadWeather,fetchUserWx,refreshDiscoWx]);
 
   const hasData = Object.keys(wx).length>0;
   const liveMode = !manual && status==="live";
@@ -1770,11 +1857,16 @@ export default function App(){
   useEffect(()=>{ signedInRef.current=!!(me&&me.user); if(API_BASE&&me&&me.user) runNoteSync(); },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- Social feed (Phase C slice 1) ----
+  const postsBusy=useRef(null);
   const loadPosts=useCallback(async(cursor)=>{
     if(!API_BASE) return;
+    if(cursor && postsBusy.current===cursor) return; // same page already on its way
+    postsBusy.current=cursor||null;
     try{ const { posts:pg=[], nextBefore }=await proxyJSON("/posts"+(cursor?`?before=${encodeURIComponent(cursor)}`:""));
-      setPosts(prev=> cursor ? [...prev,...pg] : pg); setPostsCursor(nextBefore); setPostsLoaded(true);
+      setPosts(prev=>{ if(!cursor) return pg; const have=new Set(prev.map(x=>x.id)); return [...prev,...pg.filter(x=>!have.has(x.id))]; });
+      setPostsCursor(nextBefore); setPostsLoaded(true);
     }catch{ setPostsLoaded(true); }
+    finally{ if(postsBusy.current===(cursor||null)) postsBusy.current=null; }
   },[]);
   useEffect(()=>{ if(API_BASE) loadPosts(); },[loadPosts]);
   // Re-shape likedByMe when auth changes (a fresh sign-in should reflect my likes).
@@ -1812,19 +1904,34 @@ export default function App(){
   // on every one-minute clock tick (re-ranking dozens of cards mid-scroll janks).
   const scoreSlot=Math.floor(now.getTime()/9e5);
   const scoreNow=useMemo(()=>new Date(),[scoreSlot]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Scouted spots join the official regs too: where no rule names the water,
+  // the zone-wide seasons for its zone apply. Near the lake, lower tributary
+  // stretches often have longer seasons, so those stay "Check regs".
+  const regsAll=useMemo(()=>{
+    const extra={};
+    for(const s of discovered){
+      const b=s.fmz!=null&&zoneB[s.fmz]; if(!b||s.regNamed) continue;
+      const nearLake=nearGreatLakeKm(s.lat,s.lon)<12;
+      extra[s.id]={...b,id:s.id,stretches:b.stretches.map(st=>({...st,review:nearLake,
+        note:nearLake?"Stretches close to the lake often have longer seasons for trout and salmon. Confirm this spot in the zone's exceptions."
+          :"No rule in the summary names this water, so the zone-wide seasons apply."}))};
+    }
+    if(!Object.keys(extra).length) return regs;
+    return {...(regs||{}),reaches:{...extra,...((regs&&regs.reaches)||{})}};
+  },[regs,discovered,zoneB]);
   const ranked=useMemo(()=>{
     const now=scoreNow;
     const nudge=(ref)=>catchNudge((catchActivity[ref]||{}).momentum);
-    const reg=(s)=>regStatus(s,regs,now);
+    const reg=(s)=>regStatus(s,regsAll,now);
     const curated=RIVERS.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"verified",reg:reg(s)}; const n=nudge(s.id);
       return {...ev,opportunity:Math.min(100,ev.opportunity+n),confidence:Math.min(98,ev.confidence+Math.round(n/2))}; });
     const auto=discovered.map(s=>{ const ev={...evaluate(s,month,condFor(s),now),source:"auto",reg:reg(s)}; const n=nudge(s.id);
       return {...ev,confidence:Math.min(70,applySourcePenalty(ev.confidence,"auto")+Math.round(n/2)),opportunity:Math.min(100,ev.opportunity+n)}; });
-    // Fishable water first: reaches that are closed by the Ontario season sink
-    // below open/uncertain ones (still shown, marked "Closed"), then by score.
-    const openRank=(e)=> e.reg && e.reg.state==="closed" ? 0 : 1;
-    return [...curated,...auto].sort((a,b)=> (openRank(b)-openRank(a)) || (b.opportunity-a.opportunity));
-  },[month,scoreNow,condFor,discovered,catchActivity,regs]);
+    // Fishable water first: open now, then "check" (uncertain or partly open),
+    // then closed (still shown, marked "Closed"); score breaks ties.
+    const openRank=(e)=> !e.reg ? 1 : e.reg.state==="open" ? 2 : e.reg.state==="closed" ? 0 : 1;
+    return [...curated,...auto].sort((a,b)=> (openRank(b)-openRank(a)) || (b.opportunity-a.opportunity) || String(a.sec.id).localeCompare(String(b.sec.id)));
+  },[month,scoreNow,condFor,discovered,catchActivity,regsAll]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
   // When a location is set, only show water within the chosen radius.
   const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
@@ -1850,7 +1957,7 @@ export default function App(){
     <div style={{position:"fixed",inset:0,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:24,textAlign:"center"}}>
       <Avatar src="icons/crest.png" size={96}/>
       <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:"#EFE9DB"}}>Muddy York Fishing</div>
-      {bootSlow && me===null && <div style={{fontFamily:sans,fontSize:12.5,color:"#B7C7B7",maxWidth:260,lineHeight:1.5,marginTop:2}}>Waking the server — one moment…</div>}
+      {bootSlow && me===null && <div style={{fontFamily:sans,fontSize:12.5,color:"#B7C7B7",maxWidth:260,lineHeight:1.5,marginTop:2}}>Waking the server. One moment…</div>}
     </div>
   );
 
@@ -1985,10 +2092,11 @@ export default function App(){
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); setRadiusOpen(false); if(isPremium) scout(m);}} onClose={()=>setRadiusOpen(false)}/>}
-      {regDetail && <RegSheet sec={regDetail} regs={regs} now={now} onClose={()=>setRegDetail(null)}/>}
+      {regDetail && <RegSheet sec={regDetail} regs={regsAll} now={now} onClose={()=>setRegDetail(null)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><ScrollLock/><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
+      {API_BASE && me && me.user && !me.user.displayName && !resetToken && <UsernameGate onDone={refreshMe} onSignOut={signOut}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
@@ -2476,6 +2584,30 @@ function AvatarEditor({me,onAuth}){
     {err && <div style={{fontSize:12,color:C.brick,marginTop:8,lineHeight:1.4}}>{err}</div>}
   </div>);
 }
+// Every account needs a public username (Google sign-ins arrive without one).
+// Shown until one is saved; it can't be dismissed, only completed or signed out of.
+function UsernameGate({onDone,onSignOut}){
+  useScrollLock();
+  const [name,setName]=useState(""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const n=name.trim(), ok=n.length>=2&&n.length<=40;
+  const save=async()=>{ if(!ok||busy) return; setErr(""); setBusy(true);
+    try{ await proxyJSON("/me",{method:"PATCH",body:{displayName:n}}); await onDone(); }
+    catch(e){ setErr(e&&e.info&&e.info.error==="username taken"?"That username is taken. Try another.":"Couldn't save your username. Try again."); }
+    finally{ setBusy(false); } };
+  const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:14,boxSizing:"border-box"};
+  return (<div role="dialog" aria-modal="true" aria-label="Choose a username" style={{position:"fixed",inset:0,zIndex:8100,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",overscrollBehavior:"contain"}}>
+    <div style={{margin:"auto 0",width:"100%",maxWidth:380,textAlign:"center"}}>
+      <Crest size={64}/>
+      <div style={{fontFamily:serif,fontSize:24,fontWeight:700,color:"#EFE9DB",marginTop:12}}>Choose your username</div>
+      <div style={{fontSize:13.5,color:"#B7C7B7",lineHeight:1.5,marginTop:6}}>It's shown on your posts and catches. Your email is never shown.</div>
+      <input style={inp} autoFocus placeholder="username" value={name} maxLength={40} autoCapitalize="none" autoCorrect="off"
+        onChange={e=>setName(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") save(); }}/>
+      {err && <div role="alert" style={{fontSize:12.5,color:"#F3C0B5",marginTop:8,lineHeight:1.4}}>{err}</div>}
+      <button disabled={!ok||busy} onClick={save} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:(!ok||busy)?0.6:1}}>{busy?"Saving…":"Continue"}</button>
+      <button onClick={onSignOut} style={{background:"none",border:"none",color:"#B7C7B7",fontFamily:sans,fontSize:12.5,textDecoration:"underline",cursor:"pointer",marginTop:14}}>Sign out</button>
+    </div>
+  </div>);
+}
 function DisplayNameEditor({me,onAuth}){
   const [name,setName]=useState((me&&me.user&&me.user.displayName)||"");
   const [saved,setSaved]=useState(false),[busy,setBusy]=useState(false),[err,setErr]=useState("");
@@ -2697,7 +2829,8 @@ function SignInGate({onAuth,providers={}}){
   const sendReset=async()=>{ setErr(""); setBusy(true);
     try{ await proxyJSON("/auth/forgot",{method:"POST",body:{email:email.trim()}}); }catch{} finally{ setSent(true); setBusy(false); } };
   const link={background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5};
-  return (<div style={{position:"fixed",inset:0,zIndex:8000,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto"}}>
+  return (<div style={{position:"fixed",inset:0,zIndex:8000,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch"}}>
+    <div style={{margin:"auto 0",width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}}>
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:22}}>
         <Avatar src="icons/crest.png" size={84}/>
@@ -2732,6 +2865,7 @@ function SignInGate({onAuth,providers={}}){
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
       <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>{PITCH} Free to start.</div>
+    </div>
     </div>
   </div>);
 }
@@ -2843,17 +2977,33 @@ function CheckoutModal({plan:initialPlan,onClose}){
 }
 // Freeze the page behind an open sheet or modal so scrolling inside it never
 // drags the page underneath (iOS especially). Nested sheets share one lock.
+// Stop the page behind a sheet, drawer or gate from scrolling. Only overflow is
+// locked: pinning the body with position:fixed made iOS jump the page and show
+// a blank strip at the bottom when the toolbars resized. iOS also scrolls the
+// page to reveal a focused input and can leave it there when the keyboard
+// closes, so the scroll position is put back on blur.
 let scrollLocks=0, lockedY=0;
+function restoreLockedScroll(){ setTimeout(()=>{ const a=document.activeElement;
+  if(scrollLocks>0 && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && window.scrollY!==lockedY) window.scrollTo(0,lockedY); },60); }
 function useScrollLock(active=true){
   useEffect(()=>{
     if(!active) return;
-    const b=document.body;
+    const h=document.documentElement, b=document.body;
     if(scrollLocks++===0){ lockedY=window.scrollY;
-      Object.assign(b.style,{position:"fixed",top:`-${lockedY}px`,left:"0",right:"0",width:"100%",overflow:"hidden"}); }
-    return ()=>{ if(--scrollLocks===0){ Object.assign(b.style,{position:"",top:"",left:"",right:"",width:"",overflow:""}); window.scrollTo(0,lockedY); } };
+      h.style.overflow="hidden"; b.style.overflow="hidden"; h.style.overscrollBehavior="none";
+      window.addEventListener("focusout",restoreLockedScroll); }
+    return ()=>{ if(--scrollLocks===0){ h.style.overflow=""; b.style.overflow=""; h.style.overscrollBehavior="";
+      window.removeEventListener("focusout",restoreLockedScroll); if(window.scrollY!==lockedY) window.scrollTo(0,lockedY); } };
   },[active]);
 }
 function ScrollLock(){ useScrollLock(); return null; }
+function usePhone(q="(max-width: 767px)"){
+  const get=()=>typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia(q).matches;
+  const [on,setOn]=useState(get);
+  useEffect(()=>{ if(!window.matchMedia) return; const mq=window.matchMedia(q); const h=()=>setOn(mq.matches);
+    mq.addEventListener?mq.addEventListener("change",h):mq.addListener(h); return ()=>{ mq.removeEventListener?mq.removeEventListener("change",h):mq.removeListener(h); }; },[q]);
+  return on;
+}
 // Save toggle shown as a star beside a river's name.
 function StarButton({saved,onClick,size=22}){
   return (<button onClick={(e)=>{ e.stopPropagation(); onClick(); }} aria-pressed={saved} aria-label={saved?"Saved. Tap to remove":"Save this river"} title={saved?"Saved":"Save"}
@@ -2952,25 +3102,37 @@ function MiniStat({label,value,sub}){
     <div style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,marginTop:3}}>{label}{sub&&<span style={{color:C.textFaint}}> · {sub}</span>}</div>
   </div>);
 }
+// Nine conditions in a fixed 3x3 grid. Every cell always renders (a dash when a
+// reading is missing) so the box never ends on an orphan or shifts on refresh.
 function ConditionsStrip({cond,opp,warm}){
-  if(cond.air==null && cond.wind==null && cond.temp==null) return null;
+  if(cond.temp==null) return null;
   const DIRS=["N","NE","E","SE","S","SW","W","NW"];
   const dir=cond.windDir!=null?DIRS[Math.round(cond.windDir/45)%8]:"";
   const pt=cond.pressureTrend;
-  const press=pt==null?null:(pt>1.5?"↑ rising":pt<-1.5?"↓ falling":"→ steady");
+  const press=pt==null?null:(pt>1.5?"Rising":pt<-1.5?"Falling":"Steady");
   const sky=cond.cloud==null?null:(cond.cloud>70?"Overcast":cond.cloud<30?"Clear":"Cloudy");
-  const chip=(label,val,color)=>(<span key={label} style={{display:"inline-flex",gap:5,alignItems:"baseline"}}>
-    <span style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{label}</span>
-    <span style={{fontFamily:sans,fontSize:12,color:color||C.text,fontWeight:color?800:600}}>{val}</span></span>);
-  return (<div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:12,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8}}>
-    {opp!=null && chip("Condition",conditionLabel(opp),scoreColor(opp))}
-    {chip("Water",`${cond.temp.toFixed(0)}°C`)}
-    {cond.air!=null && chip("Air",`${Math.round(cond.air)}°C`)}
-    {cond.wind!=null && chip("Wind",`${Math.round(cond.wind)} km/h${dir?" "+dir:""}`)}
-    {press && chip("Pressure",press)}
-    {sky && chip("Sky",sky)}
-    {chip("Flow",cond.flow)}
-    {warm && chip("Heads-up","Warm water — rest the trout",C.brick)}
+  const rain=cond.p48!=null?`${Math.round(cond.p48)} mm`:null;
+  const cells=[
+    ["Condition", opp!=null?conditionLabel(opp):null, opp!=null?scoreColor(opp):null],
+    ["Water", `${cond.temp.toFixed(0)}°C`],
+    ["Air", cond.air!=null?`${Math.round(cond.air)}°C`:null],
+    ["Flow", cond.flow||null],
+    ["Rain 48h", rain],
+    ["Sky", sky],
+    ["Wind", cond.wind!=null?`${Math.round(cond.wind)} km/h${dir?" "+dir:""}`:null],
+    ["Gusts", cond.gust!=null?`${Math.round(cond.gust)} km/h`:null],
+    ["Pressure", press],
+  ];
+  return (<div style={{marginTop:12}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:10,overflow:"hidden"}}>
+      {cells.map(([label,val,color],i)=>(<div key={label} style={{padding:"9px 10px",minWidth:0,
+        borderRight:i%3!==2?`1px solid ${C.lineSoft}`:"none",borderBottom:i<6?`1px solid ${C.lineSoft}`:"none"}}>
+        <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,whiteSpace:"nowrap"}}>{label}</div>
+        <div style={{fontFamily:sans,fontSize:13,marginTop:2,color:val==null?C.textFaint:(color||C.text),fontWeight:color?800:650,
+          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val==null?"–":val}</div>
+      </div>))}
+    </div>
+    {warm && <div style={{marginTop:8,padding:"7px 10px",borderRadius:8,background:`${C.brick}14`,border:`1px solid ${C.brick}40`,fontFamily:sans,fontSize:12,fontWeight:700,color:C.brick}}>Heads-up: warm water. Rest the trout.</div>}
   </div>);
 }
 function MeasuredGauge({lat,lon}){

@@ -129,6 +129,17 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
   <ul>${spKeys.filter((k) => TACTICS[k]).map((k) => `<li><b>${esc(plain(k))}:</b> ${esc(TACTICS[k])}</li>`).join("")}</ul>
   ${salmon ? `<p>Coming for the fall run? See our <a href="/salmon-run/${salmon.slug}/">${esc(salmon.h1)}</a> guide for where to watch and what's legal.</p>` : ""}
 
+  <h2>The ${esc(r.river)} through the year</h2>
+  ${seasonsHtml(r, spKeys, official)}
+
+  <h2>Flies and lures for the ${esc(r.river)}</h2>
+  <ul>${spKeys.filter((k) => FLIES[k]).map((k) => `<li><b>${esc(plain(k))}:</b> on the fly rod, ${esc(FLIES[k].fly)}. On spinning gear, ${esc(FLIES[k].spin)}.</li>`).join("")}</ul>
+  <p>Gear and bait rules can differ by stretch, so match what you tie on to the rules for your water above. ${BRAND} picks the technique and fly for the day from live water temperature and clarity.</p>
+
+  <h2>Reading the water</h2>
+  <p>${esc(readWaterHtml(r))}</p>
+  <p>Before a trip, check the river's flow on the <a href="https://wateroffice.ec.gc.ca" rel="noopener">Water Survey of Canada</a> real-time gauges${authorityOf(r.id) ? ` and any flood or safety messages from the <a href="${authorityOf(r.id).url}" rel="noopener">${esc(authorityOf(r.id).name)}</a>, which manages the ${esc(r.river)} watershed and publishes maps of its conservation areas and trails` : ""}.</p>
+
   <h2>Where to fish the ${esc(r.river)}</h2>
   <p>Public places along this section include ${esc(listJoin(seo.access && seo.access.length ? seo.access : towns))}. Park in public lots, follow posted signs, and never cross private land without permission. ${BRAND} members get parking and walk-in routes for each section, and exact spots are never shared publicly.</p>
 
@@ -159,6 +170,77 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
       faqSchema(faqs),
     ],
   };
+}
+
+// Conservation authority for each river's watershed: the local source for
+// flow warnings, trail and parking maps, and stream restoration work.
+const AUTHORITY = {
+  grandriver: { name: "Grand River Conservation Authority", url: "https://www.grandriver.ca", ids: ["grand-tw", "grand-lower", "conestogo-tw"] },
+  cvc: { name: "Credit Valley Conservation", url: "https://cvc.ca", ids: ["credit-lower", "credit-upper", "credit-mid"] },
+  grca: { name: "Ganaraska Region Conservation Authority", url: "https://grca.on.ca", ids: ["ganaraska", "wilmot"] },
+  nvca: { name: "Nottawasaga Valley Conservation Authority", url: "https://www.nvca.on.ca", ids: ["notty-main", "notty-tribs", "boyne"] },
+  gsca: { name: "Grey Sauble Conservation", url: "https://www.greysauble.on.ca", ids: ["beaver-lower", "beaver-upper", "bighead", "sydenham-os", "sauble"] },
+  npca: { name: "Niagara Peninsula Conservation Authority", url: "https://npca.ca", ids: ["twelve-mile", "niagara-lower"] },
+  halton: { name: "Conservation Halton", url: "https://www.conservationhalton.ca", ids: ["bronte", "sixteen"] },
+  trca: { name: "Toronto and Region Conservation Authority", url: "https://trca.ca", ids: ["duffins", "humber-lower", "rouge-lower"] },
+  cloca: { name: "Central Lake Ontario Conservation", url: "https://www.cloca.com", ids: ["bowmanville"] },
+  saugeen: { name: "Saugeen Conservation", url: "https://www.saugeenconservation.ca", ids: ["saugeen-denny"] },
+  mvca: { name: "Maitland Valley Conservation Authority", url: "https://www.mvca.on.ca", ids: ["maitland-lower"] },
+};
+const authorityOf = (id) => Object.values(AUTHORITY).find((a) => a.ids.includes(id)) || null;
+
+// Common, proven Ontario patterns per species. Gear, not law: bait and hook
+// rules vary by stretch, so the page sends readers to the regulations above.
+const FLIES = {
+  STL: { fly: "egg patterns (Nuke Eggs, Sucker Spawn), stonefly and Pheasant Tail nymphs, and Woolly Buggers or Intruder style streamers", spin: "roe bags or soft beads under a float, plus small spinners and spoons in stained water" },
+  CHN: { fly: "large, bright streamers and egg patterns swung slowly through holding pools", spin: "spoons, plugs and rattle baits, which trigger strikes from territorial fish" },
+  COH: { fly: "small, bright streamers stripped briskly and egg patterns", spin: "inline spinners and small spoons" },
+  BNTr: { fly: "egg patterns and sculpin or minnow streamers", spin: "small spinners and minnow plugs, or baits under a float" },
+  BNT: { fly: "Pheasant Tail and Hare's Ear nymphs, Elk Hair Caddis and mayfly dries, and sculpin or Woolly Bugger streamers at dawn and dusk", spin: "small inline spinners and minnow imitating plugs cast tight to cover" },
+  RBT: { fly: "Pheasant Tail and Hare's Ear nymphs, Elk Hair Caddis and Adams dries", spin: "small inline spinners and spoons" },
+  BKT: { fly: "small Adams and Elk Hair Caddis dries, beadhead nymphs and tiny streamers", spin: "the smallest inline spinners, with the barbs pinched" },
+  ATS: { fly: "small wet flies and nymphs on light tippet (release every Atlantic salmon)", spin: "small spinners with a single barbless hook (release every Atlantic salmon)" },
+  LAT: { fly: "deep, slow streamers", spin: "jigs and spoons worked near bottom" },
+};
+
+// The river through the year, built from its species, its water type and the
+// official seasons on its stretches.
+function seasonsHtml(r, spKeys, official) {
+  const migratory = spKeys.some((k) => ["STL", "CHN", "COH", "BNTr", "ATS"].includes(k));
+  const resident = spKeys.some((k) => ["BNT", "RBT", "BKT"].includes(k));
+  const w = (r.water || "").toLowerCase();
+  const tail = w.includes("tailwater") || w.includes("tailrace");
+  const cold = /spring|headwater|cold/.test(w);
+  const allYear = !!official && official.stretches.some((st) => st.species.some((x) => /all year/i.test(x.season || "")));
+  const p = [];
+  p.push(`<h3>Spring</h3><p>${migratory && spKeys.includes("STL")
+    ? `Spring is steelhead season on the ${esc(r.river)}. Fish that came in over the winter spawn from March into April, then drop back to the lake. Rain and snowmelt keep the water high and cold, so fish slow and deep in the softer edges.`
+    : `Snowmelt and spring rain run the ${esc(r.river)} high and cold. Trout feed hard once the water starts to warm, and nymphs and streamers fished slow and deep take most fish.`}${resident ? ` In most of Zones 16 and 17 the trout season opens on the fourth Saturday in April; check the stretch rules above.` : ""}</p>`);
+  p.push(`<h3>Summer</h3><p>${tail
+    ? `Cold water released from the dam keeps the ${esc(r.river)} fishable when other rivers warm up. Expect hatches in the evenings, and fish dries and dry-droppers over the riffles and pool tails.`
+    : cold
+      ? `Groundwater keeps this water cool through July and August. Trout spread into the riffles to feed, so light tippet, small dries and nymphs, and a quiet approach are the keys.`
+      : migratory
+        ? `Summer is the quiet season on lower ${esc(r.river)}. The water warms and most migratory fish are in the lake. Fish early in the morning if you go, and stop when the water passes about 20°C.`
+        : `Warm afternoons are poor. Fish the first and last light, look for shade and spring seeps, and stop when the water passes about 20°C.`}</p>`);
+  p.push(`<h3>Fall</h3><p>${spKeys.includes("CHN")
+    ? `The Chinook salmon run fills the ${esc(r.river)} from late August, peaks from mid September to mid October, and fades through October. Steelhead${spKeys.includes("BNTr") ? " and lake run brown trout" : ""} follow the salmon in to feed on loose eggs, and fresh rain brings each new wave of fish.`
+    : spKeys.includes("STL")
+      ? `Steelhead start to move up from the lake with the first cold rains of October, and fishing improves through November.`
+      : `Cooling water brings trout back into the open, and brown and brook trout get aggressive before they spawn. Most zone-wide trout seasons close on September 30, so check the stretch rules.`}</p>`);
+  p.push(`<h3>Winter</h3><p>${allYear && spKeys.includes("STL")
+    ? `Part of the ${esc(r.river)} is open all year, and steelhead hold in the slow, deep pools through winter. Mild days after a thaw are best. Fish slow and small, and watch for shelf ice on the banks.`
+    : allYear
+      ? `Part of the ${esc(r.river)} is open all year. Fish are slow in cold water, so pick mild afternoons and fish deep pools.`
+      : `Most of this water is closed or frozen in winter. Use the time to plan spring trips and check the new regulations summary when it comes out.`}</p>`);
+  return p.join("\n");
+}
+
+function readWaterHtml(r) {
+  const w = (r.water || "").toLowerCase();
+  if (w.includes("tailwater") || w.includes("tailrace")) return `On a tailwater, the release from the dam sets the day. Steady releases keep fish in their usual lies: the seams beside fast water, the heads of pools and the tails just before a riffle. A big change in release can turn the fish off for a few hours, so check the flow before you go.`;
+  if (/spring|headwater|cold|brook/.test(w)) return `In small, cold water, trout live under cover: undercut banks, fallen trees, root wads and the plunge pools below small drops. Walk upstream, stay back from the bank, and make the first cast to each spot count.`;
+  return `Migratory fish rest in the deepest, slowest water they can find and move through the shallow riffles quickly. Look for pools below riffles, tailouts, log jams and the seam where fast water meets slow. After rain, fish move; as the water drops and clears, they settle into those lies and bite best.`;
 }
 
 // Go-to approach for each species, in the profile's voice.
@@ -268,8 +350,28 @@ export function salmonSpotPage(s) {
     <li>Weekdays are quieter than weekends at the popular spots.</li>
   </ul>
 
+  <h2>The run, week by week</h2>
+  <ul>
+    <li><b>August:</b> Chinook gather off the mouth of the ${esc(r ? r.river : "river")} and in the harbour. Very few fish are in the river yet.</li>
+    <li><b>Early to mid September:</b> the first good rain pulls the first fish upstream. They move mostly at night and early in the morning.</li>
+    <li><b>Mid September to mid October:</b> the peak. Fish stack below barriers and run the ladders in waves, often a day or two after rain.</li>
+    <li><b>Late October:</b> most salmon have spawned and died. Spawned out fish with pale, frayed fins and carcasses on the gravel are a normal end to the run.</li>
+    <li><b>November:</b> steelhead and lake run brown trout move in behind the salmon to feed on loose eggs.</li>
+  </ul>
+  <p>Every year is different. A dry September can hold fish in the lake for weeks, then one heavy rain brings them all in at once.</p>
+
+  <h2>Watching responsibly</h2>
+  <ul>
+    <li>Stay behind railings at fish ladders and dams, where banks are steep and slippery.</li>
+    <li>Keep dogs leashed and back from the water.</li>
+    <li>Do not throw anything at the fish or try to touch them. They are exhausted.</li>
+    <li>Leave the gravel alone. The pale, cleaned patches are spawning beds (redds) with eggs in them.</li>
+    <li>Park only in marked lots and respect neighbours on residential streets.</li>
+  </ul>
+
   <h2>Can you fish for salmon here?</h2>
   <p>${esc(s.rules)}</p>
+  <p>Where fishing is allowed, snagging is not. Ontario's rules say a fish hooked anywhere other than the mouth must be released right away. Atlantic salmon, which are being restored to Lake Ontario, must be released in these rivers.</p>
   <p class="src">From the official Ontario Fishing Regulations Summary. ${r ? `Full stretch-by-stretch rules are on the <a href="${riverHref(r)}">${esc(r.river)} fishing guide</a>.` : ""}</p>
 
   ${cta(`Plan your trip to ${esc(s.place)}`, `${BRAND} shows live conditions on the ${esc(r ? r.river : "river")} every morning, whether your stretch is open, and what to fish if you're casting.`)}
@@ -288,6 +390,20 @@ export function salmonSpotPage(s) {
 }
 
 // ── "fishing spots in [town]" ──
+// A season-by-season summary across the rivers near a town.
+function townSeasons(rivers) {
+  const has = (k) => rivers.some((r) => (r.species || []).includes(k));
+  const names = (k) => listJoin([...new Set(rivers.filter((r) => (r.species || []).includes(k)).map((r) => r.river))].slice(0, 3));
+  const out = [];
+  if (has("STL")) out.push(`<p><b>Spring (March to May):</b> spring steelhead in the lower ${names("STL")}. Trout season opens on most inland stretches on the fourth Saturday in April.</p>`);
+  else out.push(`<p><b>Spring (late April to May):</b> trout season opens on most stretches on the fourth Saturday in April, with high, cold water and hungry fish.</p>`);
+  if (has("BNT") || has("BKT") || has("RBT")) out.push(`<p><b>Summer (June to August):</b> the cold water on the ${names(has("BNT") ? "BNT" : has("BKT") ? "BKT" : "RBT")} holds trout through the heat. Fish early and late, and stop when the water passes about 20°C.</p>`);
+  else out.push(`<p><b>Summer (June to August):</b> lower rivers run warm and quiet. Most trout and salmon are out in the lake.</p>`);
+  if (has("CHN")) out.push(`<p><b>Fall (September to November):</b> the Chinook salmon run on the ${names("CHN")} peaks from mid September to mid October, with steelhead following into November.</p>`);
+  else out.push(`<p><b>Fall (September to November):</b> cooling water wakes the trout up. Many zone-wide trout seasons close on September 30, so check each stretch.</p>`);
+  out.push(`<p><b>Winter (December to February):</b> ${has("STL") ? `the stretches that are open all year hold steelhead in the slow, deep pools. Mild days after a thaw are best.` : `most local trout water is closed or frozen. Check the zone page for anything open all year.`}</p>`);
+  return out.join("\n");
+}
 export function townPage(t) {
   const near = RIVERS.map((r) => ({ r, d: km(t.lat, t.lon, r.lat, r.lon) })).sort((a, b) => a.d - b.d).filter((x) => x.d <= 70).slice(0, 8);
   const list = near.length >= 3 ? near : RIVERS.map((r) => ({ r, d: km(t.lat, t.lon, r.lat, r.lon) })).sort((a, b) => a.d - b.d).slice(0, 5);
@@ -315,6 +431,9 @@ export function townPage(t) {
   ${salmonHere.length ? `<h2>Salmon run near ${esc(t.name)}</h2><ul>${salmonHere.map((s) => `<li><a href="/salmon-run/${s.slug}/">${esc(s.h1)}</a></li>`).join("")}</ul>` : ""}
 
   ${cta(`Stop guessing which river to fish near ${esc(t.name)}`, `${BRAND} ranks every river near you each morning from live conditions, shows whether it's open, and tells you what to tie on.`)}
+
+  <h2>Fishing near ${esc(t.name)} through the year</h2>
+  ${townSeasons(list.map((x) => x.r))}
 
   <h2>Fishing near ${esc(t.name)}: good to know</h2>
   <ul>

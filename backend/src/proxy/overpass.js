@@ -1,13 +1,5 @@
-export function buildDiscoverQuery(lat, lon, radiusM) {
-  const a = `around:${radiusM},${lat},${lon}`;
-  return `[out:json][timeout:25];(` +
-    `node["leisure"="fishing"](${a});` +
-    `node["leisure"="slipway"](${a});` +
-    `node["waterway"="dam"](${a});node["waterway"="weir"](${a});` +
-    `way["waterway"="river"]["name"](${a});` +
-    `way["waterway"="stream"]["name"](${a});` +
-    `);out tags geom 200;`;
-}
+// Same query the app uses, so the server cache and a direct fallback agree.
+export { buildOverpassQuery as buildDiscoverQuery } from "../../../lib/discovery.js";
 export function buildParkingQuery(lat, lon) {
   const a = `around:1500,${lat},${lon}`;
   return `[out:json][timeout:20];(` +

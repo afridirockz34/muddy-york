@@ -20,7 +20,10 @@
 <style>
 :root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:"Public Sans",system-ui,Arial,sans-serif;color:var(--text);background:var(--cream);line-height:1.6;-webkit-font-smoothing:antialiased;}
+html{background:var(--ink);}
+body{font-family:"Public Sans",system-ui,Arial,sans-serif;color:var(--text);background:var(--cream);line-height:1.6;-webkit-font-smoothing:antialiased;
+  min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
+body>*{flex-shrink:0;width:100%;min-width:0;}
 h1,h2,h3{font-family:"Playfair Display",Georgia,serif;color:var(--pine);line-height:1.2;}
 a{color:var(--brick);}
 img{max-width:100%;}
@@ -76,7 +79,7 @@ header.nav{position:sticky;top:0;z-index:20;background:var(--pine);border-bottom
 .pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--pine);margin:3px 6px 3px 0;}
 .callout{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:22px;margin:26px 0;text-align:center;}
 .callout h3{font-size:20px;margin-bottom:8px;}
-footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;}
+footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;margin-top:auto;}
 footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;}
 footer a{color:#CBD8C9;text-decoration:none;margin-right:16px;}
 .live-status{margin:10px 0 14px;font-size:13px;color:var(--dim);display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -132,6 +135,12 @@ body.has-sticky{padding-bottom:70px;}}
   <h2>Salmon run near Mississauga</h2><ul><li><a href="/salmon-run/humber-river-old-mill-toronto/">Humber River salmon run at Old Mill</a></li><li><a href="/salmon-run/credit-river-mississauga/">Credit River salmon run in Mississauga</a></li><li><a href="/salmon-run/duffins-creek-ajax/">Duffins Creek salmon run in Ajax and Pickering</a></li></ul>
 
   <div class="callout"><h3>Stop guessing which river to fish near Mississauga</h3><p style="color:var(--dim);margin-bottom:14px;">Muddy York Fishing ranks every river near you each morning from live conditions, shows whether it's open, and tells you what to tie on.</p><a class="btn primary" href="/">Start your free 7-day trial</a></div>
+
+  <h2>Fishing near Mississauga through the year</h2>
+  <p><b>Spring (March to May):</b> spring steelhead in the lower Credit River, Humber River and Sixteen Mile Creek. Trout season opens on most inland stretches on the fourth Saturday in April.</p>
+<p><b>Summer (June to August):</b> the cold water on the Credit River holds trout through the heat. Fish early and late, and stop when the water passes about 20°C.</p>
+<p><b>Fall (September to November):</b> the Chinook salmon run on the Credit River, Humber River and Sixteen Mile Creek peaks from mid September to mid October, with steelhead following into November.</p>
+<p><b>Winter (December to February):</b> the stretches that are open all year hold steelhead in the slow, deep pools. Mild days after a thaw are best.</p>
 
   <h2>Fishing near Mississauga: good to know</h2>
   <ul>

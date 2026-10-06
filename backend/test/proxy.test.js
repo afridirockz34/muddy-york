@@ -55,14 +55,15 @@ describe("proxy routes", () => {
   });
 
   it("discover returns upstream elements and caches (second call: no refetch)", async () => {
-    const f = stub({ elements: [{ id: 1 }] });
+    const f = stub({ elements: [{ type: "node", id: 1, lat: 43.7, lon: -80.3, tags: { leisure: "fishing" } }] });
     const app = buildApp({ proxyFetch: f });
     const url = "/api/discover?lat=43.7&lon=-80.3&radiusM=30000";
+    const want = [{ type: "node", id: 1, lat: 43.7, lon: -80.3, tags: { leisure: "fishing" } }];
     const a = await app.inject({ method: "GET", url });
     expect(a.statusCode).toBe(200);
-    expect(a.json().elements).toEqual([{ id: 1 }]);
+    expect(a.json().elements).toEqual(want);
     const b = await app.inject({ method: "GET", url });
-    expect(b.json().elements).toEqual([{ id: 1 }]);
+    expect(b.json().elements).toEqual(want);
     expect(f).toHaveBeenCalledTimes(1);
   });
 
@@ -104,5 +105,30 @@ describe("discover route (Overpass) cache", () => {
     await prisma.mapDataCache.deleteMany();
     const res = await buildApp({ proxyFetch: vi.fn().mockRejectedValue(new Error("down")) }).inject({ method: "GET", url: "/api/discover?lat=45&lon=-78&radiusM=30000" });
     expect(res.statusCode).toBe(502);
+  });
+});
+
+describe("discover-spots (shared tiles)", () => {
+  it("builds spots from tiles, stores them, and reuses them without Overpass", async () => {
+    await prisma.mapDataCache.deleteMany({ where: { key: { startsWith: "tile1:" } } });
+    const geometry = Array.from({ length: 60 }, (_, i) => ({ lat: 43.53 + i * 0.003, lon: -79.62 }));
+    // Overpass answers every tile with the same river; only tile 174:-319 keeps it (in-bounds filter).
+    const f = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ elements: [
+      { type: "way", id: 1, tags: { waterway: "river", name: "Long River" }, geometry },
+      { type: "node", id: 9, lat: 43.6, lon: -79.61, tags: { place: "town", name: "Testville" } },
+    ] }), { status: 200 }));
+    const app = buildApp({ proxyFetch: f });
+    const url = "/api/discover-spots?lat=43.6&lon=-79.62&radiusM=5000";
+    const a = await app.inject({ method: "GET", url });
+    expect(a.statusCode).toBe(200);
+    const d = a.json();
+    expect(d.spots.length).toBeGreaterThan(0);
+    expect(d.spots[0]).toMatchObject({ name: "Long River", kind: "reach", near: "Testville" });
+    const calls = f.mock.calls.length;
+    const b = await app.inject({ method: "GET", url });
+    expect(b.json().spots.map((s) => s.id)).toEqual(d.spots.map((s) => s.id));
+    expect(f.mock.calls.length).toBe(calls);
+    expect(await prisma.mapDataCache.count({ where: { key: { startsWith: "tile1:" } } })).toBeGreaterThan(0);
+    await prisma.mapDataCache.deleteMany({ where: { key: { startsWith: "tile1:" } } });
   });
 });

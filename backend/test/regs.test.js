@@ -130,3 +130,41 @@ describe("zone regulation pages", () => {
     expect((await app.inject({ method: "GET", url: "/regulations/zone-99/" })).statusCode).toBe(302);
   });
 });
+
+describe("zone-at", () => {
+  beforeEach(async () => { await prisma.mapDataCache.deleteMany({ where: { key: { startsWith: "fmz:" } } }); });
+
+  it("parses the FMZ service answer", async () => {
+    const { fmzAt } = await import("../src/routes/regulations.js");
+    const ok = async () => ({ ok: true, json: async () => ({ features: [{ attributes: { FISHERIES_MANAGEMENT_ZONE_ID: 17 } }] }) });
+    expect(await fmzAt(43.9, -78.3, ok)).toBe(17);
+    const none = async () => ({ ok: true, json: async () => ({ features: [] }) });
+    expect(await fmzAt(43.9, -78.3, none)).toBe(null);
+  });
+
+  it("answers from the cache with the zone page link", async () => {
+    await prisma.mapDataCache.create({ data: { key: "fmz:43.65,-79.50", data: { zone: 16 }, fetchedAt: new Date() } });
+    const r = await app.inject({ method: "GET", url: "/api/regs/zone-at?lat=43.651&lon=-79.501" });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ zone: 16, page: "/regulations/zone-16/" });
+    expect(r.json().url).toMatch(/fisheries-management-zone-16$/);
+    expect((await app.inject({ method: "GET", url: "/api/regs/zone-at?lat=10&lon=10" })).statusCode).toBe(400);
+  });
+
+  it("batch: one zone per cell, flags waters named in the rules", async () => {
+    await syncAll({ fetchImpl: fakeFetch(fixture), notify: false, pauseMs: 0 });
+    await prisma.mapDataCache.create({ data: { key: "fmz:43.70,-79.90", data: { zone: 16 }, fetchedAt: new Date() } });
+    const r = await app.inject({ method: "POST", url: "/api/regs/zones-at", payload: { points: [
+      { lat: 43.701, lon: -79.899, name: "Credit River" }, { lat: 43.702, lon: -79.901, name: "Nowhere Brook" }, { lat: 0, lon: 0 } ] } });
+    expect(r.statusCode).toBe(200);
+    const d = r.json();
+    expect(d.points[0].zone).toBe(16);
+    expect(d.points[0].named).toBeGreaterThan(0);
+    expect(d.points[1]).toEqual({ zone: 16, named: 0 });
+    expect(d.points[2].zone).toBe(null);
+    expect(d.zones["16"].bundle.stretches[0].zoneWideOnly).toBe(true);
+    const { statusFor } = await import("../../lib/regs-status.js");
+    const s = statusFor(d.zones["16"].bundle, ["BKT"], new Date("2026-07-01T12:00:00"));
+    expect(s.state).toBe("open");
+  });
+});
