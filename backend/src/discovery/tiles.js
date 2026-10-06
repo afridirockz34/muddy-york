@@ -24,10 +24,26 @@ export async function readTile(t) {
   return v;
 }
 
-export async function fetchTile(t, { fetchImpl = resilientFetch, timeoutMs = 30000, hosts = OVERPASS_HOSTS } = {}) {
-  const res = await fetchImpl(hosts,
+// Overpass servers take turns being overloaded. Try the one that answered most
+// recently first, so a scout doesn't wait on a server that's been failing.
+let hostOrder = OVERPASS_HOSTS.slice();
+export function rankedHosts() { return hostOrder.slice(); }
+async function tryHosts(hosts, init, timeoutMs, fetchImpl) {
+  let lastErr = new Error("no hosts");
+  for (const h of hosts) {
+    try {
+      const res = await fetchImpl([h], init, { retries: 0, timeoutMs });
+      hostOrder = [h, ...hostOrder.filter((x) => x !== h)];
+      return res;
+    } catch (e) { lastErr = e; hostOrder = [...hostOrder.filter((x) => x !== h), h]; }
+  }
+  throw lastErr;
+}
+
+export async function fetchTile(t, { fetchImpl = resilientFetch, timeoutMs = 30000, hosts = null } = {}) {
+  const res = await tryHosts(hosts || rankedHosts(),
     { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "data=" + encodeURIComponent(buildTileQuery(t)) },
-    { retries: 0, timeoutMs });
+    timeoutMs, fetchImpl);
   const json = await res.json();
   if (!json || !Array.isArray(json.elements)) throw new Error("bad overpass payload");
   const spots = tileCandidates(json, t);
@@ -48,7 +64,7 @@ export async function discoverSpots(loc, radiusM, { fetchImpl, budgetMs = 22000,
   // reliable servers, and never longer than the budget. The rest are queued.
   const missing = tiles.map((t, k) => (got[k] ? null : k)).filter((k) => k != null);
   await Promise.all(missing.slice(0, liveMax).map(async (k) => {
-    try { got[k] = await fetchTile(tiles[k], { fetchImpl, timeoutMs: budgetMs / 2, hosts: OVERPASS_HOSTS.slice(0, 2) }); } catch { got[k] = null; }
+    try { got[k] = await fetchTile(tiles[k], { fetchImpl, timeoutMs: budgetMs / 2, hosts: rankedHosts().slice(0, 2) }); } catch { got[k] = null; }
   }));
   const cands = [];
   let stillMissing = 0;

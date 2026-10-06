@@ -132,3 +132,19 @@ describe("discover-spots (shared tiles)", () => {
     await prisma.mapDataCache.deleteMany({ where: { key: { startsWith: "tile1:" } } });
   });
 });
+
+describe("tile host ranking", () => {
+  it("moves a failing server to the back and the one that answered to the front", async () => {
+    const { fetchTile, rankedHosts } = await import("../src/discovery/tiles.js");
+    const first = rankedHosts()[0];
+    const f = vi.fn().mockImplementation(async (urls) => {
+      if (urls[0] === first) throw new Error("busy");
+      return new Response(JSON.stringify({ elements: [] }), { status: 200 });
+    });
+    await fetchTile({ i: 1, j: 1 }, { fetchImpl: f });
+    const order = rankedHosts();
+    expect(order[order.length - 1]).toBe(first);
+    expect(order[0]).not.toBe(first);
+    await prisma.mapDataCache.deleteMany({ where: { key: { startsWith: "tile1:" } } });
+  });
+});
