@@ -977,6 +977,14 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   // full-screen map; the top 30% keeps the spot in view. Nothing behind it
   // scrolls or pans, and the map controls step aside until it closes.
   const inspect=phone&&!!ev;
+  const [closing,setClosing]=useState(false);
+  // Slide the sheet away before unmounting it, so closing is as smooth as opening.
+  const closeSel=useCallback(()=>{ if(!inspect){ setSel(null); return; }
+    setClosing(true); setTimeout(()=>{ setSel(null); setClosing(false); },230); },[inspect]);
+  // While the map goes full screen it leaves the page layout; this spacer keeps
+  // the page the same height so the scroll position doesn't jump on close.
+  const holdRef=useRef(null), holdH=useRef(0);
+  useEffect(()=>{ if(!(full||inspect)&&holdRef.current) holdH.current=holdRef.current.offsetHeight; });
   useScrollLock(full||inspect);
   const viewRef=useRef(null);
   useEffect(()=>{
@@ -1082,14 +1090,24 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
   const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
 
   const cover=full||inspect;
-  return (<div className={inspect?"mk-map-inspect":undefined} style={cover
+  return (<div ref={holdRef} style={{minHeight:cover?holdH.current:undefined,marginBottom:8}}>
+    <div className={inspect?("mk-map-inspect"+(closing?" mk-closing":"")):undefined} style={cover
       ? {position:"fixed",inset:0,zIndex:2200,background:C.panel,display:"flex",flexDirection:"column",overscrollBehavior:"none"}
-      : {position:"relative",marginBottom:8,zIndex:0,isolation:"isolate"}}>
-    <style>{`.mk-map-inspect .leaflet-control-container{display:none}`}</style>
+      : {position:"relative",zIndex:0,isolation:"isolate"}}>
+    <style>{`.mk-map-inspect .leaflet-control-container{display:none}
+.mk-map-inspect{animation:mkFadeIn .22s ease-out both}
+.mk-map-inspect .mk-sheet{animation:mkSheetUp .34s cubic-bezier(.22,.9,.3,1) both}
+.mk-map-inspect.mk-closing{animation:mkFadeOut .23s ease-in both}
+.mk-map-inspect.mk-closing .mk-sheet{animation:mkSheetDown .23s ease-in both}
+@keyframes mkFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes mkFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes mkSheetUp{from{transform:translateY(100%)}to{transform:none}}
+@keyframes mkSheetDown{from{transform:none}to{transform:translateY(100%)}}
+@media (prefers-reduced-motion:reduce){.mk-map-inspect,.mk-map-inspect .mk-sheet{animation:none!important}}`}</style>
     <div ref={elRef} style={cover
       ? {flex:1,width:"100%",background:C.panelHi}
       : {height:"66vh",minHeight:380,width:"100%",borderRadius:12,overflow:"hidden",border:`1px solid ${C.line}`,background:C.panelHi}}/>
-    {inspect && <div onClick={()=>setSel(null)} aria-hidden="true" style={{position:"absolute",left:0,right:0,top:0,height:"30%",zIndex:1250,cursor:"pointer"}}/>}
+    {inspect && <div onClick={closeSel} aria-hidden="true" style={{position:"absolute",left:0,right:0,top:0,height:"30%",zIndex:1250,cursor:"pointer"}}/>}
     {hasL && !inspect && <button onClick={()=>setFull(f=>!f)} aria-label={full?"Exit full screen":"Full screen map"}
       style={{position:"absolute",top:full?"calc(10px + env(safe-area-inset-top))":10,right:10,zIndex:1400,display:"inline-flex",alignItems:"center",gap:6,padding:"8px 12px",borderRadius:9,cursor:"pointer",fontFamily:sans,fontSize:12.5,fontWeight:700,background:C.panel,border:`1px solid ${C.line}`,color:C.pine,boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>
       <Icon name={full?"close":"map"} size={15}/>{full?"Close map":"Full screen"}</button>}
@@ -1102,7 +1120,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
       </div>
       <div style={{fontFamily:sans,fontSize:10,color:C.textFaint,marginTop:4}}>Ring = Ontario season · number = today's opportunity · tap a marker for the report</div>
     </div>)}
-    {ev && (<div role="dialog" aria-label={`${ev.sec.river} report`} style={inspect
+    {ev && (<div role="dialog" className={inspect?"mk-sheet":undefined} aria-label={`${ev.sec.river} report`} style={inspect
       ? {position:"absolute",left:0,right:0,bottom:0,height:"70%",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",touchAction:"pan-y",
          background:C.panel,borderRadius:"18px 18px 0 0",padding:"10px 16px calc(18px + env(safe-area-inset-bottom))",boxShadow:"0 -10px 30px rgba(0,0,0,.28)",zIndex:1300}
       : {position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",overscrollBehavior:"contain",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
@@ -1117,7 +1135,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
           {distOf(ev.sec)!=null && <div style={{display:"flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:14,fontWeight:700,color:C.pine,marginTop:4}}><Icon name="pin" size={14}/>{distOf(ev.sec)} km away</div>}
         </div>
         <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
-        <button onClick={()=>setSel(null)} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
+        <button onClick={closeSel} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
       </div>
       <ActionBar ev={ev} signedIn={signedIn}/>
       <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
@@ -1141,7 +1159,7 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
       </div>
       <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
     </div>)}
-  </div>);
+  </div></div>);
 }
 
 function SavedView({saved,visits,ranked,m,onUnsave,onLog,onRemoveVisit,goMap}){
@@ -1774,8 +1792,12 @@ export default function App(){
     })();
     loadWeather();
     const t1=setInterval(()=>{ liveRef.current&&liveRef.current(); refreshDiscoWx(discoListRef.current); },30*60*1000);
+    // Coming back to the app after a while refreshes conditions on its own.
+    let lastLive=Date.now();
+    const onVis=()=>{ if(document.visibilityState==="visible" && Date.now()-lastLive>10*60*1000){ lastLive=Date.now(); liveRef.current&&liveRef.current(); refreshDiscoWx(discoListRef.current); } };
+    document.addEventListener("visibilitychange",onVis);
     const t2=setInterval(()=>setNow(new Date()),60*1000);
-    return ()=>{clearInterval(t1);clearInterval(t2);};
+    return ()=>{clearInterval(t1);clearInterval(t2);document.removeEventListener("visibilitychange",onVis);};
   },[loadWeather,fetchUserWx,refreshDiscoWx]);
 
   const hasData = Object.keys(wx).length>0;
@@ -2011,7 +2033,6 @@ export default function App(){
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
             <button onClick={()=>scout()} disabled={isScouting} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine,opacity:isScouting?0.75:1}}>
               <Icon name={isPremium?"search":"lock"} size={13}/>{isScouting?"Scouting…":!isPremium?"Scout rivers near me":discovered.length?`${discovered.length} nearby · Re-scout`:"Scout rivers near me"}</button>
-            <button onClick={loadWeather} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.line,color:C.textDim}}><Icon name="refresh" size={13}/>Refresh</button>
           </div>
           {discoStatus==="error" && <div style={hint}>Couldn't scout new water just now — try again shortly.</div>}
           {locStatus==="denied" && <div style={hint}>Location is blocked — enable it in Settings ▸ Safari ▸ Location.</div>}
@@ -2116,7 +2137,7 @@ const metaV={fontFamily:sans,fontSize:12.5,color:C.text,marginTop:2,fontWeight:7
 const metaEm={fontWeight:500,color:C.textDim};
 const hint={fontFamily:sans,fontSize:11.5,color:C.amberDeep,marginBottom:10};
 const notePill={fontFamily:sans,fontSize:11.5,fontWeight:600,padding:"3px 9px",borderRadius:20,border:`1px solid ${C.line}`,background:C.bone,color:C.textDim};
-const sheetOverlay={position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:2000,display:"flex",alignItems:"flex-end",justifyContent:"center"};
+const sheetOverlay={position:"fixed",inset:0,background:"rgba(20,26,20,.5)",zIndex:2600,display:"flex",alignItems:"flex-end",justifyContent:"center"};
 const sheetPanel={width:"100%",maxWidth:520,maxHeight:"84vh",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",background:C.panel,borderRadius:"18px 18px 0 0",padding:"14px 18px calc(20px + env(safe-area-inset-bottom))",boxShadow:"0 -8px 30px rgba(0,0,0,.25)"};
 function segBtn(on){ return {flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"9px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:600,background:on?C.pine:"transparent",color:on?C.headText:C.textDim}; }
 
@@ -2829,7 +2850,7 @@ function SignInGate({onAuth,providers={}}){
   const sendReset=async()=>{ setErr(""); setBusy(true);
     try{ await proxyJSON("/auth/forgot",{method:"POST",body:{email:email.trim()}}); }catch{} finally{ setSent(true); setBusy(false); } };
   const link={background:"none",border:"none",color:"#EFE9DB",textDecoration:"underline",cursor:"pointer",fontSize:12.5};
-  return (<div style={{position:"fixed",inset:0,zIndex:8000,background:C.cyanDeep,display:"flex",flexDirection:"column",alignItems:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch"}}>
+  return (<div style={{position:"fixed",inset:0,zIndex:8000,background:`linear-gradient(180deg,rgba(22,36,27,.80),rgba(22,36,27,.94)),url('/img/site/elora-gorge-sm.jpg') center/cover ${C.cyanDeep}`,display:"flex",flexDirection:"column",alignItems:"center",padding:"calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom))",overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch"}}>
     <div style={{margin:"auto 0",width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}}>
     <div style={{width:"100%",maxWidth:380}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",marginBottom:22}}>
@@ -3102,37 +3123,34 @@ function MiniStat({label,value,sub}){
     <div style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,marginTop:3}}>{label}{sub&&<span style={{color:C.textFaint}}> · {sub}</span>}</div>
   </div>);
 }
-// Nine conditions in a fixed 3x3 grid. Every cell always renders (a dash when a
-// reading is missing) so the box never ends on an orphan or shifts on refresh.
+// Conditions in the original compact box, laid out in three fixed columns so
+// every label lines up. Missing readings are left out rather than shown blank.
 function ConditionsStrip({cond,opp,warm}){
   if(cond.temp==null) return null;
   const DIRS=["N","NE","E","SE","S","SW","W","NW"];
   const dir=cond.windDir!=null?DIRS[Math.round(cond.windDir/45)%8]:"";
   const pt=cond.pressureTrend;
-  const press=pt==null?null:(pt>1.5?"Rising":pt<-1.5?"Falling":"Steady");
+  const press=pt==null?null:(pt>1.5?"↑ rising":pt<-1.5?"↓ falling":"→ steady");
   const sky=cond.cloud==null?null:(cond.cloud>70?"Overcast":cond.cloud<30?"Clear":"Cloudy");
-  const rain=cond.p48!=null?`${Math.round(cond.p48)} mm`:null;
   const cells=[
     ["Condition", opp!=null?conditionLabel(opp):null, opp!=null?scoreColor(opp):null],
     ["Water", `${cond.temp.toFixed(0)}°C`],
     ["Air", cond.air!=null?`${Math.round(cond.air)}°C`:null],
     ["Flow", cond.flow||null],
-    ["Rain 48h", rain],
-    ["Sky", sky],
     ["Wind", cond.wind!=null?`${Math.round(cond.wind)} km/h${dir?" "+dir:""}`:null],
-    ["Gusts", cond.gust!=null?`${Math.round(cond.gust)} km/h`:null],
     ["Pressure", press],
-  ];
-  return (<div style={{marginTop:12}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:10,overflow:"hidden"}}>
-      {cells.map(([label,val,color],i)=>(<div key={label} style={{padding:"9px 10px",minWidth:0,
-        borderRight:i%3!==2?`1px solid ${C.lineSoft}`:"none",borderBottom:i<6?`1px solid ${C.lineSoft}`:"none"}}>
-        <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,whiteSpace:"nowrap"}}>{label}</div>
-        <div style={{fontFamily:sans,fontSize:13,marginTop:2,color:val==null?C.textFaint:(color||C.text),fontWeight:color?800:650,
-          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val==null?"–":val}</div>
+    ["Sky", sky],
+    ["Rain 48h", cond.p48!=null?`${Math.round(cond.p48)} mm`:null],
+    ["Gusts", cond.gust!=null?`${Math.round(cond.gust)} km/h`:null],
+  ].filter(c=>c[1]!=null);
+  return (<div style={{marginTop:12,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",columnGap:10,rowGap:6}}>
+      {cells.map(([label,val,color])=>(<div key={label} style={{minWidth:0}}>
+        <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,lineHeight:1.3}}>{label}</div>
+        <div style={{fontFamily:sans,fontSize:12.5,color:color||C.text,fontWeight:color?800:600,lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val}</div>
       </div>))}
     </div>
-    {warm && <div style={{marginTop:8,padding:"7px 10px",borderRadius:8,background:`${C.brick}14`,border:`1px solid ${C.brick}40`,fontFamily:sans,fontSize:12,fontWeight:700,color:C.brick}}>Heads-up: warm water. Rest the trout.</div>}
+    {warm && <div style={{marginTop:7,fontFamily:sans,fontSize:12,fontWeight:800,color:C.brick}}>Heads-up: warm water. Rest the trout.</div>}
   </div>);
 }
 function MeasuredGauge({lat,lon}){

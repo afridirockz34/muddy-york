@@ -10,10 +10,75 @@
 <meta property="og:title" content="Ontario Fishing App: River Conditions &amp; Regulations"/>
 <meta property="og:description" content="Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout &amp; salmon rivers. Start free."/>
 <meta property="og:url" content="https://muddyyorkfishing.ca/fishing/"/>
-<meta property="og:image" content="https://muddyyorkfishing.ca/crest.png"/>
+<meta property="og:image" content="https://muddyyorkfishing.ca/img/site/elora-gorge.jpg"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="theme-color" content="#2C4C3B"/>
 <link rel="icon" type="image/png" href="/crest.png"/>
+<style>
+.mh{position:relative;color:#EFE9DB;background:var(--ink) url('/img/site/elora-gorge.jpg') center 55%/cover;}
+.mh::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(22,36,27,.92) 0%,rgba(22,36,27,.72) 48%,rgba(22,36,27,.25) 100%);}
+.mh .wrap{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center;padding-top:72px;padding-bottom:84px;}
+.mh h1{color:#fff;font-size:clamp(36px,5.2vw,58px);font-weight:800;line-height:1.05;letter-spacing:-.5px;max-width:13ch;}
+.mh .lede{color:#D9E2D6;font-size:18.5px;line-height:1.6;margin:20px 0 28px;max-width:36rem;}
+.mh .actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+.mh .actions .btn.primary{font-size:16.5px;padding:15px 26px;}
+.mh .actions a.quiet{color:#EFE9DB;font-weight:600;}
+.mh .fine{font-size:13.5px;color:#AFC0AE;margin-top:14px;}
+.club{background:#F7F2E7;color:var(--text);border-radius:14px;border:1px solid #CDBB86;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;}
+.club-head{display:flex;align-items:center;gap:12px;padding:16px 20px;background:var(--pine);color:#EFE9DB;border-bottom:3px solid var(--gold);}
+.club-head img{width:40px;height:40px;}
+.club-head b{font-family:"Playfair Display",serif;font-size:17px;display:block;color:#fff;}
+.club-head span{font-size:13px;color:#C9D6C7;}
+.club ul{list-style:none;}
+.club li{padding:14px 20px;border-bottom:1px solid var(--line);}
+.club li a{font-family:"Playfair Display",serif;font-weight:700;font-size:17px;color:var(--pine);text-decoration:none;}
+.club li small{display:block;color:var(--dim);font-size:13px;margin-top:1px;}
+.club .live-status{margin:8px 0 0;}
+.club .live-status .ls-note{display:none;}
+.club-foot{padding:16px 20px;background:var(--panel);}
+.club-foot p{font-size:14px;color:var(--dim);margin-bottom:12px;}
+.club-foot .btn{width:100%;text-align:center;}
+.fish{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px;}
+.fish a{display:block;text-decoration:none;color:var(--text);background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+.fish img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;}
+.fish div{padding:16px 18px 20px;}
+.fish h3{font-size:21px;}
+.fish p{color:var(--dim);font-size:15px;margin-top:6px;}
+.fish .go{display:inline-block;margin-top:10px;color:var(--brick);font-weight:700;font-size:14.5px;}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:40px;counter-reset:step;}
+.how figure{text-align:left;}
+.how .phone{background:var(--ink);padding:10px;border-radius:30px;box-shadow:0 18px 40px rgba(22,36,27,.25);max-width:260px;margin:0 auto 20px;}
+.how .phone img{display:block;width:100%;border-radius:22px;aspect-ratio:9/16;object-fit:cover;object-position:top;}
+.how figcaption{max-width:300px;margin:0 auto;}
+.how figcaption b{font-family:"Playfair Display",serif;font-size:20px;color:var(--pine);display:block;}
+.how figcaption b::before{counter-increment:step;content:counter(step);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--gold);color:#2f2507;font-family:"Public Sans",sans-serif;font-size:14px;font-weight:800;margin-right:10px;vertical-align:3px;}
+.how figcaption p{color:var(--dim);margin-top:6px;font-size:15px;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+.split img{width:100%;border-radius:16px;aspect-ratio:5/4;object-fit:cover;display:block;}
+.section .split h2{text-align:left;font-size:32px;}
+.ticks{list-style:none;margin-top:20px;}
+.ticks li{padding:12px 0 12px 34px;border-bottom:1px solid var(--line);position:relative;}
+.ticks li::before{content:"";position:absolute;left:4px;top:18px;width:14px;height:8px;border-left:3px solid var(--pine);border-bottom:3px solid var(--pine);transform:rotate(-45deg);}
+.ticks b{color:var(--pine);}
+.ticks span{display:block;color:var(--dim);font-size:14.5px;margin-top:2px;}
+.run{position:relative;color:#EFE9DB;background:var(--ink) url('/img/site/ganaraska.jpg') center/cover;}
+.run::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,36,27,.9),rgba(22,36,27,.55));}
+.run .wrap{position:relative;padding-top:64px;padding-bottom:64px;}
+.run h2{color:#fff;font-size:34px;max-width:18ch;}
+.run p{color:#D3DED1;max-width:560px;margin:14px 0 22px;font-size:17px;}
+.run .spots{display:flex;flex-wrap:wrap;gap:10px;}
+.run .spots a{color:#fff;border:1px solid rgba(239,233,219,.45);border-radius:22px;padding:7px 15px;text-decoration:none;font-weight:600;font-size:14.5px;}
+.posts{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:30px;}
+.posts a{text-decoration:none;color:var(--text);}
+.posts img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:12px;display:block;}
+.posts h3{font-size:17.5px;margin-top:12px;line-height:1.3;}
+.posts p{color:var(--dim);font-size:14px;margin-top:4px;}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;}
+.section .sec-head h2{text-align:left;}
+.sec-head p{color:var(--dim);max-width:520px;margin-top:8px;}
+@media(max-width:900px){.mh .wrap,.split{grid-template-columns:1fr;}.fish,.how{grid-template-columns:1fr;}.posts{grid-template-columns:1fr 1fr;}.mh .wrap{padding-top:48px;padding-bottom:56px;}}
+@media(max-width:560px){.posts{grid-template-columns:1fr;}.mh .lede{font-size:17px;}}
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
@@ -100,76 +165,146 @@ table.months td.m3{color:var(--pine);font-weight:700;}table.months td.m2{color:v
 @media(max-width:820px){.sticky-cta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--pine);border-top:2px solid var(--gold);gap:10px;align-items:center;justify-content:space-between;}
 .sticky-cta span{color:#EFE9DB;font-size:13px;}.sticky-cta a{background:var(--brick);color:#fff;text-decoration:none;font-weight:700;padding:10px 14px;border-radius:9px;font-size:14px;white-space:nowrap;}
 body.has-sticky{padding-bottom:70px;}}
+.nav .links a.signin{color:#EFE9DB;border:1px solid rgba(239,233,219,.35);padding:7px 14px;border-radius:8px;}
+.page-photo{height:clamp(150px,24vw,280px);background-size:cover;background-color:var(--pine);position:relative;}
+.page-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,36,27,.05),rgba(22,36,27,.35));}
+.join{background:linear-gradient(90deg,rgba(22,36,27,.94),rgba(22,36,27,.78)),url('/img/site/wading-anglers.jpg') center 40%/cover;color:#EFE9DB;padding:56px 0;border-top:3px solid var(--gold);}
+.join-inner{display:grid;grid-template-columns:1.4fr 1fr;gap:28px;align-items:center;}
+.join h2{color:#fff;font-size:30px;text-align:left;}
+.join p{color:#CBD8C9;margin-top:10px;max-width:560px;}
+.join-cta{display:flex;flex-direction:column;align-items:flex-start;gap:12px;}
+.join-signin{color:#EFE9DB;font-weight:600;}
+.btn{transition:transform .15s ease,background .15s ease;}
+.btn.primary:hover{background:#7a3328;}
+.btn:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px;}
+@media(max-width:820px){.join-inner{grid-template-columns:1fr;}.join h2{font-size:25px;}.nav .links a.signin{display:none;}}
 @media(max-width:820px){.hero .wrap{grid-template-columns:1fr;}.hero .art{order:-1;}.grid{grid-template-columns:1fr;}.price{grid-template-columns:1fr;}.nav .links a:not(.cta){display:none;}}
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Muddy York Fishing","applicationCategory":"LifestyleApplication","operatingSystem":"Web, iOS","offers":{"@type":"Offer","price":"9.99","priceCurrency":"CAD"},"url":"https://muddyyorkfishing.ca"}</script>
 </head>
-<body>
+<body class="has-sticky">
 <header class="nav"><div class="wrap">
   <a class="brand" href="/fishing/"><img src="/crest.png" alt="Muddy York Fishing crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links">
-    <a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-    <a class="cta" href="/">Start free</a>
+    <a href="/rivers/">Rivers</a><a href="/salmon-run/">Salmon run</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
+    <a class="signin" href="/">Sign in</a><a class="cta" href="/">Start free</a>
   </nav>
 </div></header>
 
-<section class="hero"><div class="wrap">
+
+<section class="mh"><div class="wrap">
   <div>
-    <h1>Know where the fish are, every morning.</h1>
-    <p>Muddy York Fishing reads live conditions on 30+ Southern Ontario trout &amp; salmon rivers, ranks them, and tells you where to go, when it's prime, and what fly to tie on. Spend less time guessing, more time catching.</p>
-    <a class="btn primary" href="/">Start your free 7-day trial</a>
-    &nbsp; <a class="btn ghost" href="/rivers/">Explore the rivers</a>
+    <h1>Know which river is fishing before you leave the house.</h1>
+    <p class="lede">Every morning Muddy York Fishing checks live water temperature, flow and weather on 30+ Southern Ontario trout and salmon rivers, ranks them, confirms the official season for your stretch, and tells you what to tie on.</p>
+    <div class="actions"><a class="btn primary" href="/">Start your 7 free days</a><a class="quiet" href="/">Sign in</a></div>
+    <p class="fine">No charge for 7 days. Then $5.00 a month on the yearly plan. Cancel any time.</p>
   </div>
-  <div class="art"><img src="/crest.png" alt="Muddy York Fishing"/></div>
-</div></section>
-
-<section class="section" id="features"><div class="wrap">
-  <h2>Fish the right river on the right day</h2>
-  <p class="sub">Real-time river intelligence for fly and conventional anglers across Southern Ontario.</p>
-  <div class="grid">
-    <div class="card"><h3>Daily opportunity scores</h3><p>Every river scored each morning from live water temperature, flow, weather, pressure and the feeding window, so you know before you drive.</p></div>
-    <div class="card"><h3>Fly &amp; technique picks</h3><p>The right patterns, sizes and tactics for today's conditions and the fish that are on, beginner-friendly, expert-approved.</p></div>
-    <div class="card"><h3>Depth &amp; likely fish</h3><p>What's holding where, how big, and what's been stocked nearby, sharpened by real catches logged in the community.</p></div>
-    <div class="card"><h3>Spot discovery &amp; routes</h3><p>Find new water within your radius, with parking and walk-in routes to the river.</p></div>
-    <div class="card"><h3>Log catches &amp; keep notes</h3><p>Track your catches and drop private GPS pins. Your exact spots always stay private.</p></div>
-    <div class="card"><h3>A growing club</h3><p>New rivers and spots added all the time. Your map only gets better the longer you're a member.</p></div>
-  </div>
-</div></section>
-
-<section class="section alt" id="pricing"><div class="wrap">
-  <h2>Membership</h2>
-  <p class="sub">Start with a 7-day free trial. Cancel anytime.</p>
-  <div class="price">
-    <div class="plan"><div class="amt">$9.99</div><div class="per">per month</div><p style="color:var(--dim);margin:14px 0;">Full access, billed monthly.</p><a class="btn ghost" href="/">Start free</a></div>
-    <div class="plan best"><div class="tag">Save 50%</div><div class="amt">$5.00</div><div class="per">per month, billed $59.99 a year</div><p style="color:var(--dim);margin:14px 0;">Half the price of paying monthly.</p><a class="btn primary" href="/">Start free</a></div>
-  </div>
+  <aside class="club" aria-label="This morning's season status">
+    <div class="club-head"><img src="/crest.png" alt=""/><div><b>This morning on the water</b><span>Official Ontario season status, checked twice a day</span></div></div>
+    <ul><li><a href="/rivers/credit-river-lower-mouth-to-streetsville/">Credit River</a><small>Lower: mouth to Streetsville</small>
+    <div class="live-status" data-reach="credit-lower" data-sp="STL,CHN,BNTr,ATS"><span class="st check">Checking today's season</span> <span class="ls-note"></span></div></li><li><a href="/rivers/grand-river-tailwater-shand-dam-to-west-montrose/">Grand River</a><small>Tailwater: Shand Dam to West Montrose</small>
+    <div class="live-status" data-reach="grand-tw" data-sp="BNT,RBT"><span class="st check">Checking today's season</span> <span class="ls-note"></span></div></li><li><a href="/rivers/ganaraska-river-lower-port-hope-below-the-fishway/">Ganaraska River</a><small>Lower: Port Hope below the fishway</small>
+    <div class="live-status" data-reach="ganaraska" data-sp="STL,CHN"><span class="st check">Checking today's season</span> <span class="ls-note"></span></div></li></ul>
+    <div class="club-foot"><p>Members also see each river's score, water temperature, flow and today's fly.</p><a class="btn primary" href="/">See today's scores</a></div>
+  </aside>
 </div></section>
 
 <section class="section"><div class="wrap">
-  <h2>Rivers we cover</h2>
-  <p class="sub">Trout, steelhead and salmon water across Southern Ontario and the Great Lakes tributaries.</p>
+  <div class="sec-head"><div><h2>Three fish, three kinds of water</h2><p>Southern Ontario is one of the best trout and salmon regions in North America, if you're on the right water on the right day.</p></div></div>
+  <div class="fish">
+    <a href="/blog/brook-trout-small-creeks-ontario/"><img src="/img/site/brook-trout-stream-sm.jpg" alt="A wild brook trout over gravel in a cold stream" loading="lazy"/><div><h3>Brook trout</h3><p>Ontario's native trout, in small spring-fed creeks that stay cold all summer.</p><span class="go">Finding creek brookies</span></div></a>
+    <a href="/blog/where-to-find-brown-trout-in-ontario/"><img src="/img/site/brown-trout-sm.jpg" alt="A brown trout with dark spots and a golden belly" loading="lazy"/><div><h3>Brown trout</h3><p>Wary fish of tailwaters, undercut banks and fallen timber. Best at first and last light.</p><span class="go">Where browns live</span></div></a>
+    <a href="/guides/steelhead-fishing-ontario/"><img src="/img/site/steelhead-sm.jpg" alt="An angler holding a bright steelhead over the water" loading="lazy"/><div><h3>Steelhead and salmon</h3><p>Lake-run fish that push up the tributaries on fresh rain, from August through spring.</p><span class="go">The steelhead guide</span></div></a>
+  </div>
+</div></section>
+
+<section class="section alt" id="how"><div class="wrap">
+  <h2>How a morning with the app goes</h2>
+  <p class="sub">Two minutes over coffee, and you know where you're going.</p>
+  <div class="how">
+    <figure><div class="phone"><img src="/img/app/rivers-ranked.jpg" alt="The app ranking rivers by today's fishing opportunity" loading="lazy"/></div>
+      <figcaption><b>See every river ranked</b><p>Rivers near you, scored 0 to 100 from live water temperature, flow, pressure and weather, with the official season shown on each.</p></figcaption></figure>
+    <figure><div class="phone"><img src="/img/app/river-report.jpg" alt="A river report on the map with conditions and likely fish" loading="lazy"/></div>
+      <figcaption><b>Open the river's report</b><p>Conditions, the fish likely holding there, parking and directions, all on one screen.</p></figcaption></figure>
+    <figure><div class="phone"><img src="/img/app/flies.jpg" alt="Today's recommended approach and flies for a river" loading="lazy"/></div>
+      <figcaption><b>Tie on the right fly</b><p>The approach for today's water, the flies and sizes to use, and how to fish them.</p></figcaption></figure>
+  </div>
+  <p style="text-align:center;margin-top:34px;"><a class="btn primary" href="/">Try it free for 7 days</a></p>
+</div></section>
+
+<section class="section" id="features"><div class="wrap split">
+  <img src="/img/site/fly-fishers-sm.jpg" alt="An angler wading a clear river with a fly rod" loading="lazy"/>
+  <div>
+    <h2>Everything a member gets</h2>
+    <ul class="ticks">
+      <li><b>Today's season, from the official rules</b><span>Synced from the Ontario Fishing Regulations Summary twice a day, stretch by stretch, with a link to the exact rule.</span></li>
+      <li><b>Scout rivers and creeks near you</b><span>Find new water within your radius, ranked with open water first.</span></li>
+      <li><b>Parking and walk-in routes</b><span>The nearest public parking and the walk to the water.</span></li>
+      <li><b>Alerts when a saved river turns prime</b><span>One heads-up when it happens, never a flood of them.</span></li>
+      <li><b>Your catch log and private notes</b><span>Your spots stay yours. We never share exact locations.</span></li>
+    </ul>
+    <p style="margin-top:24px;"><a class="btn primary" href="/">Start your 7 free days</a></p>
+  </div>
+</div></section>
+
+<section class="run"><div class="wrap">
+  <h2>Salmon run season, late August to November</h2>
+  <p>Chinook push up Lake Ontario rivers on every fall rain. Our guides show where to watch, when it peaks, and which stretches are open to fish.</p>
+  <div class="spots"><a href="/salmon-run/port-hope-ganaraska-river/">Port Hope</a><a href="/salmon-run/humber-river-old-mill-toronto/">Old Mill, Toronto</a><a href="/salmon-run/bowmanville-creek/">Bowmanville</a><a href="/salmon-run/credit-river-mississauga/">Mississauga</a><a href="/salmon-run/duffins-creek-ajax/">Ajax and Pickering</a><a href="/salmon-run/owen-sound-sydenham-river/">Owen Sound</a><a href="/salmon-run/">All salmon run spots</a></div>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <div class="sec-head"><div><h2>Rivers we cover</h2><p>Trout, steelhead and salmon water across Southern Ontario and the Great Lakes tributaries. Every guide shows today's season status.</p></div><a class="btn ghost" href="/rivers/">All 26 river guides</a></div>
   <div class="rivers-grid"><a class="river-link" href="/rivers/grand-river-tailwater-shand-dam-to-west-montrose/"><b>Grand River</b><span>Tailwater: Shand Dam to West Montrose</span></a><a class="river-link" href="/rivers/grand-river-lower-caledonia-to-lake-erie-dunnville/"><b>Grand River</b><span>Lower: Caledonia to Lake Erie (Dunnville)</span></a><a class="river-link" href="/rivers/credit-river-lower-mouth-to-streetsville/"><b>Credit River</b><span>Lower: mouth to Streetsville</span></a><a class="river-link" href="/rivers/credit-river-upper-forks-of-the-credit-belfountain/"><b>Credit River</b><span>Upper: Forks of the Credit / Belfountain</span></a><a class="river-link" href="/rivers/ganaraska-river-lower-port-hope-below-the-fishway/"><b>Ganaraska River</b><span>Lower: Port Hope below the fishway</span></a><a class="river-link" href="/rivers/nottawasaga-river-main-stem-angus-to-wasaga/"><b>Nottawasaga River</b><span>Main stem: Angus to Wasaga</span></a><a class="river-link" href="/rivers/nottawasaga-tributaries-mad-boyne-pine-rivers-cold-tribs/"><b>Nottawasaga tributaries</b><span>Mad / Boyne / Pine Rivers (cold tribs)</span></a><a class="river-link" href="/rivers/beaver-river-lower-thornbury-below-the-dam-fishway/"><b>Beaver River</b><span>Lower: Thornbury below the dam/fishway</span></a></div>
-  <p style="text-align:center;margin-top:22px;"><a class="btn ghost" href="/rivers/">See all 26+ rivers &amp; spots →</a></p>
+</div></section>
+
+<section class="section alt"><div class="wrap">
+  <div class="sec-head"><div><h2>From the blog</h2><p>Seasons, techniques and river know-how, written for Ontario water.</p></div><a class="btn ghost" href="/blog/">Read the blog</a></div>
+  <div class="posts"><a href="/blog/ontario-salmon-run-week-by-week/"><img src="/img/site/salmon-run-sm.jpg" alt="A Chinook salmon leaping up a waterfall" loading="lazy"/><h3>Ontario salmon run, week by week</h3><p>When it starts, peaks and ends, and where to watch.</p></a><a href="/blog/where-to-find-brown-trout-in-ontario/"><img src="/img/site/brown-trout-sm.jpg" alt="A brown trout with dark spots and a golden belly" loading="lazy"/><h3>Where to find brown trout in Ontario</h3><p>The water they live in and the rivers known for them.</p></a><a href="/blog/ontario-fishing-seasons-trout-salmon/"><img src="/img/site/forks-of-the-credit-sm.jpg" alt="The Credit River at Forks of the Credit Provincial Park in winter" loading="lazy"/><h3>Ontario fishing seasons for trout and salmon</h3><p>Zones, opening day and the stretches open all year.</p></a><a href="/blog/brook-trout-small-creeks-ontario/"><img src="/img/site/brook-trout-stream-sm.jpg" alt="A wild brook trout over gravel in a cold stream" loading="lazy"/><h3>Brook trout in Ontario's small creeks</h3><p>Finding and fishing our native trout in cold water.</p></a></div>
+</div></section>
+
+<section class="section" id="pricing"><div class="wrap">
+  <h2>Membership</h2>
+  <p class="sub">Every plan starts with 7 free days and every feature. Cancel any time.</p>
+  <div class="price">
+    <div class="plan"><div class="amt">$9.99</div><div class="per">per month</div><p style="color:var(--dim);margin:14px 0;">Billed monthly.</p><a class="btn ghost" href="/">Start free</a></div>
+    <div class="plan best"><div class="tag">Save 50%</div><div class="amt">$5.00</div><div class="per">per month, billed $59.99 a year</div><p style="color:var(--dim);margin:14px 0;">Half the price of paying monthly.</p><a class="btn primary" href="/">Start free</a></div>
+  </div>
 </div></section>
 
 <section class="section alt"><div class="wrap">
   <h2>Questions</h2>
   <div class="faq">
-    <details><summary>What is Muddy York Fishing?</summary><p>A subscription app that gives Southern Ontario trout and salmon anglers daily, per-river fishing intelligence, live conditions, an opportunity score, fly recommendations, depth and likely fish, and access routes.</p></details>
-    <details><summary>Where does it work?</summary><p>Rivers and tributaries across Southern Ontario within about two hours of Toronto, Lake Ontario, Erie, Huron and Georgian Bay systems. Coverage keeps growing.</p></details>
-    <details><summary>Is it for beginners?</summary><p>Yes. It tells you where to go, when it's prime, and what to tie on in plain language, while giving experienced anglers a real data edge.</p></details>
-    <details><summary>Do you share my fishing spots?</summary><p>Never. Your exact GPS and private notes stay private to you. Community activity is shown only at a reach level.</p></details>
-    <details><summary>How much is it?</summary><p>$9.99 a month, or $5.00 a month on the yearly plan (billed $59.99 a year). Both start with a 7-day free trial. Cancel anytime.</p></details>
+    <details><summary>What is Muddy York Fishing?</summary><p>An app for Southern Ontario trout and salmon anglers. Each morning it ranks rivers on live conditions, shows the official season for each stretch, and suggests the technique and flies for the day.</p></details>
+    <details><summary>Where does it work?</summary><p>Rivers and creeks across Southern Ontario, from the Lake Ontario and Lake Erie tributaries to Georgian Bay and Lake Huron. You can also scout new water anywhere within your chosen radius.</p></details>
+    <details><summary>Is it for beginners?</summary><p>Yes. It tells you where to go, when it's good and what to tie on in plain language, and gives experienced anglers the live numbers behind it.</p></details>
+    <details><summary>How accurate are the seasons?</summary><p>They come from the official Ontario Fishing Regulations Summary, checked twice a day, with a link to the exact rule. Always confirm before you fish.</p></details>
+    <details><summary>Do you share my fishing spots?</summary><p>Never. Your exact locations and notes stay private. Community activity is only shown at the river level.</p></details>
+    <details><summary>How much is it?</summary><p>$9.99 a month, or $5.00 a month on the yearly plan (billed $59.99 a year). Both start with 7 free days.</p></details>
   </div>
-  <div class="callout" style="margin-top:34px;"><h3>Ready to fish smarter?</h3><a class="btn primary" href="/">Start your free 7-day trial</a></div>
+</div></section>
+<section class="join" aria-label="Join Muddy York Fishing"><div class="wrap join-inner">
+  <div><h2>Fish the right river tomorrow morning.</h2>
+  <p>Live conditions, today's official season status and the fly to tie on, for 30+ Southern Ontario rivers. Try every feature free for 7 days.</p></div>
+  <div class="join-cta"><a class="btn primary" href="/">Start your 7 free days</a><a class="join-signin" href="/">Already a member? Sign in</a></div>
 </div></section>
 <footer><div class="wrap">
   <div>© 2026 Muddy York Fishing · Southern Ontario trout &amp; salmon intelligence</div>
   <div><a href="/rivers/">Rivers</a><a href="/regions/">Regions</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/">Open the app</a></div>
-  <div style="width:100%;font-size:13px"><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a></div>
+  <div style="width:100%;font-size:13px"><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></div>
 </div></footer>
-
-
+<div class="sticky-cta"><span>7 days free</span><a href="/">Start 7 free days</a></div>
+<script>
+(function(){document.querySelectorAll(".live-status").forEach(function(el){
+  var u="/bk/api/regs/status?id="+encodeURIComponent(el.dataset.reach)+"&sp="+encodeURIComponent(el.dataset.sp||"");
+  fetch(u).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) throw 0;
+    var cls=d.state==="open"?"open":d.state==="closed"?"closed":"check";
+    var label=d.state==="open"?"In season today":d.state==="closed"?"Closed today":d.state==="varies"?"Varies by stretch today":d.state==="some"?"Some species open today":"Check regs today";
+    var st=el.querySelector(".st"); st.className="st "+cls; st.textContent=label;
+    if(d.stretches&&d.stretches.length>1){ el.querySelector(".ls-note").textContent=d.stretches.map(function(s){return s.label+": "+s.stateLabel}).join(" · "); }
+  }).catch(function(){ var st=el.querySelector(".st"); if(st&&/Checking/.test(st.textContent)) st.textContent="Today's status is in the app"; });
+});})();
+</script>
 <script>
 /* First-touch acquisition beacon: shares the sessionStorage flag with the app,
    so the true entry page (this marketing page or the app) is the one recorded. */

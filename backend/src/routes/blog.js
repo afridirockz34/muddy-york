@@ -76,7 +76,8 @@ function indexHtml(posts, pageNo, hasNext) {
   return page({
     title: `Ontario Fishing Blog: Reports & Guides | ${BRAND}`,
     description: "Fishing reports, technique guides and river know-how for Southern Ontario trout, steelhead and salmon anglers.",
-    canonical, body, extraHead: `${BLOG_CSS}\n<link rel="alternate" type="application/rss+xml" title="${esc(BRAND)} blog" href="${SITE_URL}/blog/feed.xml"/>`,
+    canonical, body, photo: { src: "/img/site/fly-fishers.jpg", alt: "An angler wading a clear river with a fly rod", pos: "center 35%" },
+    extraHead: `${BLOG_CSS}\n<link rel="alternate" type="application/rss+xml" title="${esc(BRAND)} blog" href="${SITE_URL}/blog/feed.xml"/>`,
     schema: { "@context": "https://schema.org", "@type": "Blog", name: `${BRAND} blog`, url: `${SITE_URL}/blog/`,
       blogPost: posts.map((p) => ({ "@type": "BlogPosting", headline: p.title, url: postUrl(p), datePublished: p.publishedAt })) },
   });

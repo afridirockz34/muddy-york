@@ -15,6 +15,7 @@ const OUT = ROOT;
 import { SITE_URL, APP_URL, HOME, BRAND, esc, page } from "../lib/site-shell.js";
 import { withBrand } from "./seo-content.mjs";
 import { riverPage, salmonHub, salmonSpotPage, townPage, LIVE_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
+import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
 const src = fs.readFileSync(path.join(ROOT, "source-app.jsx"), "utf8");
@@ -55,59 +56,176 @@ const speciesNames = (keys) => [...new Set((keys || []).map((k) => (SPECIES[k] |
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 // ---- home ----
+// ── Landing page ──
+// One bold moment: a full-bleed river photo with a club card that shows this
+// morning's official season status on three well-known rivers, live. The rest
+// stays quiet: real fish, real app screens, plain prices.
+const HOME_CSS = `<style>
+.mh{position:relative;color:#EFE9DB;background:var(--ink) url('${PHOTOS.elora.src}') center 55%/cover;}
+.mh::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(22,36,27,.92) 0%,rgba(22,36,27,.72) 48%,rgba(22,36,27,.25) 100%);}
+.mh .wrap{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center;padding-top:72px;padding-bottom:84px;}
+.mh h1{color:#fff;font-size:clamp(36px,5.2vw,58px);font-weight:800;line-height:1.05;letter-spacing:-.5px;max-width:13ch;}
+.mh .lede{color:#D9E2D6;font-size:18.5px;line-height:1.6;margin:20px 0 28px;max-width:36rem;}
+.mh .actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
+.mh .actions .btn.primary{font-size:16.5px;padding:15px 26px;}
+.mh .actions a.quiet{color:#EFE9DB;font-weight:600;}
+.mh .fine{font-size:13.5px;color:#AFC0AE;margin-top:14px;}
+.club{background:#F7F2E7;color:var(--text);border-radius:14px;border:1px solid #CDBB86;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;}
+.club-head{display:flex;align-items:center;gap:12px;padding:16px 20px;background:var(--pine);color:#EFE9DB;border-bottom:3px solid var(--gold);}
+.club-head img{width:40px;height:40px;}
+.club-head b{font-family:"Playfair Display",serif;font-size:17px;display:block;color:#fff;}
+.club-head span{font-size:13px;color:#C9D6C7;}
+.club ul{list-style:none;}
+.club li{padding:14px 20px;border-bottom:1px solid var(--line);}
+.club li a{font-family:"Playfair Display",serif;font-weight:700;font-size:17px;color:var(--pine);text-decoration:none;}
+.club li small{display:block;color:var(--dim);font-size:13px;margin-top:1px;}
+.club .live-status{margin:8px 0 0;}
+.club .live-status .ls-note{display:none;}
+.club-foot{padding:16px 20px;background:var(--panel);}
+.club-foot p{font-size:14px;color:var(--dim);margin-bottom:12px;}
+.club-foot .btn{width:100%;text-align:center;}
+.fish{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:34px;}
+.fish a{display:block;text-decoration:none;color:var(--text);background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+.fish img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;}
+.fish div{padding:16px 18px 20px;}
+.fish h3{font-size:21px;}
+.fish p{color:var(--dim);font-size:15px;margin-top:6px;}
+.fish .go{display:inline-block;margin-top:10px;color:var(--brick);font-weight:700;font-size:14.5px;}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:40px;counter-reset:step;}
+.how figure{text-align:left;}
+.how .phone{background:var(--ink);padding:10px;border-radius:30px;box-shadow:0 18px 40px rgba(22,36,27,.25);max-width:260px;margin:0 auto 20px;}
+.how .phone img{display:block;width:100%;border-radius:22px;aspect-ratio:9/16;object-fit:cover;object-position:top;}
+.how figcaption{max-width:300px;margin:0 auto;}
+.how figcaption b{font-family:"Playfair Display",serif;font-size:20px;color:var(--pine);display:block;}
+.how figcaption b::before{counter-increment:step;content:counter(step);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--gold);color:#2f2507;font-family:"Public Sans",sans-serif;font-size:14px;font-weight:800;margin-right:10px;vertical-align:3px;}
+.how figcaption p{color:var(--dim);margin-top:6px;font-size:15px;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
+.split img{width:100%;border-radius:16px;aspect-ratio:5/4;object-fit:cover;display:block;}
+.section .split h2{text-align:left;font-size:32px;}
+.ticks{list-style:none;margin-top:20px;}
+.ticks li{padding:12px 0 12px 34px;border-bottom:1px solid var(--line);position:relative;}
+.ticks li::before{content:"";position:absolute;left:4px;top:18px;width:14px;height:8px;border-left:3px solid var(--pine);border-bottom:3px solid var(--pine);transform:rotate(-45deg);}
+.ticks b{color:var(--pine);}
+.ticks span{display:block;color:var(--dim);font-size:14.5px;margin-top:2px;}
+.run{position:relative;color:#EFE9DB;background:var(--ink) url('${PHOTOS.ganaraska.src}') center/cover;}
+.run::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,36,27,.9),rgba(22,36,27,.55));}
+.run .wrap{position:relative;padding-top:64px;padding-bottom:64px;}
+.run h2{color:#fff;font-size:34px;max-width:18ch;}
+.run p{color:#D3DED1;max-width:560px;margin:14px 0 22px;font-size:17px;}
+.run .spots{display:flex;flex-wrap:wrap;gap:10px;}
+.run .spots a{color:#fff;border:1px solid rgba(239,233,219,.45);border-radius:22px;padding:7px 15px;text-decoration:none;font-weight:600;font-size:14.5px;}
+.posts{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:30px;}
+.posts a{text-decoration:none;color:var(--text);}
+.posts img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:12px;display:block;}
+.posts h3{font-size:17.5px;margin-top:12px;line-height:1.3;}
+.posts p{color:var(--dim);font-size:14px;margin-top:4px;}
+.sec-head{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;}
+.section .sec-head h2{text-align:left;}
+.sec-head p{color:var(--dim);max-width:520px;margin-top:8px;}
+@media(max-width:900px){.mh .wrap,.split{grid-template-columns:1fr;}.fish,.how{grid-template-columns:1fr;}.posts{grid-template-columns:1fr 1fr;}.mh .wrap{padding-top:48px;padding-bottom:56px;}}
+@media(max-width:560px){.posts{grid-template-columns:1fr;}.mh .lede{font-size:17px;}}
+</style>`;
+
 function homeBody() {
-  const feature = (h, p) => `<div class="card"><h3>${h}</h3><p>${p}</p></div>`;
-  const riverPreview = RIVERS.slice(0, 8).map((r) => `<a class="river-link" href="/rivers/${slug(r.river + " " + r.section)}/"><b>${esc(r.river)}</b><span>${esc(r.section)}</span></a>`).join("");
+  const r = (id) => RIVERS.find((x) => x.id === id);
+  const clubRow = (x) => `<li><a href="/rivers/${slug(x.river + " " + x.section)}/">${esc(x.river)}</a><small>${esc(x.section)}</small>
+    <div class="live-status" data-reach="${esc(x.id)}" data-sp="${esc((x.species || []).join(","))}"><span class="st check">Checking today's season</span> <span class="ls-note"></span></div></li>`;
+  const club = ["credit-lower", "grand-tw", "ganaraska"].map(r).filter(Boolean);
+  const riverPreview = RIVERS.slice(0, 8).map((x) => `<a class="river-link" href="/rivers/${slug(x.river + " " + x.section)}/"><b>${esc(x.river)}</b><span>${esc(x.section)}</span></a>`).join("");
+  const posts = [
+    ["ontario-salmon-run-week-by-week", "Ontario salmon run, week by week", "When it starts, peaks and ends, and where to watch.", PHOTOS.salmon],
+    ["where-to-find-brown-trout-in-ontario", "Where to find brown trout in Ontario", "The water they live in and the rivers known for them.", PHOTOS.brownTrout],
+    ["ontario-fishing-seasons-trout-salmon", "Ontario fishing seasons for trout and salmon", "Zones, opening day and the stretches open all year.", PHOTOS.credit],
+    ["brook-trout-small-creeks-ontario", "Brook trout in Ontario's small creeks", "Finding and fishing our native trout in cold water.", PHOTOS.brookTrout],
+  ];
   return `
-<section class="hero"><div class="wrap">
+<section class="mh"><div class="wrap">
   <div>
-    <h1>Know where the fish are, every morning.</h1>
-    <p>${BRAND} reads live conditions on 30+ Southern Ontario trout &amp; salmon rivers, ranks them, and tells you where to go, when it's prime, and what fly to tie on. Spend less time guessing, more time catching.</p>
-    <a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a>
-    &nbsp; <a class="btn ghost" href="/rivers/">Explore the rivers</a>
+    <h1>Know which river is fishing before you leave the house.</h1>
+    <p class="lede">Every morning ${BRAND} checks live water temperature, flow and weather on 30+ Southern Ontario trout and salmon rivers, ranks them, confirms the official season for your stretch, and tells you what to tie on.</p>
+    <div class="actions"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a><a class="quiet" href="${APP_URL}">Sign in</a></div>
+    <p class="fine">No charge for 7 days. Then $5.00 a month on the yearly plan. Cancel any time.</p>
   </div>
-  <div class="art"><img src="/crest.png" alt="${BRAND}"/></div>
-</div></section>
-
-<section class="section" id="features"><div class="wrap">
-  <h2>Fish the right river on the right day</h2>
-  <p class="sub">Real-time river intelligence for fly and conventional anglers across Southern Ontario.</p>
-  <div class="grid">
-    ${feature("Daily opportunity scores", "Every river scored each morning from live water temperature, flow, weather, pressure and the feeding window, so you know before you drive.")}
-    ${feature("Fly &amp; technique picks", "The right patterns, sizes and tactics for today's conditions and the fish that are on, beginner-friendly, expert-approved.")}
-    ${feature("Depth &amp; likely fish", "What's holding where, how big, and what's been stocked nearby, sharpened by real catches logged in the community.")}
-    ${feature("Spot discovery &amp; routes", "Find new water within your radius, with parking and walk-in routes to the river.")}
-    ${feature("Log catches &amp; keep notes", "Track your catches and drop private GPS pins. Your exact spots always stay private.")}
-    ${feature("A growing club", "New rivers and spots added all the time. Your map only gets better the longer you're a member.")}
-  </div>
-</div></section>
-
-<section class="section alt" id="pricing"><div class="wrap">
-  <h2>Membership</h2>
-  <p class="sub">Start with a 7-day free trial. Cancel anytime.</p>
-  <div class="price">
-    <div class="plan"><div class="amt">$9.99</div><div class="per">per month</div><p style="color:var(--dim);margin:14px 0;">Full access, billed monthly.</p><a class="btn ghost" href="${APP_URL}">Start free</a></div>
-    <div class="plan best"><div class="tag">Save 50%</div><div class="amt">$5.00</div><div class="per">per month, billed $59.99 a year</div><p style="color:var(--dim);margin:14px 0;">Half the price of paying monthly.</p><a class="btn primary" href="${APP_URL}">Start free</a></div>
-  </div>
+  <aside class="club" aria-label="This morning's season status">
+    <div class="club-head"><img src="/crest.png" alt=""/><div><b>This morning on the water</b><span>Official Ontario season status, checked twice a day</span></div></div>
+    <ul>${club.map(clubRow).join("")}</ul>
+    <div class="club-foot"><p>Members also see each river's score, water temperature, flow and today's fly.</p><a class="btn primary" href="${APP_URL}">See today's scores</a></div>
+  </aside>
 </div></section>
 
 <section class="section"><div class="wrap">
-  <h2>Rivers we cover</h2>
-  <p class="sub">Trout, steelhead and salmon water across Southern Ontario and the Great Lakes tributaries.</p>
+  <div class="sec-head"><div><h2>Three fish, three kinds of water</h2><p>Southern Ontario is one of the best trout and salmon regions in North America, if you're on the right water on the right day.</p></div></div>
+  <div class="fish">
+    <a href="/blog/brook-trout-small-creeks-ontario/"><img src="${PHOTOS.brookTrout.sm}" alt="${esc(PHOTOS.brookTrout.alt)}" loading="lazy"/><div><h3>Brook trout</h3><p>Ontario's native trout, in small spring-fed creeks that stay cold all summer.</p><span class="go">Finding creek brookies</span></div></a>
+    <a href="/blog/where-to-find-brown-trout-in-ontario/"><img src="${PHOTOS.brownTrout.sm}" alt="${esc(PHOTOS.brownTrout.alt)}" loading="lazy"/><div><h3>Brown trout</h3><p>Wary fish of tailwaters, undercut banks and fallen timber. Best at first and last light.</p><span class="go">Where browns live</span></div></a>
+    <a href="/guides/steelhead-fishing-ontario/"><img src="${PHOTOS.steelhead.sm}" alt="${esc(PHOTOS.steelhead.alt)}" loading="lazy"/><div><h3>Steelhead and salmon</h3><p>Lake-run fish that push up the tributaries on fresh rain, from August through spring.</p><span class="go">The steelhead guide</span></div></a>
+  </div>
+</div></section>
+
+<section class="section alt" id="how"><div class="wrap">
+  <h2>How a morning with the app goes</h2>
+  <p class="sub">Two minutes over coffee, and you know where you're going.</p>
+  <div class="how">
+    <figure><div class="phone"><img src="/img/app/rivers-ranked.jpg" alt="The app ranking rivers by today's fishing opportunity" loading="lazy"/></div>
+      <figcaption><b>See every river ranked</b><p>Rivers near you, scored 0 to 100 from live water temperature, flow, pressure and weather, with the official season shown on each.</p></figcaption></figure>
+    <figure><div class="phone"><img src="/img/app/river-report.jpg" alt="A river report on the map with conditions and likely fish" loading="lazy"/></div>
+      <figcaption><b>Open the river's report</b><p>Conditions, the fish likely holding there, parking and directions, all on one screen.</p></figcaption></figure>
+    <figure><div class="phone"><img src="/img/app/flies.jpg" alt="Today's recommended approach and flies for a river" loading="lazy"/></div>
+      <figcaption><b>Tie on the right fly</b><p>The approach for today's water, the flies and sizes to use, and how to fish them.</p></figcaption></figure>
+  </div>
+  <p style="text-align:center;margin-top:34px;"><a class="btn primary" href="${APP_URL}">Try it free for 7 days</a></p>
+</div></section>
+
+<section class="section" id="features"><div class="wrap split">
+  <img src="${PHOTOS.flyFishers.sm}" alt="${esc(PHOTOS.flyFishers.alt)}" loading="lazy"/>
+  <div>
+    <h2>Everything a member gets</h2>
+    <ul class="ticks">
+      <li><b>Today's season, from the official rules</b><span>Synced from the Ontario Fishing Regulations Summary twice a day, stretch by stretch, with a link to the exact rule.</span></li>
+      <li><b>Scout rivers and creeks near you</b><span>Find new water within your radius, ranked with open water first.</span></li>
+      <li><b>Parking and walk-in routes</b><span>The nearest public parking and the walk to the water.</span></li>
+      <li><b>Alerts when a saved river turns prime</b><span>One heads-up when it happens, never a flood of them.</span></li>
+      <li><b>Your catch log and private notes</b><span>Your spots stay yours. We never share exact locations.</span></li>
+    </ul>
+    <p style="margin-top:24px;"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a></p>
+  </div>
+</div></section>
+
+<section class="run"><div class="wrap">
+  <h2>Salmon run season, late August to November</h2>
+  <p>Chinook push up Lake Ontario rivers on every fall rain. Our guides show where to watch, when it peaks, and which stretches are open to fish.</p>
+  <div class="spots">${SALMON_SPOTS.map((x) => `<a href="/salmon-run/${x.slug}/">${esc(x.place)}</a>`).join("")}<a href="/salmon-run/">All salmon run spots</a></div>
+</div></section>
+
+<section class="section"><div class="wrap">
+  <div class="sec-head"><div><h2>Rivers we cover</h2><p>Trout, steelhead and salmon water across Southern Ontario and the Great Lakes tributaries. Every guide shows today's season status.</p></div><a class="btn ghost" href="/rivers/">All ${RIVERS.length} river guides</a></div>
   <div class="rivers-grid">${riverPreview}</div>
-  <p style="text-align:center;margin-top:22px;"><a class="btn ghost" href="/rivers/">See all ${RIVERS.length}+ rivers &amp; spots →</a></p>
+</div></section>
+
+<section class="section alt"><div class="wrap">
+  <div class="sec-head"><div><h2>From the blog</h2><p>Seasons, techniques and river know-how, written for Ontario water.</p></div><a class="btn ghost" href="/blog/">Read the blog</a></div>
+  <div class="posts">${posts.map(([slugp, t, d, ph]) => `<a href="/blog/${slugp}/"><img src="${ph.sm}" alt="${esc(ph.alt)}" loading="lazy"/><h3>${esc(t)}</h3><p>${esc(d)}</p></a>`).join("")}</div>
+</div></section>
+
+<section class="section" id="pricing"><div class="wrap">
+  <h2>Membership</h2>
+  <p class="sub">Every plan starts with 7 free days and every feature. Cancel any time.</p>
+  <div class="price">
+    <div class="plan"><div class="amt">$9.99</div><div class="per">per month</div><p style="color:var(--dim);margin:14px 0;">Billed monthly.</p><a class="btn ghost" href="${APP_URL}">Start free</a></div>
+    <div class="plan best"><div class="tag">Save 50%</div><div class="amt">$5.00</div><div class="per">per month, billed $59.99 a year</div><p style="color:var(--dim);margin:14px 0;">Half the price of paying monthly.</p><a class="btn primary" href="${APP_URL}">Start free</a></div>
+  </div>
 </div></section>
 
 <section class="section alt"><div class="wrap">
   <h2>Questions</h2>
   <div class="faq">
-    <details><summary>What is ${BRAND}?</summary><p>A subscription app that gives Southern Ontario trout and salmon anglers daily, per-river fishing intelligence, live conditions, an opportunity score, fly recommendations, depth and likely fish, and access routes.</p></details>
-    <details><summary>Where does it work?</summary><p>Rivers and tributaries across Southern Ontario within about two hours of Toronto, Lake Ontario, Erie, Huron and Georgian Bay systems. Coverage keeps growing.</p></details>
-    <details><summary>Is it for beginners?</summary><p>Yes. It tells you where to go, when it's prime, and what to tie on in plain language, while giving experienced anglers a real data edge.</p></details>
-    <details><summary>Do you share my fishing spots?</summary><p>Never. Your exact GPS and private notes stay private to you. Community activity is shown only at a reach level.</p></details>
-    <details><summary>How much is it?</summary><p>$9.99 a month, or $5.00 a month on the yearly plan (billed $59.99 a year). Both start with a 7-day free trial. Cancel anytime.</p></details>
+    <details><summary>What is ${BRAND}?</summary><p>An app for Southern Ontario trout and salmon anglers. Each morning it ranks rivers on live conditions, shows the official season for each stretch, and suggests the technique and flies for the day.</p></details>
+    <details><summary>Where does it work?</summary><p>Rivers and creeks across Southern Ontario, from the Lake Ontario and Lake Erie tributaries to Georgian Bay and Lake Huron. You can also scout new water anywhere within your chosen radius.</p></details>
+    <details><summary>Is it for beginners?</summary><p>Yes. It tells you where to go, when it's good and what to tie on in plain language, and gives experienced anglers the live numbers behind it.</p></details>
+    <details><summary>How accurate are the seasons?</summary><p>They come from the official Ontario Fishing Regulations Summary, checked twice a day, with a link to the exact rule. Always confirm before you fish.</p></details>
+    <details><summary>Do you share my fishing spots?</summary><p>Never. Your exact locations and notes stay private. Community activity is only shown at the river level.</p></details>
+    <details><summary>How much is it?</summary><p>$9.99 a month, or $5.00 a month on the yearly plan (billed $59.99 a year). Both start with 7 free days.</p></details>
   </div>
-  <div class="callout" style="margin-top:34px;"><h3>Ready to fish smarter?</h3><a class="btn primary" href="${APP_URL}">Start your free 7-day trial</a></div>
 </div></section>`;
 }
 
@@ -367,7 +485,8 @@ fs.copyFileSync(path.join(ROOT, "icons", "crest.png"), path.join(OUT, "crest.png
 fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   title: withBrand("Ontario Fishing App: River Conditions & Regulations"),
   description: "Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout & salmon rivers. Start free.",
-  canonical: SITE_URL + "/fishing/", body: homeBody(),
+  canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: HOME_CSS, tail: LIVE_STATUS_SCRIPT, stickyCta: "Start 7 free days",
+  ogImage: SITE_URL + PHOTOS.elora.src,
   schema: { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
     operatingSystem: "Web, iOS", offers: { "@type": "Offer", price: "9.99", priceCurrency: "CAD" }, url: SITE_URL },
 }));
@@ -380,7 +499,7 @@ for (const r of RIVERS) {
   const pg = riverPage(r);
   fs.writeFileSync(path.join(dir, "index.html"), page({
     title: withBrand(pg.title), description: pg.description, canonical: `${SITE_URL}/rivers/${s}/`,
-    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT,
+    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT, photo: riverPhoto(r), ogImage: SITE_URL + riverPhoto(r).src,
   }));
   urls.push(`${SITE_URL}/rivers/${s}/`);
 }
@@ -390,13 +509,14 @@ fs.mkdirSync(path.join(OUT, "salmon-run"), { recursive: true });
 {
   const hub = salmonHub();
   fs.writeFileSync(path.join(OUT, "salmon-run", "index.html"), page({ title: withBrand(hub.title), description: hub.description,
-    canonical: `${SITE_URL}/salmon-run/`, body: hub.body, schema: hub.schema, stickyCta: hub.stickyCta }));
+    canonical: `${SITE_URL}/salmon-run/`, body: hub.body, schema: hub.schema, stickyCta: hub.stickyCta, photo: { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
   urls.push(`${SITE_URL}/salmon-run/`);
   for (const sp of SALMON_SPOTS) {
     const dir = path.join(OUT, "salmon-run", sp.slug); fs.mkdirSync(dir, { recursive: true });
     const pg = salmonSpotPage(sp);
     fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(pg.title), description: pg.description,
-      canonical: `${SITE_URL}/salmon-run/${sp.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT }));
+      canonical: `${SITE_URL}/salmon-run/${sp.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT,
+      photo: sp.slug.includes("ganaraska") ? PHOTOS.ganaraska : { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
     urls.push(`${SITE_URL}/salmon-run/${sp.slug}/`);
   }
 }
@@ -407,7 +527,8 @@ for (const t of TOWNS) {
   const dir = path.join(OUT, "fishing-spots", t.slug); fs.mkdirSync(dir, { recursive: true });
   const pg = townPage(t);
   fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(pg.title), description: pg.description,
-    canonical: `${SITE_URL}/fishing-spots/${t.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT }));
+    canonical: `${SITE_URL}/fishing-spots/${t.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT,
+    photo: [PHOTOS.wading, PHOTOS.flyFishers, PHOTOS.creek, PHOTOS.ganaraska][TOWNS.indexOf(t) % 4], ogImage: SITE_URL + PHOTOS.wading.src }));
   urls.push(`${SITE_URL}/fishing-spots/${t.slug}/`);
 }
 fs.writeFileSync(path.join(OUT, "fishing-spots", "index.html"), page({
@@ -451,7 +572,9 @@ for (const g of GUIDES) {
   const dir = path.join(OUT, "guides", g.slug);
   fs.mkdirSync(dir, { recursive: true });
   const { body, schema } = guideBody(g);
-  fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(g.title), description: g.desc, canonical: `${SITE_URL}/guides/${g.slug}/`, body, schema, stickyCta: "Start free" }));
+  const gph = { "steelhead-fishing-ontario": PHOTOS.steelhead, "salmon-run-ontario": { ...PHOTOS.salmon, pos: "center 40%" }, "fly-fishing-near-toronto": PHOTOS.flyFishers,
+    "brown-trout-fishing-ontario": PHOTOS.brownTrout, "float-fishing-for-steelhead": PHOTOS.wading, "ontario-trout-opener": PHOTOS.creek }[g.slug] || PHOTOS.rainbow;
+  fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(g.title), description: g.desc, canonical: `${SITE_URL}/guides/${g.slug}/`, body, schema, stickyCta: "Start free", photo: gph, ogImage: SITE_URL + gph.src }));
   urls.push(`${SITE_URL}/guides/${g.slug}/`);
 }
 const guidesIndexBody = `
@@ -474,7 +597,8 @@ for (const g of REGIONS) {
   const dir = path.join(OUT, "regions", g.slug);
   fs.mkdirSync(dir, { recursive: true });
   const { body, schema } = regionBody(g);
-  fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(g.title), description: g.desc, canonical: `${SITE_URL}/regions/${g.slug}/`, body, schema, stickyCta: "Start free" }));
+  const rph = g.slug === "grand-river" ? PHOTOS.elora : g.slug === "georgian-bay-lake-huron" ? PHOTOS.creek : g.slug === "toronto-area-rivers" ? PHOTOS.credit : PHOTOS.ganaraska;
+  fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(g.title), description: g.desc, canonical: `${SITE_URL}/regions/${g.slug}/`, body, schema, stickyCta: "Start free", photo: rph, ogImage: SITE_URL + rph.src }));
   urls.push(`${SITE_URL}/regions/${g.slug}/`);
 }
 const regionsIndexBody = `
@@ -584,6 +708,21 @@ ${g.body}
   fs.writeFileSync(path.join(dir, "index.html"), page({ title: `${g.title} | ${BRAND}`, description: g.desc, canonical: `${SITE_URL}/${g.slug}/`, body }));
   urls.push(`${SITE_URL}/${g.slug}/`);
 }
+
+// photo credits
+fs.mkdirSync(path.join(OUT, "photo-credits"), { recursive: true });
+fs.writeFileSync(path.join(OUT, "photo-credits", "index.html"), page({
+  title: `Photo credits | ${BRAND}`, description: "Credits and licences for the photographs used on the Muddy York Fishing website, all from Wikimedia Commons.",
+  canonical: `${SITE_URL}/photo-credits/`,
+  body: `<section class="section"><div class="wrap"><article class="prose">
+<div class="crumbs"><a href="${HOME}">Home</a> › Photo credits</div>
+<h1>Photo credits</h1>
+<p>The photographs on this site come from Wikimedia Commons. Thank you to the photographers who share their work.</p>
+<ul>${creditRows().map((p) => `<li><a href="${p.fileUrl}" rel="noopener">${esc(p.alt)}</a>, by ${esc(p.credit)}, ${p.licenceUrl ? `<a href="${p.licenceUrl}" rel="noopener">${esc(p.licence)}</a>` : esc(p.licence)}.</li>`).join("")}</ul>
+<p>Images marked CC BY-SA were resized and compressed for the web.</p>
+</article></div></section>`,
+}));
+urls.push(`${SITE_URL}/photo-credits/`);
 
 // sitemap + robots
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),

@@ -51,12 +51,12 @@ const liveStatus = (r) => `<div class="live-status" data-reach="${esc(r.id)}" da
 export const LIVE_STATUS_SCRIPT = `<script>
 (function(){document.querySelectorAll(".live-status").forEach(function(el){
   var u="/bk/api/regs/status?id="+encodeURIComponent(el.dataset.reach)+"&sp="+encodeURIComponent(el.dataset.sp||"");
-  fetch(u).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) return;
+  fetch(u).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) throw 0;
     var cls=d.state==="open"?"open":d.state==="closed"?"closed":"check";
     var label=d.state==="open"?"In season today":d.state==="closed"?"Closed today":d.state==="varies"?"Varies by stretch today":d.state==="some"?"Some species open today":"Check regs today";
     var st=el.querySelector(".st"); st.className="st "+cls; st.textContent=label;
     if(d.stretches&&d.stretches.length>1){ el.querySelector(".ls-note").textContent=d.stretches.map(function(s){return s.label+": "+s.stateLabel}).join(" · "); }
-  }).catch(function(){});
+  }).catch(function(){ var st=el.querySelector(".st"); if(st&&/Checking/.test(st.textContent)) st.textContent="Today's status is in the app"; });
 });})();
 </script>`;
 

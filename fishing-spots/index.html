@@ -100,6 +100,19 @@ table.months td.m3{color:var(--pine);font-weight:700;}table.months td.m2{color:v
 @media(max-width:820px){.sticky-cta{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--pine);border-top:2px solid var(--gold);gap:10px;align-items:center;justify-content:space-between;}
 .sticky-cta span{color:#EFE9DB;font-size:13px;}.sticky-cta a{background:var(--brick);color:#fff;text-decoration:none;font-weight:700;padding:10px 14px;border-radius:9px;font-size:14px;white-space:nowrap;}
 body.has-sticky{padding-bottom:70px;}}
+.nav .links a.signin{color:#EFE9DB;border:1px solid rgba(239,233,219,.35);padding:7px 14px;border-radius:8px;}
+.page-photo{height:clamp(150px,24vw,280px);background-size:cover;background-color:var(--pine);position:relative;}
+.page-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,36,27,.05),rgba(22,36,27,.35));}
+.join{background:linear-gradient(90deg,rgba(22,36,27,.94),rgba(22,36,27,.78)),url('/img/site/wading-anglers.jpg') center 40%/cover;color:#EFE9DB;padding:56px 0;border-top:3px solid var(--gold);}
+.join-inner{display:grid;grid-template-columns:1.4fr 1fr;gap:28px;align-items:center;}
+.join h2{color:#fff;font-size:30px;text-align:left;}
+.join p{color:#CBD8C9;margin-top:10px;max-width:560px;}
+.join-cta{display:flex;flex-direction:column;align-items:flex-start;gap:12px;}
+.join-signin{color:#EFE9DB;font-weight:600;}
+.btn{transition:transform .15s ease,background .15s ease;}
+.btn.primary:hover{background:#7a3328;}
+.btn:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:3px;}
+@media(max-width:820px){.join-inner{grid-template-columns:1fr;}.join h2{font-size:25px;}.nav .links a.signin{display:none;}}
 @media(max-width:820px){.hero .wrap{grid-template-columns:1fr;}.hero .art{order:-1;}.grid{grid-template-columns:1fr;}.price{grid-template-columns:1fr;}.nav .links a:not(.cta){display:none;}}
 </style>
 
@@ -108,18 +121,24 @@ body.has-sticky{padding-bottom:70px;}}
 <header class="nav"><div class="wrap">
   <a class="brand" href="/fishing/"><img src="/crest.png" alt="Muddy York Fishing crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links">
-    <a href="/rivers/">Rivers</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-    <a class="cta" href="/">Start free</a>
+    <a href="/rivers/">Rivers</a><a href="/salmon-run/">Salmon run</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
+    <a class="signin" href="/">Sign in</a><a class="cta" href="/">Start free</a>
   </nav>
 </div></header>
+
 <section class="section"><div class="wrap"><article class="prose"><h1>Ontario fishing spots by town</h1>
 <p>Pick your town to see the closest trout, steelhead and salmon rivers, what's in them and whether they're open today.</p>
 <div class="rivers-grid"><a class="river-link" href="/fishing-spots/toronto/"><b>Toronto</b><span>Rivers for Salmon &amp; Trout</span></a><a class="river-link" href="/fishing-spots/mississauga/"><b>Mississauga</b><span>Credit River Salmon &amp; Trout</span></a><a class="river-link" href="/fishing-spots/oakville/"><b>Oakville</b><span>Bronte &amp; Sixteen Mile Creek</span></a><a class="river-link" href="/fishing-spots/hamilton/"><b>Hamilton</b><span>Trout &amp; Steelhead Rivers</span></a><a class="river-link" href="/fishing-spots/ajax-pickering/"><b>Ajax and Pickering</b><span>Duffins Creek Salmon</span></a><a class="river-link" href="/fishing-spots/oshawa-bowmanville/"><b>Oshawa and Bowmanville</b><span>Salmon Run Creeks</span></a><a class="river-link" href="/fishing-spots/port-hope/"><b>Port Hope</b><span>Ganaraska River &amp; Salmon Run</span></a><a class="river-link" href="/fishing-spots/barrie/"><b>Barrie</b><span>Nottawasaga &amp; Trout Streams</span></a><a class="river-link" href="/fishing-spots/owen-sound/"><b>Owen Sound</b><span>Sydenham River &amp; Georgian Bay</span></a><a class="river-link" href="/fishing-spots/collingwood/"><b>Collingwood</b><span>Beaver &amp; Bighead Rivers</span></a><a class="river-link" href="/fishing-spots/guelph/"><b>Guelph</b><span>Grand River Trout at Fergus &amp; Elora</span></a><a class="river-link" href="/fishing-spots/niagara/"><b>Niagara Falls and St. Catharines</b><span>Lower Niagara</span></a></div>
 <p style="margin-top:18px;"><a href="/rivers/">All river guides →</a> · <a href="/salmon-run/">Ontario salmon run →</a> · <a href="/regulations/">Regulations by zone →</a></p></article></div></section>
+<section class="join" aria-label="Join Muddy York Fishing"><div class="wrap join-inner">
+  <div><h2>Fish the right river tomorrow morning.</h2>
+  <p>Live conditions, today's official season status and the fly to tie on, for 30+ Southern Ontario rivers. Try every feature free for 7 days.</p></div>
+  <div class="join-cta"><a class="btn primary" href="/">Start your 7 free days</a><a class="join-signin" href="/">Already a member? Sign in</a></div>
+</div></section>
 <footer><div class="wrap">
   <div>© 2026 Muddy York Fishing · Southern Ontario trout &amp; salmon intelligence</div>
   <div><a href="/rivers/">Rivers</a><a href="/regions/">Regions</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/">Open the app</a></div>
-  <div style="width:100%;font-size:13px"><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a></div>
+  <div style="width:100%;font-size:13px"><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></div>
 </div></footer>
 
 
