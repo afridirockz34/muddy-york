@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm, isRiverSpot } from "./lib/discovery.js";
+import { coldWaterIndex, surveyedTroutSalmon } from "./lib/cold-water.js";
+import { RUN_SPOTS, RUN_STATES, RUN_LABEL } from "./lib/run-spots.js";
+import { scoreAccuracy } from "./lib/score-accuracy.js";
 import { elevations } from "./lib/terrain.js";
 import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
@@ -545,8 +548,22 @@ function sectionLabel(s){
 function waterLabel(s){ return s.waterType==="lake"?"Lake / launch":s.waterType==="stream"?"Named stream":"Named river"; }
 function discoveredNote(s, t){ return `Auto-discovered from OpenStreetMap${t.isTailwater?" below a dam (likely cold tailwater)":""}. Habitat and species are estimated from terrain — confirm access, regulations and seasons before fishing.`; }
 
+// Ontario's stream records for scouted spots: the thermal class and the trout
+// and salmon its surveys found, which join the species we inferred. Runs after
+// the spots are on screen, and only for spots that don't have it yet.
+async function enrichStream(list){
+  const need=list.filter(s=>s.thermal===undefined);
+  if(!API_BASE||!need.length) return null;
+  try{ const d=await proxyJSON("/api/stream-info",{method:"POST",body:{points:need.map(s=>({lat:s.lat,lon:s.lon,name:s.river}))}});
+    const by={};
+    (d.points||[]).forEach((p,i)=>{ if(!p) return; const sec=need[i];
+      const surveyed=surveyedTroutSalmon(p.species,{nearGreatLakeKm:nearGreatLakeKm(sec.lat,sec.lon)});
+      by[sec.id]={thermal:p.thermal||null,surveyed}; });
+    return by;
+  }catch(e){ return null; }
+}
 async function discoverSecs(loc, radiusM){
-  const key=`disco3:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v3: several spots per river, zones
+  const key=`disco4:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v4: + official thermal class and survey species
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<(c.partial?3600e3:7*864e5)) return {list:c.list,zoneB:c.zoneB||{}}; }catch(e){}
   const body="data="+encodeURIComponent(buildOverpassQuery(loc.lat,loc.lon,radiusM));
   const directOverpass=async()=>{ const res=await fetchWithFallback(OVERPASS_HOSTS,
@@ -957,6 +974,74 @@ function SeasonStrip({sec,m}){
 /* ============================== MAP VIEW ================================== */
 /* Leaflet + markercluster are loaded from CDN in index.html (window.L). The map
    is an online feature; offline it shows a graceful note and the other tabs work. */
+// A river's full report: header, actions, conditions, gauge, likely fish,
+// parking and the strategy. Shared by the map sheet and the saved-rivers sheet.
+function RiverReportBody({ev,m,premium,onUpgrade,signedIn,activity={},distOf=()=>null,isSaved=()=>false,onToggleSave,onClose,parking:parkingIn}){
+  const sec=ev.sec;
+  const [own,setOwn]=useState(undefined);
+  useEffect(()=>{ if(parkingIn!==undefined) return; let live=true; setOwn("loading");
+    fetchParking(sec.lat,sec.lon).then(r=>{ if(live) setOwn(r===null?"error":r); }); return ()=>{ live=false; }; },[sec.id,parkingIn===undefined]); // eslint-disable-line react-hooks/exhaustive-deps
+  const parking=parkingIn!==undefined?parkingIn:own;
+  const nearestP = (Array.isArray(parking)&&parking.length) ? parking.reduce((b,p)=>{ const d=distM(sec.lat,sec.lon,p.lat,p.lon); return (!b||d<b.d)?{p,d}:b; },null) : null;
+  const walk = nearestP? walkEst(nearestP.d) : null;
+  const small={fontSize:12,color:C.textDim,lineHeight:1.45,marginBottom:8};
+  return (<>
+      <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,minWidth:0}}>{ev.sec.river}</div>
+            {onToggleSave && <StarButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}
+          </div>
+          <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}</div>
+          {distOf(ev.sec)!=null && <div style={{display:"flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:14,fontWeight:700,color:C.pine,marginTop:4}}><Icon name="pin" size={14}/>{distOf(ev.sec)} km away</div>}
+        </div>
+        <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
+        <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
+      </div>
+      <ActionBar ev={ev} signedIn={signedIn}/>
+      <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
+      <RiverIntel sec={ev.sec} cond={ev.cond}/>
+      <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
+      <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
+      <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
+        <AdvHead t="Parking & directions"/>
+        <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & directions">
+        {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
+        {parking==="error" && <div style={small}>Couldn't load parking just now — try again shortly.</div>}
+        {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
+        {Array.isArray(parking)&&parking.length>0 && (<>
+          <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
+            <a href={directionsUrl(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
+            <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.line,color:C.textDim,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="pin" size={15}/>Access</a>
+          </div>
+        </>)}
+        </Locked>
+        <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
+      </div>
+      <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
+  </>);
+}
+
+// The saved-river report as a bottom sheet that slides up over the page.
+function ReportSheet({ev,onClose,...rest}){
+  useScrollLock();
+  const [closing,setClosing]=useState(false);
+  const close=useCallback(()=>{ setClosing(true); setTimeout(onClose,230); },[onClose]);
+  useEffect(()=>{ const h=e=>{ if(e.key==="Escape") close(); }; window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h); },[close]);
+  return (<div onClick={close} className={"mk-rs"+(closing?" mk-closing":"")} style={{...sheetOverlay,zIndex:2400}}>
+    <style>{`.mk-rs{animation:mkRsFade .22s ease-out both}.mk-rs .mk-rs-panel{animation:mkRsUp .34s cubic-bezier(.22,.9,.3,1) both}
+.mk-rs.mk-closing{animation:mkRsFadeOut .23s ease-in both}.mk-rs.mk-closing .mk-rs-panel{animation:mkRsDown .23s ease-in both}
+@keyframes mkRsFade{from{opacity:0}to{opacity:1}}@keyframes mkRsFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes mkRsUp{from{transform:translateY(100%)}to{transform:none}}@keyframes mkRsDown{from{transform:none}to{transform:translateY(100%)}}
+@media (prefers-reduced-motion:reduce){.mk-rs,.mk-rs .mk-rs-panel{animation:none!important}}`}</style>
+    <div onClick={e=>e.stopPropagation()} className="mk-rs-panel" role="dialog" aria-label={`${ev.sec.river} report`}
+      style={{...sheetPanel,maxWidth:560,height:"86vh",maxHeight:"86vh",padding:"10px 16px calc(18px + env(safe-area-inset-bottom))"}}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>
+      <RiverReportBody ev={ev} onClose={close} {...rest}/>
+    </div>
+  </div>);
+}
 function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,activity={}}){
   const elRef=useRef(null), mapRef=useRef(null), clusterRef=useRef(null), userRef=useRef(null);
   const overlayRef=useRef(null), rankedRef=useRef(ranked);
@@ -1125,39 +1210,8 @@ function MapView({ranked,userLoc,radiusM,m,distOf,isSaved,onToggleSave,premium=t
          background:C.panel,borderRadius:"18px 18px 0 0",padding:"10px 16px calc(18px + env(safe-area-inset-bottom))",boxShadow:"0 -10px 30px rgba(0,0,0,.28)",zIndex:1300}
       : {position:"absolute",left:8,right:8,bottom:full?"calc(14px + env(safe-area-inset-bottom))":30,maxHeight:full?"72%":"66%",overflowY:"auto",overscrollBehavior:"contain",background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,boxShadow:"0 8px 28px rgba(0,0,0,.28)",zIndex:1300}}>
       {inspect && <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>}
-      <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine,minWidth:0}}>{ev.sec.river}</div>
-            {onToggleSave && <StarButton saved={isSaved(ev.sec.id)} onClick={()=>onToggleSave(ev.sec)}/>}
-          </div>
-          <div style={{fontSize:12,color:C.textDim}}>{ev.sec.section}</div>
-          {distOf(ev.sec)!=null && <div style={{display:"flex",alignItems:"center",gap:5,fontFamily:sans,fontSize:14,fontWeight:700,color:C.pine,marginTop:4}}><Icon name="pin" size={14}/>{distOf(ev.sec)} km away</div>}
-        </div>
-        <Gauge value={ev.opportunity} size={58} stroke={6} label="Opp."/>
-        <button onClick={closeSel} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:2,display:"flex"}}><Icon name="close" size={19}/></button>
-      </div>
-      <ActionBar ev={ev} signedIn={signedIn}/>
-      <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
-      <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
-      <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
-      <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
-        <AdvHead t="Parking & directions"/>
-        <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & directions">
-        {parking==="loading" && <div style={small}>Looking for parking nearby…</div>}
-        {parking==="error" && <div style={small}>Couldn't load parking just now — try again shortly.</div>}
-        {Array.isArray(parking)&&parking.length===0 && <div style={small}>No mapped parking within 1.5 km. Check access at the spot itself.</div>}
-        {Array.isArray(parking)&&parking.length>0 && (<>
-          <div style={small}>{parking.length} parking option{parking.length>1?"s":""} nearby. Nearest: <b style={{color:C.text}}>{nearestP.p.name||nearestP.p.type}</b> — about <b style={{color:C.text}}>{walk.min} min walk</b> ({walk.km} km) to the water.</div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
-            <a href={directionsUrl(nearestP.p.lat,nearestP.p.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.pine,color:C.pine,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="map" size={15}/>Directions</a>
-            <a href={gmapsPin(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" style={{...btnBig,borderColor:C.line,color:C.textDim,textDecoration:"none",fontSize:12.5,padding:"8px 12px"}}><Icon name="pin" size={15}/>Access</a>
-          </div>
-        </>)}
-        </Locked>
-        <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:8,lineHeight:1.4}}>Parking from OpenStreetMap · driving via OSRM · the walk is a straight-line estimate. Confirm access and legality on site.</div>
-      </div>
-      <Advisor ev={ev} m={m} premium={premium} onUpgrade={onUpgrade}/>
+      <RiverReportBody ev={ev} m={m} premium={premium} onUpgrade={onUpgrade} signedIn={signedIn} activity={activity}
+        distOf={distOf} isSaved={isSaved} onToggleSave={onToggleSave} onClose={closeSel} parking={parking}/>
     </div>)}
   </div></div>);
 }
@@ -1381,7 +1435,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
     <div style={{fontSize:11,color:C.textFaint,marginTop:9,lineHeight:1.5}}>Posts are public. Your exact GPS is never shared — tag a river if you want to add context.</div>
   </div>);
 }
-function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
+function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, premium=false, onUpgrade, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1441,6 +1495,7 @@ function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, 
   const postProps={me,onToggleLike,onDelete:onDeletePost,onReport,onBlock,onCommentDelta,onSetName,onSignIn,onOpenProfile};
 
   return (<div>
+    <RunTracker premium={premium} signedIn={!!(me&&me.user)} onUpgrade={onUpgrade}/>
     <SectionTitle t="The Feed"/>
     <Composer me={me} onCreatePost={onCreatePost} onSetName={onSetName} onSignIn={onSignIn}/>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
@@ -1570,7 +1625,8 @@ export default function App(){
   const noteSinceRef=useRef(null), noteSyncedRef=useRef([]);
   const [providers,setProviders]=useState({google:true,apple:false});
   const gateArmedRef=useRef(false);
-  const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ const m=await proxyJSON("/auth/me"); setMe(m); dbSet("me:last",m); }catch{ setMe(prev=>prev&&prev.user?prev:{user:null,entitlement:"free"}); } },[]);
+  const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ const m=await proxyJSON("/auth/me"); setMe(m); dbSet("me:last",m);
+    if(m&&m.user){ try{ localStorage.setItem("mkMember","1"); }catch{} } }catch{ setMe(prev=>prev&&prev.user?prev:{user:null,entitlement:"free"}); } },[]);
   useEffect(()=>{ if(API_BASE) proxyJSON("/auth/providers").then(setProviders).catch(()=>{}); },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   // A free user tapping a locked feature goes straight to the subscription page;
@@ -1731,6 +1787,11 @@ export default function App(){
     dbSet("discovered:last",{lat:loc.lat,lon:loc.lon,radius:want,list:out.list,ts:Date.now()});
     await refreshDiscoWx(out.list);
     setDiscoStatus("done");
+    enrichStream(out.list).then(by=>{ if(!by||!Object.keys(by).length) return;
+      const merge=l=>l.map(x=>by[x.id]?{...x,...by[x.id],species:[...new Set([...by[x.id].surveyed,...(x.species||[])])]}:x);
+      setDiscovered(prev=>{ const next=merge(prev); dbSet("discovered:last",{lat:loc.lat,lon:loc.lon,radius:want,list:next,ts:Date.now()}); return next; });
+      discoSuperRef.current={...discoSuperRef.current,list:merge(discoSuperRef.current.list||[])};
+    });
   },[userLoc,radiusM,requestLocation,refreshDiscoWx]);
 
   // The one Scout action: refresh location, then scout at the current radius.
@@ -1955,6 +2016,52 @@ export default function App(){
     return [...curated,...auto].sort((a,b)=> (openRank(b)-openRank(a)) || (b.opportunity-a.opportunity) || String(a.sec.id).localeCompare(String(b.sec.id)));
   },[month,scoreNow,condFor,discovered,catchActivity,regsAll]);
   const feed=useMemo(()=>buildFeed(ranked,userLoc,saved.map(s=>s.id),now),[ranked,userLoc,saved,now]);
+  // Official stream data (cold-water index, surveyed species) for the built-in
+  // rivers, and members' river totals. Both change slowly, so they're cached.
+  const [streamInfo,setStreamInfo]=useState({});
+  const [riverReports,setRiverReports]=useState({});
+  useEffect(()=>{ if(!API_BASE) return; let live=true;
+    (async()=>{
+      const c=await dbGet("stream:v1"); if(c&&c.map&&live) setStreamInfo(c.map);
+      if(!c||Date.now()-c.ts>30*864e5||Object.keys(c.map||{}).length<RIVERS.length*0.8){
+        try{ const d=await proxyJSON("/api/stream-info",{method:"POST",body:{points:RIVERS.map(r=>({lat:r.lat,lon:r.lon,name:r.river}))}});
+          const map={}; (d.points||[]).forEach((p,i)=>{ if(p) map[RIVERS[i].id]={thermal:p.thermal,surveyed:surveyedTroutSalmon(p.species,{nearGreatLakeKm:nearGreatLakeKm(RIVERS[i].lat,RIVERS[i].lon)})}; });
+          if(live&&Object.keys(map).length){ setStreamInfo(prev=>({...prev,...map})); dbSet("stream:v1",{map,ts:Date.now()}); }
+        }catch{}
+      }
+      proxyJSON("/api/river-reports").then(d=>{ if(live&&d&&d.byRef) setRiverReports(d.byRef); }).catch(()=>{});
+    })();
+    return ()=>{ live=false; };
+  },[]);
+  const intel=useMemo(()=>({streamInfo,riverReports}),[streamInfo,riverReports]);
+
+  // Trips we haven't heard about yet (from yesterday's Directions taps). The
+  // reminder push opens /?report=<id>; the card also waits on the Rivers tab.
+  const [pendingTrips,setPendingTrips]=useState([]);
+  const signedInNow=!!(me&&me.user);
+  useEffect(()=>{ if(!API_BASE||!signedInNow) { setPendingTrips([]); return; }
+    proxyJSON("/trip-intents/pending").then(d=>{ const list=d.pending||[];
+      let want=null; try{ want=new URLSearchParams(location.search).get("report"); }catch{}
+      if(want){ list.sort((a,b)=>(a.id===want?-1:b.id===want?1:0)); try{ history.replaceState({},"",location.pathname); }catch{} setTab("rivers"); }
+      setPendingTrips(list); }).catch(()=>{});
+  },[signedInNow]); // eslint-disable-line react-hooks/exhaustive-deps
+  const secForRef=useCallback((ref,river,section)=>RIVERS.find(r=>r.id===ref)||discovered.find(r=>r.id===ref)||{id:ref,river,section,species:[]},[discovered]);
+  const dropTrip=useCallback((id,dismiss)=>{ if(dismiss) proxyJSON(`/trip-intents/${id}/dismiss`,{method:"POST"}).catch(()=>{});
+    setTimeout(()=>setPendingTrips(l=>l.filter(x=>x.id!==id)),dismiss?0:2500); },[]);
+
+  // Saved river tapped in Profile: open its full report, like a map tap. A
+  // saved spot that isn't in today's list is scored on the spot.
+  const [reportFor,setReportFor]=useState(null);
+  const openSavedReport=useCallback((s)=>{
+    let ev=ranked.find(e=>e.sec.id===s.id);
+    if(!ev){
+      const sec={id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon,h:s.habitat||{},species:s.species||[],history:s.history??60,
+        region:"Saved",water:"",zone:"Check regs",report:0,reportAge:24,conf:60,note:"",source:s.source||"auto"};
+      try{ const now=new Date(); ev={...evaluate(sec,month,condFor(sec),now),source:sec.source,reg:regStatus(sec,regsAll,now)}; }catch(e){ return; }
+    }
+    logEvent("view_reach",s.id,{via:"saved"});
+    setReportFor(ev);
+  },[ranked,month,condFor,regsAll]);
   // When a location is set, only show water within the chosen radius.
   const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
   const top3=rankedNear.slice(0,3), honourable=rankedNear.slice(3,6);
@@ -1983,7 +2090,7 @@ export default function App(){
     </div>
   );
 
-  return (
+  return (<IntelContext.Provider value={intel}>
     <div style={{minHeight:"100vh",background:C.ink,color:C.text,fontFamily:sans}}>
       <style>{`
         *{box-sizing:border-box;}
@@ -2028,6 +2135,9 @@ export default function App(){
         </div>
 
         {/* ===================== RIVERS TAB ===================== */}
+        {tab==="rivers" && pendingTrips[0] && (()=>{ const t=pendingTrips[0]; const when=new Date(`${t.dayKey}T12:00:00`).toLocaleDateString("en-CA",{weekday:"long"});
+          return (<div style={{marginBottom:14}}><TripReportForm key={t.id} sec={secForRef(t.ref,t.river,t.section)} score={t.score} dayKey={t.dayKey} signedIn={signedInNow}
+            title={`How was the ${t.river||"river"} on ${when}?`} onDone={()=>dropTrip(t.id,false)} onCancel={()=>dropTrip(t.id,true)}/></div>); })()}
         {tab==="rivers" && (<>
           <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
@@ -2087,14 +2197,14 @@ export default function App(){
         </>)}
 
         {/* ===================== NEWS TAB ===================== */}
-        {tab==="news" && <NewsView derived={feed} savedRivers={[...new Set(saved.map(s=>s.label))]} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
+        {tab==="news" && <NewsView premium={isPremium} onUpgrade={openUpgrade} derived={feed} savedRivers={[...new Set(saved.map(s=>s.label))]} stockNews={stockNews} flowNews={flowNewsItems} newsUrl={newsUrl} onSaveUrl={onSaveUrl} personalized={saved.length>0||!!userLoc}
           me={me} posts={posts} postsCursor={postsCursor} onLoadMore={()=>loadPosts(postsCursor)}
           onCreatePost={createPost} onDeletePost={deletePost} onToggleLike={toggleLike} onReport={reportPost}
           onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
 
         {/* ===================== NOTES TAB ===================== */}
         {tab==="notes" && <NotesView notes={notes} onAddNote={addNote} onRemoveNote={removeNote} userLoc={userLoc} requestLocation={requestLocation} top={top3[0]} signedIn={!!(me&&me.user)} syncState={noteSync}/>}
-        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onLogout={signOut} onCheckout={openCheckout} saved={saved} ranked={ranked} distOf={distOf} onUnsave={toggleSave} goRivers={()=>setTab("rivers")}/>}
+        {tab==="account" && API_BASE && <AccountView me={me} onAuth={refreshMe} onLogout={signOut} onCheckout={openCheckout} saved={saved} ranked={ranked} distOf={distOf} onUnsave={toggleSave} onOpen={openSavedReport} goRivers={()=>setTab("rivers")}/>}
       </div>
 
       {/* Bottom tab bar */}
@@ -2113,6 +2223,8 @@ export default function App(){
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); setRadiusOpen(false); if(isPremium) scout(m);}} onClose={()=>setRadiusOpen(false)}/>}
+      {reportFor && <ReportSheet ev={reportFor} onClose={()=>setReportFor(null)} m={month} premium={isPremium} onUpgrade={openUpgrade}
+        signedIn={!!(me&&me.user)} activity={catchActivity} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave}/>}
       {regDetail && <RegSheet sec={regDetail} regs={regsAll} now={now} onClose={()=>setRegDetail(null)}/>}
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><ScrollLock/><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
@@ -2124,7 +2236,7 @@ export default function App(){
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
       {!(API_BASE && me && !me.user) && !resetToken && <InstallPrompt/>}
     </div>
-  );
+  </IntelContext.Provider>);
 }
 
 const btn={fontFamily:mono,fontSize:10,letterSpacing:0.5,padding:"6px 11px",borderRadius:6,cursor:"pointer",background:C.panel,border:`1px solid ${C.line}`};
@@ -2186,6 +2298,87 @@ function HelpSheet({me,onClose}){
         </>)}
       <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"11px",marginTop:8}}>Close</button>
     </div>
+  </div>);
+}
+// Salmon and steelhead run tracker. Everyone sees each spot's status and our
+// weekly note; members can report what they saw and see two weeks of
+// sightings day by day.
+function RunTracker({premium,signedIn,onUpgrade}){
+  const [spots,setSpots]=useState(null), [open,setOpen]=useState(null), [timeline,setTimeline]=useState(null), [busy,setBusy]=useState(false), [all,setAll]=useState(false);
+  useEffect(()=>{ if(!API_BASE) return; let live=true;
+    proxyJSON("/api/run-status").then(d=>{ if(live) setSpots(d.spots||[]); }).catch(()=>{ if(live) setSpots([]); }); return ()=>{ live=false; }; },[]);
+  useEffect(()=>{ if(!open||!premium) { setTimeline(null); return; } let live=true;
+    proxyJSON(`/api/run-status/${open}/timeline`).then(d=>{ if(live) setTimeline(d.days||[]); }).catch(()=>{ if(live) setTimeline([]); }); return ()=>{ live=false; }; },[open,premium]);
+  if(!API_BASE||!spots) return null;
+  const bySlug=Object.fromEntries(spots.map(x=>[x.spot,x]));
+  // Busiest spots first (sightings, then a note); the rest behind "Show all".
+  const activity=sp=>{ const x=bySlug[sp.slug]||{}; return (x.reports7||0)*10+(x.note?5:0); };
+  const ordered=[...RUN_SPOTS].sort((a,b)=>activity(b)-activity(a));
+  const visible=all?ordered:ordered.slice(0,4);
+  const report=async(spot,status)=>{ setBusy(true);
+    try{ const d=await proxyJSON("/run-checkins",{method:"POST",body:{spot,status}}); setSpots(l=>l.map(x=>x.spot===spot?d:x));
+      const t=await proxyJSON(`/api/run-status/${spot}/timeline`).catch(()=>null); if(t) setTimeline(t.days||[]); logEvent("run_checkin",spot,{status}); }
+    catch(e){} finally{ setBusy(false); } };
+  const fmt=iso=>new Date(iso).toLocaleDateString("en-CA",{month:"short",day:"numeric"});
+  return (<div style={{marginBottom:18,background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,overflow:"hidden"}}>
+    <div style={{padding:"12px 14px",background:C.pine,color:C.headText}}>
+      <div style={{fontFamily:serif,fontSize:17,fontWeight:700}}>Run tracker</div>
+      <div style={{fontSize:12.5,color:C.headDim,marginTop:2}}>Salmon and steelhead at Ontario's run spots, from members' sightings and our weekly notes.</div>
+    </div>
+    {visible.map(sp=>{ const st=bySlug[sp.slug]||{}; const isOpen=open===sp.slug;
+      return (<div key={sp.slug} style={{borderTop:`1px solid ${C.lineSoft}`}}>
+        <button onClick={()=>setOpen(isOpen?null:sp.slug)} aria-expanded={isOpen} style={{display:"flex",width:"100%",gap:10,alignItems:"center",padding:"11px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left"}}>
+          <span style={{flex:1,minWidth:0}}>
+            <span style={{display:"block",fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{sp.place}</span>
+            <span style={{display:"block",fontSize:12.5,color:C.textDim,marginTop:1}}>{st.state?RUN_LABEL[st.state]:"No sightings this week"}{st.reports7?` · ${st.reports7} this week`:""}{st.note?` · ${st.note}`:""}</span>
+          </span>
+          <Icon name="chevron" size={15} style={{transform:isOpen?"rotate(180deg)":"none",transition:"transform .2s",color:C.textDim}}/>
+        </button>
+        {isOpen && (<div style={{padding:"0 14px 14px"}}>
+          {!premium ? (<div style={{fontSize:13,color:C.textDim,lineHeight:1.5}}>Members can report what they see here and get the day-by-day sightings.
+            <button onClick={onUpgrade} style={{...btn,display:"block",marginTop:8,borderColor:C.brick,color:C.brick}}>Start 7 free days</button></div>)
+          : (<>
+            <div style={{fontSize:12.5,color:C.textDim,marginBottom:7}}>What did you see today?</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{RUN_STATES.map(k=><button key={k} disabled={busy} onClick={()=>report(sp.slug,k)} style={{fontFamily:sans,fontSize:12,fontWeight:700,padding:"6px 10px",borderRadius:16,cursor:"pointer",border:`1px solid ${st.state===k?C.pine:C.line}`,background:st.state===k?`${C.pine}14`:C.bone,color:C.pine,opacity:busy?0.6:1}}>{RUN_LABEL[k]}</button>)}</div>
+            <div style={{marginTop:12,fontSize:12.5}}>
+              {timeline===null ? <span style={{color:C.textFaint}}>Loading sightings…</span>
+               : timeline.length===0 ? <span style={{color:C.textDim}}>No sightings in the last two weeks. Be the first.</span>
+               : timeline.map(d=>(<div key={d.day} style={{display:"flex",gap:10,padding:"5px 0",borderBottom:`1px dotted ${C.lineSoft}`}}>
+                  <span style={{width:58,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{fmt(`${d.day}T12:00:00`)}</span>
+                  <span style={{flex:1,color:C.text}}>{Object.entries(d.counts).map(([k,n])=>`${RUN_LABEL[k]||k} ${n}`).join(", ")}</span></div>))}
+            </div>
+          </>)}
+          <a href={`/salmon-run/${sp.slug}/`} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:10,fontSize:12.5,color:C.brick,fontWeight:700}}>Where to watch and what's legal</a>
+        </div>)}
+      </div>); })}
+    {!all && ordered.length>visible.length && <button onClick={()=>setAll(true)} style={{display:"block",width:"100%",padding:"11px",background:C.bone,border:"none",borderTop:`1px solid ${C.lineSoft}`,cursor:"pointer",fontFamily:sans,fontSize:13,fontWeight:700,color:C.pine}}>Show all {ordered.length} run spots</button>}
+  </div>);
+}
+// The admin's weekly one-line note for each run spot.
+function RunNotesAdmin(){
+  const [spots,setSpots]=useState(null), [draft,setDraft]=useState({}), [saved,setSaved]=useState("");
+  useEffect(()=>{ proxyJSON("/api/run-status").then(d=>{ setSpots(d.spots||[]); setDraft(Object.fromEntries((d.spots||[]).map(x=>[x.spot,x.note||""]))); }).catch(()=>setSpots([])); },[]);
+  if(!spots) return <div style={{fontSize:12,color:C.textFaint}}>Loading…</div>;
+  const save=async(spot)=>{ try{ await proxyJSON(`/api/admin/run-notes/${spot}`,{method:"PUT",body:{note:draft[spot]||""}}); setSaved(spot); setTimeout(()=>setSaved(""),1800); }catch(e){} };
+  return (<div style={{display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{fontSize:12,color:C.textDim,lineHeight:1.5}}>One line per spot, shown in the app and on the public salmon run pages. Leave empty to remove.</div>
+    {RUN_SPOTS.map(sp=>(<div key={sp.slug} style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{width:130,fontSize:12.5,fontWeight:700,color:C.pine}}>{sp.place}</span>
+      <input value={draft[sp.slug]||""} maxLength={220} onChange={e=>setDraft(d=>({...d,[sp.slug]:e.target.value}))} placeholder="e.g. Fish moving after Friday's rain"
+        style={{flex:"1 1 180px",minWidth:0,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",fontFamily:sans,fontSize:13}}/>
+      <button onClick={()=>save(sp.slug)} style={{...btn,borderColor:C.pine,color:C.pine,padding:"7px 11px"}}>{saved===sp.slug?"Saved":"Save"}</button>
+    </div>))}
+  </div>);
+}
+// How often members caught fish on days we scored high versus low.
+function ScoreAccuracy(){
+  const [d,setD]=useState(null);
+  useEffect(()=>{ if(!API_BASE) return; proxyJSON("/api/score-accuracy").then(setD).catch(()=>{}); },[]);
+  if(!d) return null;
+  return (<div style={{marginTop:14,padding:"12px 13px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:10,fontSize:13,lineHeight:1.5}}>
+    <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine}}>How accurate is the score?</div>
+    {d.ready ? d.bands.map(b=>(<div key={b.label}>On days we scored <b>{b.label}</b>, members caught fish on <b>{b.caughtRate}%</b> of {b.trips} trips.</div>))
+     : (<div style={{color:C.textDim}}>We're measuring it with members' trip reports, blank days included. {d.trips} of {d.target} trips reported so far. Every report brings the answer closer.</div>)}
   </div>);
 }
 function AdminSheet({onClose}){
@@ -2269,6 +2462,8 @@ function AdminSheet({onClose}){
 
       {head("Blog")}
       <BlogAdmin/>
+      {head("Run tracker notes")}
+      <RunNotesAdmin/>
       {head("Ontario regulations sync")}
       <RegsAdmin/>
       {head("Billing tools")}
@@ -2697,7 +2892,7 @@ function AlertPrefs(){
 // Account is a normal in-frame page (top bar + bottom nav stay visible), reached
 // from the account button or drawer — not a pop-up.
 // Saved rivers on the Profile screen, with today's read for each.
-function SavedRivers({saved,ranked,distOf,onUnsave,goRivers}){
+function SavedRivers({saved,ranked,distOf,onUnsave,onOpen,goRivers}){
   const evOf=id=>ranked&&ranked.find(e=>e.sec.id===id);
   return (<div style={{marginTop:22}}>
     <SectionTitle t="Saved rivers"/>
@@ -2707,21 +2902,23 @@ function SavedRivers({saved,ranked,distOf,onUnsave,goRivers}){
       </div>
     ) : (<div style={{display:"flex",flexDirection:"column",gap:8}}>
       {saved.map(s=>{ const ev=evOf(s.id); const d=ev&&distOf?distOf(ev.sec):null;
-        return (<div key={s.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11}}>
+        return (<div key={s.id} role="button" tabIndex={0} aria-label={`Open today's report for ${s.label}`}
+          onClick={()=>onOpen&&onOpen(s)} onKeyDown={e=>{ if((e.key==="Enter"||e.key===" ")&&onOpen){ e.preventDefault(); onOpen(s); } }}
+          style={{display:"flex",alignItems:"center",gap:12,padding:"12px 13px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,cursor:onOpen?"pointer":"default"}}>
           {ev ? <span title={conditionLabel(ev.opportunity)} style={{fontFamily:serif,fontSize:19,fontWeight:700,color:scoreColor(ev.opportunity),width:28,textAlign:"center"}}>{ev.opportunity}</span>
               : <span style={{width:28,textAlign:"center",color:C.textFaint}}>–</span>}
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.label}</div>
             <div style={{fontSize:12.5,color:C.textDim}}>{s.section}{d!=null?` · ${d} km`:""}{ev?` · ${conditionLabel(ev.opportunity)}`:""}</div>
           </div>
-          <a href={directionsUrl(s.lat,s.lon)} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${s.label}`} style={{color:C.pine,padding:6,display:"flex"}}><Icon name="map" size={18}/></a>
-          <button onClick={()=>onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon})} aria-label={`Remove ${s.label}`} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6,display:"flex"}}><Icon name="close" size={16}/></button>
+          <a href={directionsUrl(s.lat,s.lon)} onClick={e=>e.stopPropagation()} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${s.label}`} style={{color:C.pine,padding:6,display:"flex"}}><Icon name="map" size={18}/></a>
+          <button onClick={e=>{ e.stopPropagation(); onUnsave({id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon}); }} aria-label={`Remove ${s.label}`} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:6,display:"flex"}}><Icon name="close" size={16}/></button>
         </div>); })}
     </div>)}
     {saved.length>0 && <AlertPrefs/>}
   </div>);
 }
-function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUnsave,goRivers}){
+function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUnsave,onOpen,goRivers}){
   const premium=isPremiumMe(me);
   const [err,setErr]=useState("");
   const logout=async()=>{ if(onLogout) return onLogout(); try{ await proxyJSON("/auth/logout",{method:"POST"}); }catch{} await onAuth(); };
@@ -2738,7 +2935,7 @@ function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUns
     {/* Usernames are set at sign-up and shown above; only an account without one
         (e.g. signed in with Google) gets to pick it here. */}
     {!me.user.displayName && <DisplayNameEditor me={me} onAuth={onAuth}/>}
-    <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} goRivers={goRivers}/>
+    <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} onOpen={onOpen} goRivers={goRivers}/>
     <BlockedAnglers/>
     {premium && (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
       <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>Membership</div>
@@ -2823,7 +3020,7 @@ function ResetModal({token,onDone}){
 }
 function SignInGate({onAuth,providers={}}){
   useScrollLock();
-  const [mode,setMode]=useState("signup"); // signup | signin | forgot
+  const [mode,setMode]=useState(()=>{ try{ return /[?&]signin/.test(location.search)?"signin":"signup"; }catch{ return "signup"; } }); // signup | signin | forgot
   const [email,setEmail]=useState(""),[pw,setPw]=useState(""),[username,setUsername]=useState(""),[err,setErr]=useState(""),[busy,setBusy]=useState(false),[showEmail,setShowEmail]=useState(false),[sent,setSent]=useState(false);
   const inp={width:"100%",padding:"12px 14px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",color:C.text,fontFamily:sans,fontSize:16,marginTop:10,boxSizing:"border-box"};
   const oauth=(p)=>{ try{ sessionStorage.setItem("mkGate","1"); }catch{} window.location=`${API_BASE}/auth/${p}`; };
@@ -3123,6 +3320,25 @@ function MiniStat({label,value,sub}){
     <div style={{fontFamily:mono,fontSize:9,letterSpacing:0.8,textTransform:"uppercase",color:C.textDim,marginTop:3}}>{label}{sub&&<span style={{color:C.textFaint}}> · {sub}</span>}</div>
   </div>);
 }
+// Our own layer on each river: Ontario's official thermal class and survey
+// species, the cold-water index built on them, and members' trip totals.
+const IntelContext=React.createContext({streamInfo:{},riverReports:{}});
+const SP_NAME=k=>(SPECIES[k]&&SPECIES[k].name.replace(/\s*\(.*\)/,""))||k;
+function RiverIntel({sec,cond}){
+  const {streamInfo,riverReports}=React.useContext(IntelContext);
+  const info=streamInfo[sec.id]||(sec.thermal!==undefined?{thermal:sec.thermal,surveyed:sec.surveyed||[]}:null);
+  const rep=riverReports[sec.id];
+  const cw=coldWaterIndex({thermal:info&&info.thermal,habitatCold:sec.h&&Number.isFinite(sec.h.cold)?sec.h.cold:null,
+    memberTemps:rep&&rep.temps||[],month:new Date().getMonth()});
+  const surveyed=info&&info.surveyed&&info.surveyed.length?info.surveyed:null;
+  if(!cw&&!surveyed&&!rep) return null;
+  const tone=cw?(cw.index>=75?C.pine:cw.index>=55?C.amberDeep:C.brick):C.textDim;
+  return (<div style={{marginTop:10,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8,display:"flex",flexDirection:"column",gap:5,fontSize:12.5,lineHeight:1.45}}>
+    {cw && <div><span style={{fontFamily:sans,fontWeight:800,color:tone}}>Cold-water index {cw.index}</span> <span style={{color:C.textDim}}>· {cw.label}. {cw.source==="official"?`Ontario classifies this stretch as ${String(info.thermal).toLowerCase()} water.`:"Estimated from the river's habitat."}</span></div>}
+    {surveyed && <div style={{color:C.text}}><b style={{color:C.pine}}>Ontario surveys found:</b> {surveyed.map(SP_NAME).join(", ")}</div>}
+    {rep && <div style={{color:C.text}}><b style={{color:C.pine}}>Members, last 30 days:</b> {rep.trips} trips, fish caught on {rep.withFish}.</div>}
+  </div>);
+}
 // Conditions in the original compact box, laid out in three fixed columns so
 // every label lines up. Missing readings are left out rather than shown blank.
 function ConditionsStrip({cond,opp,warm}){
@@ -3292,6 +3508,63 @@ function Advisor({ev,m,premium=true,onUpgrade}){
 }
 // The four reach actions as one aligned grid (2×2 on phones, one row when wide).
 // The catch form opens full-width underneath instead of squeezing into the row.
+// A Directions tap usually means a trip. Remember it so we can ask tomorrow
+// morning how it went (and what score we showed today).
+function noteTripIntent(ev,signedIn){
+  if(!API_BASE||!signedIn) return;
+  proxyJSON("/trip-intents",{method:"POST",body:{ref:ev.sec.id,river:ev.sec.river,section:ev.sec.section,score:ev.opportunity}}).catch(()=>{});
+}
+const TRIP_SPECIES=["STL","CHN","COH","BNT","BKT","RBT","ATS"];
+const torontoDayKey=(d=new Date())=>{ try{ return d.toLocaleDateString("en-CA",{timeZone:"America/Toronto"}); }catch{ return d.toISOString().slice(0,10); } };
+// Ten-second trip report: did you fish, did you catch, what, and the water
+// temperature if you took it. Blank days are the point: they let us measure
+// whether the score was right.
+function TripReportForm({sec,score=null,dayKey,signedIn,onDone,onCancel,intentId,title}){
+  const [fished,setFished]=useState(true), [caught,setCaught]=useState(null), [sp,setSp]=useState([]);
+  const [temp,setTemp]=useState(""), [note,setNote]=useState(""), [busy,setBusy]=useState(false), [done,setDone]=useState(false), [err,setErr]=useState("");
+  if(!API_BASE) return null;
+  if(!signedIn) return (<div style={{marginTop:10,fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Sign in to report a trip. It takes ten seconds and makes the scores better for everyone.</div>);
+  const day=dayKey||torontoDayKey();
+  const opts=[...new Set([...(sec.species||[]).filter(k=>TRIP_SPECIES.includes(k)),...TRIP_SPECIES])].slice(0,6);
+  const chip=(on)=>({fontFamily:sans,fontSize:12.5,fontWeight:700,padding:"7px 11px",borderRadius:18,cursor:"pointer",border:`1px solid ${on?C.pine:C.line}`,background:on?C.pine:C.bone,color:on?C.headText:C.pine});
+  const label={fontFamily:sans,fontSize:10.5,letterSpacing:0.6,textTransform:"uppercase",fontWeight:700,color:C.brassDeep||C.amberDeep,margin:"12px 0 6px"};
+  const counts=[["0",0],["1",1],["2 to 3",2],["4+",4]];
+  const submit=async()=>{ if(fished&&caught==null){ setErr("Tap how many you caught (0 counts)."); return; }
+    setErr(""); setBusy(true);
+    try{ await proxyJSON("/trip-reports",{method:"POST",body:{ref:sec.id,river:sec.river,section:sec.section,dayKey:day,fished,caught:fished?caught:0,species:fished&&caught>0?sp:[],waterTempC:temp===""?null:+temp,note,scoreAtTrip:score}});
+      setDone(true); logEvent("trip_report",sec.id,{fished,caught}); onDone&&onDone();
+    }catch(e){ setErr("Couldn't save just now. Try again."); } finally{ setBusy(false); } };
+  if(done) return (<div style={{marginTop:10,padding:"10px 12px",borderRadius:9,background:`${C.pine}12`,fontSize:13,color:C.pine,fontWeight:600,lineHeight:1.5}}>
+    Thanks. {fished&&caught>0?"Nice work. ":""}Every report, blank days included, makes the morning scores sharper.</div>);
+  return (<div style={{marginTop:10,padding:"12px 13px",border:`1px solid ${C.line}`,borderRadius:11,background:C.bone}}>
+    {title && <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,marginBottom:2}}>{title}</div>}
+    <div style={label}>Did you fish?</div>
+    <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+      <button style={chip(fished)} onClick={()=>setFished(true)}>Yes</button>
+      <button style={chip(!fished)} onClick={()=>setFished(false)}>No, didn't go</button>
+    </div>
+    {fished && (<>
+      <div style={label}>How many did you catch?</div>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{counts.map(([t,v])=><button key={t} style={chip(caught===v)} onClick={()=>setCaught(v)}>{t}</button>)}</div>
+      {caught>0 && (<><div style={label}>What were they?</div>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{opts.map(k=><button key={k} style={chip(sp.includes(k))} onClick={()=>setSp(x=>x.includes(k)?x.filter(y=>y!==k):[...x,k])}>{(SPECIES[k]&&SPECIES[k].name)||k}</button>)}</div></>)}
+      <div style={label}>Water temperature (optional)</div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <input inputMode="decimal" value={temp} onChange={e=>setTemp(e.target.value.replace(/[^0-9.\-]/g,""))} placeholder="e.g. 9" aria-label="Water temperature in degrees Celsius"
+          style={{width:90,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",fontFamily:sans,fontSize:16}}/>
+        <span style={{fontSize:13,color:C.textDim}}>°C</span>
+      </div>
+    </>)}
+    <input value={note} onChange={e=>setNote(e.target.value)} maxLength={300} placeholder="Anything worth noting? (optional, private)"
+      style={{width:"100%",marginTop:12,padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",fontFamily:sans,fontSize:16,boxSizing:"border-box"}}/>
+    {err && <div role="alert" style={{fontSize:12.5,color:C.brick,marginTop:8}}>{err}</div>}
+    <div style={{display:"flex",gap:8,marginTop:12}}>
+      <button disabled={busy} onClick={submit} style={{...btnBig,flex:1,justifyContent:"center",background:C.pine,borderColor:C.pine,color:C.headText,opacity:busy?0.6:1}}>{busy?"Saving…":"Save report"}</button>
+      {onCancel && <button onClick={onCancel} style={{...btn,borderColor:C.line,color:C.textDim}}>Not now</button>}
+    </div>
+    <div style={{fontSize:11,color:C.textFaint,marginTop:8,lineHeight:1.4}}>We keep the river, never your spot. River totals show only after a few reports, two days later.</div>
+  </div>);
+}
 function ActionBar({ev,signedIn}){
   const sec=ev.sec;
   const [logOpen,setLogOpen]=useState(false);
@@ -3303,10 +3576,10 @@ function ActionBar({ev,signedIn}){
   return (<div style={{marginTop:12}}>
     <div className="mk-actions">
       {t && <button onClick={openRegs} title={ev.reg.detail} style={{...cell,borderColor:t.bd,background:t.bg,color:t.fg}}><Icon name={t.ic} size={16}/>{ev.reg.label}</button>}
-      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>logEvent("directions",sec.id)} style={cell}><Icon name="map" size={16}/>Directions</a>
-      {API_BASE && <button onClick={()=>setLogOpen(o=>!o)} style={{...cell,...(logOpen?{borderColor:C.brass,background:`${C.brass}18`}:{})}}><Icon name="plus" size={16}/>Log a catch</button>}
+      <a href={directionsUrl(sec.lat,sec.lon)} target="_blank" rel="noopener noreferrer" onClick={()=>{ logEvent("directions",sec.id); noteTripIntent(ev,signedIn); }} style={cell}><Icon name="map" size={16}/>Directions</a>
+      {API_BASE && <button onClick={()=>setLogOpen(o=>!o)} style={{...cell,...(logOpen?{borderColor:C.brass,background:`${C.brass}18`}:{})}}><Icon name="plus" size={16}/>Report a trip</button>}
     </div>
-    {logOpen && <CatchForm sec={sec} signedIn={signedIn} startOpen onCancel={()=>setLogOpen(false)}/>}
+    {logOpen && <TripReportForm sec={sec} score={ev.opportunity} signedIn={signedIn} onDone={()=>{}} onCancel={()=>setLogOpen(false)}/>}
   </div>);
 }
 function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,signedIn,logged,trend}){
@@ -3331,6 +3604,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     </div>
     <ActionBar ev={ev} signedIn={signedIn}/>
     <ConditionsStrip cond={cd} opp={ev.opportunity} warm={ev.warmStress}/>
+    <RiverIntel sec={sec} cond={cd}/>
     {/* Score breakdown — full-width bars under the conditions box */}
     <div style={{width:"100%",marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:9}}>
       <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
@@ -3399,6 +3673,10 @@ function Method({logCount}){
       <span style={{fontFamily:mono,fontSize:13,color:C.cyan,width:42}}>{b}</span>
       <div><div style={{fontSize:13,color:C.text,fontWeight:500}}>{a}</div>
         <div style={{fontSize:12,color:C.textDim,marginTop:2,lineHeight:1.5}}>{c}</div></div></div>))}
+    <ScoreAccuracy/>
+    <div style={{marginTop:12,fontSize:12.5,color:C.textDim,lineHeight:1.55}}>
+      <b style={{color:C.pine}}>Cold-water index.</b> How well a stretch stays cold enough for trout, from Ontario's official thermal classification of the stream, our habitat model, and water temperatures members report in summer.
+    </div>
     <div style={{marginTop:20,padding:14,background:C.panel,border:`1px solid ${C.line}`,borderRadius:10}}>
       <div style={{fontFamily:mono,fontSize:10,letterSpacing:1,textTransform:"uppercase",color:C.cyan,marginBottom:8}}>On this device</div>
       <p style={{fontSize:12.5,color:C.text,lineHeight:1.55,margin:0}}>

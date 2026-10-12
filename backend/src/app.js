@@ -22,6 +22,7 @@ import regulationsRoutes from "./routes/regulations.js";
 import supportRoutes from "./routes/support.js";
 import proxyRoutes from "./routes/proxy.js";
 import blogRoutes from "./routes/blog.js";
+import fieldReportRoutes from "./routes/field-reports.js";
 import regsPagesRoutes from "./routes/regs-pages.js";
 import { requirePremium } from "./billing/require-premium.js";
 
@@ -42,6 +43,7 @@ export function buildApp(opts = {}) {
   app.register(billingRoutes);
   app.register(savedRoutes);
   app.register(catchRoutes);
+  app.register(fieldReportRoutes, { fetchImpl: opts.streamFetch });
   app.register(eventRoutes);
   app.register(adminRoutes);
   app.register(adminReconcileRoutes);

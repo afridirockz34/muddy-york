@@ -10,6 +10,92 @@ const IMG = "/img/blog"; // served by Netlify from the repo root
 
 export const SEED_POSTS = [
   {
+    slug: "winter-steelhead-fishing-ontario",
+    title: "Winter Steelhead Fishing in Ontario: Where It's Open",
+    excerpt: "Which Southern Ontario river stretches stay open for steelhead all winter, where fish hold in cold water, and how to fish them safely.",
+    coverUrl: "/img/site/steelhead.jpg",
+    coverAlt: "An angler holding a bright steelhead low over the water",
+    publishedAt: "2026-10-12T13:00:00Z",
+    body: `When the trout season closes on September 30 and the salmon run fades, a lot of anglers put the rods away. They miss some of the best fishing of the year. Steelhead, the Great Lakes' lake-run rainbow trout, keep coming into Ontario's rivers through the fall, and a good number spend the whole winter in the lower reaches. Several of those stretches are open all year under Ontario's rules.
+
+This guide covers where you can legally fish for steelhead in mid-winter, where the fish hold when the water is near freezing, and how to stay safe on a cold river.
+
+## Why there are steelhead in the rivers all winter
+
+Steelhead run Ontario's tributaries twice. A fall run follows the salmon in from October to December, feeding on loose eggs. A spring run comes in on snowmelt and rain in March and April to spawn. Many of the fall fish never go back to the lake. They settle into the deepest, slowest pools and wait for spring, which is why a mild January afternoon can be surprisingly good.
+
+## Where it's open for steelhead in winter
+
+Under the [Ontario Fishing Regulations Summary](https://www.ontario.ca/document/ontario-fishing-regulations-summary), most inland trout water is closed from October 1 until the fourth Saturday in April. The exceptions are mostly the lower ends of Lake Ontario tributaries, which stay open all year for rainbow trout, brown trout, Pacific salmon and Atlantic salmon. On the rivers we cover, these stretches are open in mid-winter:
+
+- **Humber River:** from Eglinton Avenue down to Lake Ontario. See the [lower Humber guide](/rivers/humber-river-lower-old-mill-to-the-mouth-toronto/).
+- **Credit River:** below the Highway 403 bridge in Mississauga. Above it, the water to Britannia Road is a sanctuary. See the [Credit River steelhead page](/steelhead/credit-river/).
+- **Sixteen Mile Creek and Bronte Creek:** from Lakeshore Road down to the lake in Oakville. See [Sixteen Mile Creek steelhead](/steelhead/sixteen-mile-creek/).
+- **Rouge River:** below Kingston Road in Toronto.
+- **Durham Region creeks:** Duffins Creek, Bowmanville Creek and Wilmot Creek below the CNR tracks. See [Duffins Creek steelhead](/steelhead/duffins-creek/).
+- **Ganaraska River:** below the CNR tracks in Port Hope.
+- **Nottawasaga River:** below the Boyne River, on the Georgian Bay side.
+- **Niagara River:** below the falls, in Fisheries Management Zone 20.
+
+Rules change, sometimes at a single bridge, and this list only covers the rivers in our guides. Always check the stretch you plan to fish. Our [steelhead rivers page](/steelhead/) shows a fall, winter and spring calendar for each river, built from the official summary.
+
+> Not sure which open stretch is fishing today? [Muddy York Fishing](/) checks flow, water temperature and weather on 30+ rivers every morning and shows the official season for your stretch. Free for 7 days.
+
+## Where steelhead hold in cold water
+
+In water between 0 and 4°C, steelhead move as little as possible. Look for:
+
+- **The deepest, slowest pools,** especially ones with a soft current along the bottom.
+- **Tailouts** just above a riffle, where the water speeds up again.
+- **Slots beside boulders and under log jams,** out of the main push of the current.
+- **Water near springs and below dams,** which can run a degree or two warmer.
+
+Fish hold close to the bottom and won't move far for a bait. Your drift has to go right past their nose, slowly.
+
+## When to go
+
+The best winter days are mild ones. A run of days above freezing, a thaw, or a little rain raises the water temperature slightly and gets fish moving and feeding. The first sunny afternoon after a cold snap is often better than the morning. A river choked with slush ice or running high with snowmelt is rarely worth the drive.
+
+Check the river's flow on the [Water Survey of Canada](https://wateroffice.ec.gc.ca) real-time gauges before you go. A slow, steady flow with a green tint is what you want.
+
+## How to fish for winter steelhead
+
+### Float fishing
+
+Float fishing is the classic Ontario method, and it shines in winter. Use a long rod, a float, and a roe bag, single bead or small jig set to drift just above the bottom. Slow the drift down, fish each run more than once, and change depth before you change spots. Our [float fishing guide](/guides/float-fishing-for-steelhead/) covers the setup.
+
+### Fly fishing
+
+On the fly, nymph rigs with an egg pattern or a stonefly under an indicator are the most reliable in cold water. Swinging a streamer can work on mild days, slowly and deep. Keep a spare set of dry gloves.
+
+### Light and small
+
+Winter water is usually clear. Smaller baits, lighter leaders and natural colours outfish big, bright offerings until a thaw adds colour to the water.
+
+## Staying safe
+
+- **Shelf ice is the real danger.** Ice along the bank can look solid and break under you. Stay off it.
+- **Wear a wading belt** and use a wading staff. Falling into near-freezing water is serious.
+- **Dress in layers** and bring a change of clothes in the car.
+- **Fish with a friend** when you can, and tell someone where you're going.
+
+## Handling fish in the cold
+
+Freezing air damages a fish's gills and eyes in seconds. Keep steelhead in the water when you unhook them, take photos quickly with the fish low over the river, and release them facing into a gentle current. In Zones 16, 17 and 20 the rainbow trout limit is two on a sport licence and one on a conservation licence, and many anglers release every winter steelhead.
+
+## Quick answers
+
+**Can you fish for steelhead in winter in Ontario?** Yes, on stretches open all year. Most are the lower ends of Lake Ontario tributaries, plus the Niagara River below the falls.
+
+**What is the best bait for winter steelhead?** Small roe bags, single beads and small jigs under a float, drifted slowly near the bottom.
+
+**When does the rest of the water open?** On the fourth Saturday in April. In 2027 that is April 24.
+
+Find today's best open water in the [Muddy York Fishing app](/), or read more in our [steelhead fishing guide](/guides/steelhead-fishing-ontario/).
+
+*Cover photo: an angler with a steelhead, by Tobin John, U.S. Fish and Wildlife Service, via [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Man_holding_a_steelhead_(Oncorhynchus_mykiss)_cropped.jpg). Public domain.*`,
+  },
+  {
     slug: "ontario-salmon-run-week-by-week",
     title: "Ontario Salmon Run: A Week by Week Guide",
     excerpt: "When the Chinook salmon run starts, peaks and ends on Lake Ontario rivers, where to watch it, and the rules that change during the run.",

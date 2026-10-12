@@ -60,6 +60,25 @@ export const LIVE_STATUS_SCRIPT = `<script>
 });})();
 </script>`;
 
+// Weekly run status for a salmon spot, filled in the browser from the run
+// tracker (an admin note plus members' sightings). The static text is what
+// shows if the tracker can't be reached.
+export const runStatus = (s) => `<div class="run-status" data-spot="${esc(s.slug)}">
+  <b>Run status this week</b> <span class="rs-text">Updated weekly from August to November by ${BRAND} and member sightings.</span>
+  <a class="rs-cta" href="${APP_URL}">Members see daily sightings</a></div>`;
+export const RUN_STATUS_SCRIPT = `<script>
+(function(){var L={none:"No fish seen",staging:"Fish staging at the mouth",moving:"Fish moving upstream",stacked:"Fish stacked below barriers",spawning:"Fish spawning",spent:"Run winding down"};
+document.querySelectorAll(".run-status").forEach(function(el){
+  fetch("/bk/api/run-status?spot="+encodeURIComponent(el.dataset.spot)).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) return;
+    var t=el.querySelector(".rs-text"), bits=[];
+    if(d.note) bits.push(d.note);
+    if(d.state) bits.push(L[d.state]+(d.reports7?" ("+d.reports7+" member sighting"+(d.reports7>1?"s":"")+" this week)":""));
+    var when=d.noteUpdatedAt||d.lastReportAt; if(when) bits.push("Updated "+new Date(when).toLocaleDateString("en-CA",{month:"short",day:"numeric"}));
+    if(bits.length) t.textContent=bits.join(". ")+".";
+  }).catch(function(){});
+});})();
+</script>`;
+
 // ── river guide ──
 export function riverPage(r) {
   const seo = RIVER_SEO[r.id] || { title: `${r.river} Fishing`, towns: [], access: [], hook: "" };
@@ -107,6 +126,7 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
   <h1>${esc(r.river)} fishing${esc(where)}</h1>
   <div class="meta">${esc(r.section)} · ${esc(region)}${zone ? ` · <a href="/regulations/zone-${zone}/">FMZ ${zone}</a>` : ""}</div>
   ${liveStatus(r)}
+  ${salmon ? `<p class="run-link">Coming for the salmon run? <a href="/salmon-run/${salmon.slug}/">${esc(salmon.title.replace("{Y}", seasonYear()))}</a>, with this week's run status.</p>` : ""}
   <p><b>${esc(seo.hook)}</b></p>
   <p>${esc(r.note)}</p>
   <div class="cta-row"><a class="btn primary" href="${APP_URL}">See today's ${esc(r.river)} conditions</a><span>7 days free, then $5.00/mo yearly</span></div>
@@ -295,7 +315,7 @@ export function salmonHub() {
   <p>The run comes in waves. A heavy rain raises and colours the rivers and pulls a fresh push of fish; a warm, dry spell stalls it. The day or two after rain is usually the best time to see fish moving.</p>
 
   <h2>Where to see the salmon run</h2>
-  ${SALMON_SPOTS.map((s) => { const r = RIVERS.find((x) => x.id === s.river); return `<h3><a href="/salmon-run/${s.slug}/">${esc(s.h1)}</a></h3><p>${esc(s.watch)}</p>${r ? `<p class="src">River guide: <a href="${riverHref(r)}">${esc(r.river)} fishing</a></p>` : ""}`; }).join("")}
+  ${SALMON_SPOTS.map((s) => { const r = RIVERS.find((x) => x.id === s.river); return `<h3><a href="/salmon-run/${s.slug}/">${esc(s.h1)}</a></h3>${runStatus(s)}<p>${esc(s.watch)}</p>${r ? `<p class="src">River guide: <a href="${riverHref(r)}">${esc(r.river)} fishing</a></p>` : ""}`; }).join("")}
 
   ${cta("Catch the run on the right day", `${BRAND} reads live river conditions every morning, so you know which rivers just got rain and where fish are likely moving.`)}
 
@@ -332,6 +352,7 @@ export function salmonSpotPage(s) {
 <div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/salmon-run/">Salmon run</a> › ${esc(s.place)}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(s.h1)} ${Y}</h1>
+  ${runStatus(s)}
   ${r ? liveStatus(r) : ""}
   <p><b>${esc(s.watch)}</b></p>
   <p>Chinook salmon start running in late August, peak through September and are mostly done by mid October. The day or two after a good rain is usually the best time to see fish moving.</p>
@@ -384,7 +405,8 @@ export function salmonSpotPage(s) {
   <p><a href="/salmon-run/">Ontario salmon run guide →</a>${town ? ` · <a href="/fishing-spots/${town.slug}/">Fishing spots in ${esc(town.name)} →</a>` : ""}${r ? ` · <a href="/regulations/zone-${REACH_REGS[r.id].zone}/">Zone ${REACH_REGS[r.id].zone} regulations →</a>` : ""}</p>
 </article></div></section>`;
   return {
-    title: `${s.title}`, description: clampDesc(`${s.watch.split(". ")[0]}. When it peaks in ${Y}, where to watch and where it's legal to fish.`, s.watch.split(". ")[0] + "."),
+    title: s.title.replace("{Y}", Y),
+    description: clampDesc(`Is the ${s.place.split(",")[0]} salmon run on? This week's run status, when it peaks in ${Y}, where to watch and where it's legal to fish.`, `${s.place} salmon run ${Y}: this week's status, where to watch and where it's legal to fish.`),
     body, stickyCta: "Check today's conditions", schema: [faqSchema(faqs)],
   };
 }
@@ -452,3 +474,119 @@ export function townPage(t) {
   };
 }
 export { TOWNS, SALMON_SPOTS, RIVER_SEO };
+
+// ── steelhead pages ──
+// One page per river with steelhead, built around what searchers ask: when the
+// fish run and which stretches are legal in fall, winter and early spring. The
+// calendar is computed from the official snapshot, never written by hand.
+const STL_DATES = [["Late fall", "2026-11-15T12:00"], ["Mid-winter", "2027-01-15T12:00"], ["Early spring", "2027-04-01T12:00"]];
+const STATE_WORD = { open: "Open", closed: "Closed", check: "Check the rules", some: "Some species open", varies: "Varies" };
+export const steelheadRivers = () => {
+  const by = new Map();
+  for (const r of RIVERS.filter((x) => (x.species || []).includes("STL"))) { const l = by.get(r.river) || []; l.push(r); by.set(r.river, l); }
+  return [...by.entries()].map(([river, sections]) => ({ river, sections, slug: slug(river) }));
+};
+function stlCalendar(sections) {
+  const rows = [];
+  for (const r of sections) {
+    const b = resolveReach(r.id, SNAP); if (!b) continue;
+    const at = STL_DATES.map(([, d]) => statusFor(b, ["STL"], new Date(d)).stretches);
+    at[0].forEach((st, i) => rows.push({ label: `${st.label}${sections.length > 1 ? ` (${r.section.split(":")[0]})` : ""}`, states: at.map((x) => (x[i] ? x[i].state : "check")), zone: b.zone }));
+  }
+  return rows;
+}
+export function steelheadPage(g) {
+  const Y = seasonYear();
+  const first = g.sections[0];
+  const seo = RIVER_SEO[first.id] || {};
+  const rows = stlCalendar(g.sections);
+  const zone = rows[0] ? rows[0].zone : null;
+  const winterOpen = rows.filter((x) => x.states[1] === "open").map((x) => x.label);
+  const georgian = /georgian|huron/i.test(first.region || "");
+  const lake = georgian ? (/huron/i.test(first.region || "") && !/georgian/i.test(first.region || "") ? "Lake Huron" : "Georgian Bay") : /erie/i.test(first.region || "") ? "Lake Erie" : "Lake Ontario";
+  const access = [...new Set(g.sections.flatMap((r) => (RIVER_SEO[r.id] || {}).access || []))];
+  const salmon = SALMON_SPOTS.find((s) => g.sections.some((r) => r.id === s.river));
+  const faqs = [
+    { q: `When do steelhead run in the ${g.river}?`, a: `Fresh steelhead push in from ${lake} with the cold rains of October and November, a few hold in deep pools through winter, and a second run comes in March and April to spawn. Drop-back fish head back to the lake through April and early May.` },
+    { q: `Can you fish the ${g.river} for steelhead in winter?`, a: winterOpen.length ? `Yes, on part of it. In mid-winter these stretches are open for rainbow trout under the official rules: ${winterOpen.join("; ")}. Everything else waits for the fourth Saturday in April.` : `Not on the stretches we cover. They are closed for rainbow trout in mid-winter and reopen with the trout opener on the fourth Saturday in April, or have rules you should check on the zone page.` },
+    { q: `What is the best bait for steelhead on the ${g.river}?`, a: `Roe bags, single beads and small jigs under a float are the most common Ontario approach. On the fly, egg patterns, stoneflies and swung streamers all work. Match the size and colour to the clarity: bigger and brighter in stained water, smaller in clear water.` },
+    { q: "How many steelhead can I keep?", a: `Steelhead are rainbow trout under Ontario's rules. In Zones 16, 17 and 20 the limit is two on a sport licence and one on a conservation licence, within the combined trout and salmon limit. Some stretches have their own rules, so check the stretch you fish.` },
+  ];
+  const cal = rows.length ? `<div class="tbl-wrap"><table class="months"><thead><tr><th style="text-align:left">Stretch</th>${STL_DATES.map(([l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>${rows.map((x) => `<tr><td style="white-space:normal">${esc(x.label)}</td>${x.states.map((s) => `<td><span class="st ${s === "open" ? "open" : s === "closed" ? "closed" : "check"}">${STATE_WORD[s] || "Check the rules"}</span></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <p class="src">Rainbow trout (steelhead) status on November 15, January 15 and April 1, from the official Ontario Fishing Regulations Summary. Rules can change, so check today's status above before you go.</p>` : `<p>See the <a href="/regulations/zone-${zone || 16}/">zone regulations</a> for this water.</p>`;
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/steelhead/">Steelhead</a> › ${esc(g.river)}</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>${esc(g.river)} steelhead fishing</h1>
+  <div class="meta">${esc(first.region)}${zone ? ` · <a href="/regulations/zone-${zone}/">FMZ ${zone}</a>` : ""}</div>
+  ${g.sections.map((r) => `<div class="live-status" data-reach="${esc(r.id)}" data-sp="STL"><span class="st check">Checking today's steelhead season…</span> <span class="ls-note">${esc(r.section)}</span></div>`).join("")}
+  <p><b>The ${esc(g.river)} gets ${lake} steelhead in fall and again in spring.</b> ${esc(seo.hook || first.note || "")}</p>
+  <p>Below: when the fish are in, exactly which stretches are open in fall, winter and spring, and how to fish them.</p>
+  <div class="cta-row"><a class="btn primary" href="${APP_URL}">See today's ${esc(g.river)} conditions</a><span>7 days free</span></div>
+
+  <h2>When steelhead are in the ${esc(g.river)}</h2>
+  <ul>
+    <li><b>October to December:</b> the fall run. Fresh fish follow the salmon in on cold rains and feed on loose eggs.</li>
+    <li><b>December to February:</b> holdover fish sit in the deepest, slowest pools. Mild days after a thaw are best, where it's open.</li>
+    <li><b>March and April:</b> the spring run and spawning. Fish move on snowmelt and rain, then spawn on gravel in the upper reaches.</li>
+    <li><b>Late April and May:</b> drop-backs. Spawned fish feed hard on their way back to ${lake}.</li>
+  </ul>
+
+  <h2>What's open for steelhead, season by season</h2>
+  ${cal}
+  ${winterOpen.length ? `<p>In winter, stick to: ${esc(winterOpen.join("; "))}. ` : `<p>None of the stretches we cover is open for steelhead in mid-winter. `}Most other water opens with the trout opener on the fourth Saturday in April (April 24, 2027).</p>
+
+  ${cta(`Know when the ${esc(g.river)} is right`, `Steelhead move on rising water and bite as it drops and clears. ${BRAND} watches the ${esc(g.river)}'s flow, temperature and weather every morning and tells you when it's prime.`, "Try it free for 7 days")}
+
+  <h2>Reading the ${esc(g.river)} for steelhead</h2>
+  <p>Steelhead hold where the current slows to about walking pace in water a metre or two deep: tailouts above riffles, the inside seam of a bend, slots beside boulders and the soft water below log jams. In cold water they sit deeper and slower; as it warms toward 8 to 10°C they move up into faster runs.</p>
+  <p>The best days come one or two days after rain, as the river drops and clears from muddy to a green tint. A blown-out river fishes poorly, and gin-clear, low water makes fish spooky, so fish small and light then.</p>
+
+  <h2>Gear and flies</h2>
+  <ul>
+    <li><b>Float fishing:</b> a long rod with a centrepin or spinning reel, a float, and a roe bag, bead or small jig drifted just above bottom. See our <a href="/guides/float-fishing-for-steelhead/">float fishing guide</a>.</li>
+    <li><b>Fly fishing:</b> egg patterns, stonefly and Pheasant Tail nymphs under an indicator, or swung Intruder style streamers in stained water.</li>
+    <li><b>Spinning:</b> small spoons and inline spinners swung across and down through the runs.</li>
+  </ul>
+
+  <h2>Where to fish</h2>
+  <p>${access.length ? `Public places include ${esc(listJoin(access))}. ` : ""}Fish only where access is public or permitted, stay off spawning gravel in spring, and check the stretch rules above before you cast.</p>
+
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+
+  <p style="margin-top:18px;">${g.sections.map((r) => `<a href="${riverHref(r)}">${esc(r.river)}: ${esc(r.section)} guide</a>`).join(" · ")}${salmon ? ` · <a href="/salmon-run/${salmon.slug}/">${esc(salmon.place)} salmon run</a>` : ""} · <a href="/guides/steelhead-fishing-ontario/">Steelhead fishing in Ontario</a> · <a href="/steelhead/">All steelhead rivers</a></p>
+  ${cta(`Fish the ${esc(g.river)} on the right day`, `Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.`)}
+</article></div></section>`;
+  const title = [`${g.river} Steelhead: When They Run & What's Open`, `${g.river} Steelhead Fishing & Seasons`, `${g.river} Steelhead`].find((t) => t.length <= 60);
+  return {
+    title, body, stickyCta: "See today's conditions", winterOpen: winterOpen.length > 0, lake,
+    description: clampDesc(`When steelhead run in the ${g.river}, which stretches are open in fall, winter and spring under Ontario's rules, and how to fish them. Updated for ${Y}.`, `${g.river} steelhead: run timing, open stretches and tactics.`),
+    schema: [faqSchema(faqs)],
+  };
+}
+export function steelheadHub() {
+  const Y = seasonYear();
+  const list = steelheadRivers().map((g) => ({ g, p: steelheadPage(g) }));
+  const faqs = [
+    { q: "When is steelhead season in Ontario?", a: "Steelhead run Ontario's Great Lakes tributaries in fall (October to December) and spring (March and April). Some lower stretches are open all year; most other water opens on the fourth Saturday in April." },
+    { q: "Where can I fish for steelhead in winter in Ontario?", a: `On stretches open all year, mostly the lower ends of Lake Ontario tributaries. Of the rivers below, these have water open in mid-winter: ${listJoin(list.filter((x) => x.p.winterOpen).map((x) => x.g.river))}.` },
+    { q: "What is a steelhead?", a: "A rainbow trout that lives in the Great Lakes and runs up rivers to spawn, the same way a salmon does. Ontario's rules count steelhead as rainbow trout." },
+  ];
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › Steelhead</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>Ontario steelhead rivers ${Y}</h1>
+  <p><b>Steelhead are Great Lakes rainbow trout that run up Ontario's rivers in fall and spring.</b> Each river below has its run timing and an official, stretch-by-stretch calendar of what's open in fall, winter and spring.</p>
+  <div class="cta-row"><a class="btn primary" href="${APP_URL}">See which rivers are prime today</a><span>7 days free</span></div>
+  <h2>Rivers with water open all winter</h2>
+  <div class="rivers-grid">${list.filter((x) => x.p.winterOpen).map(({ g, p }) => `<a class="river-link" href="/steelhead/${g.slug}/"><b>${esc(g.river)}</b><span>${esc(p.lake)} steelhead, open stretches in winter</span></a>`).join("")}</div>
+  <h2>Fall and spring rivers</h2>
+  <div class="rivers-grid">${list.filter((x) => !x.p.winterOpen).map(({ g, p }) => `<a class="river-link" href="/steelhead/${g.slug}/"><b>${esc(g.river)}</b><span>${esc(p.lake)} steelhead</span></a>`).join("")}</div>
+  ${cta("Steelhead bite on the drop", `Fish move on rising water and bite as it drops and clears. ${BRAND} reads every river's flow, temperature and weather each morning so you know where to go.`)}
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+  <p style="margin-top:18px;"><a href="/guides/steelhead-fishing-ontario/">How to fish for steelhead in Ontario</a> · <a href="/guides/float-fishing-for-steelhead/">Float fishing for steelhead</a> · <a href="/regulations/">Fishing regulations by zone</a></p>
+</article></div></section>`;
+  return { title: `Ontario Steelhead Rivers ${Y}: Open in Winter & Spring`, description: `Ontario steelhead rivers with run timing and the official stretches open in fall, winter and spring, from the Credit and Humber to the Nottawasaga. Try it free.`, body, schema: [faqSchema(faqs)] };
+}

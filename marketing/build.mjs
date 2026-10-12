@@ -12,9 +12,9 @@ const ROOT = path.join(__dir, "..");
 // paths, so we write them into the repo root next to the app.
 const OUT = ROOT;
 
-import { SITE_URL, APP_URL, HOME, BRAND, esc, page } from "../lib/site-shell.js";
+import { SITE_URL, APP_URL, SIGNIN_URL, HOME, BRAND, esc, page } from "../lib/site-shell.js";
 import { withBrand } from "./seo-content.mjs";
-import { riverPage, salmonHub, salmonSpotPage, townPage, LIVE_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
+import { riverPage, salmonHub, salmonSpotPage, townPage, steelheadRivers, steelheadPage, steelheadHub, LIVE_STATUS_SCRIPT, RUN_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
 import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
@@ -126,6 +126,18 @@ const HOME_CSS = `<style>
 @media(max-width:560px){.posts{grid-template-columns:1fr;}.mh .lede{font-size:17px;}}
 </style>`;
 
+// Members who were signed in before the home page moved to the front door
+// have no "mkMember" flag yet; if this browser remembers a signed-in account,
+// send them on to the app.
+const RETURNING_MEMBER_SCRIPT = `<script>
+(function(){try{ if(localStorage.getItem("mkMember")==="1") return;
+  var r=indexedDB.open("river-intel-db",1); r.onupgradeneeded=function(){ r.transaction.abort(); };
+  r.onsuccess=function(){ var db=r.result; if(!db.objectStoreNames.contains("kv")) return;
+    var g=db.transaction("kv").objectStore("kv").get("me:last");
+    g.onsuccess=function(){ var m=g.result; if(m&&m.user){ try{localStorage.setItem("mkMember","1");}catch(e){} location.replace("/?app"); } }; };
+}catch(e){}})();
+</script>`;
+
 function homeBody() {
   const r = (id) => RIVERS.find((x) => x.id === id);
   const clubRow = (x) => `<li><a href="/rivers/${slug(x.river + " " + x.section)}/">${esc(x.river)}</a><small>${esc(x.section)}</small>
@@ -143,7 +155,7 @@ function homeBody() {
   <div>
     <h1>Know which river is fishing before you leave the house.</h1>
     <p class="lede">Every morning ${BRAND} checks live water temperature, flow and weather on 30+ Southern Ontario trout and salmon rivers, ranks them, confirms the official season for your stretch, and tells you what to tie on.</p>
-    <div class="actions"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a><a class="quiet" href="${APP_URL}">Sign in</a></div>
+    <div class="actions"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a><a class="quiet" href="${SIGNIN_URL}">Sign in</a></div>
     <p class="fine">No charge for 7 days. Then $5.00 a month on the yearly plan. Cancel any time.</p>
   </div>
   <aside class="club" aria-label="This morning's season status">
@@ -158,7 +170,7 @@ function homeBody() {
   <div class="fish">
     <a href="/blog/brook-trout-small-creeks-ontario/"><img src="${PHOTOS.brookTrout.sm}" alt="${esc(PHOTOS.brookTrout.alt)}" loading="lazy"/><div><h3>Brook trout</h3><p>Ontario's native trout, in small spring-fed creeks that stay cold all summer.</p><span class="go">Finding creek brookies</span></div></a>
     <a href="/blog/where-to-find-brown-trout-in-ontario/"><img src="${PHOTOS.brownTrout.sm}" alt="${esc(PHOTOS.brownTrout.alt)}" loading="lazy"/><div><h3>Brown trout</h3><p>Wary fish of tailwaters, undercut banks and fallen timber. Best at first and last light.</p><span class="go">Where browns live</span></div></a>
-    <a href="/guides/steelhead-fishing-ontario/"><img src="${PHOTOS.steelhead.sm}" alt="${esc(PHOTOS.steelhead.alt)}" loading="lazy"/><div><h3>Steelhead and salmon</h3><p>Lake-run fish that push up the tributaries on fresh rain, from August through spring.</p><span class="go">The steelhead guide</span></div></a>
+    <a href="/steelhead/"><img src="${PHOTOS.steelhead.sm}" alt="${esc(PHOTOS.steelhead.alt)}" loading="lazy"/><div><h3>Steelhead and salmon</h3><p>Lake-run fish that push up the tributaries on fresh rain, from August through spring.</p><span class="go">Steelhead rivers and seasons</span></div></a>
   </div>
 </div></section>
 
@@ -190,6 +202,19 @@ function homeBody() {
     <p style="margin-top:24px;"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a></p>
   </div>
 </div></section>
+
+<section class="section alt" id="accuracy"><div class="wrap" style="max-width:760px;">
+  <h2>How accurate is the score?</h2>
+  <p class="sub">We check it against what members actually catch. After a trip, members tell us how it went in ten seconds, blank days included, and we publish how often fish were caught on days we scored high and low.</p>
+  <p class="acc-line" style="text-align:center;margin-top:16px;font-weight:600;color:var(--pine)">Collecting trip reports now. Results appear here once 300 trips are in.</p>
+</div></section>
+<script>
+(function(){ fetch("/bk/api/score-accuracy").then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) return;
+  var el=document.querySelector(".acc-line"); if(!el) return;
+  if(d.ready){ el.innerHTML=d.bands.map(function(b){return "Scored "+b.label+": fish caught on "+b.caughtRate+"% of "+b.trips+" trips";}).join("<br>"); }
+  else { el.textContent=d.trips+" of "+d.target+" trip reports collected so far. Results appear here once 300 trips are in."; }
+}).catch(function(){}); })();
+</script>
 
 <section class="run"><div class="wrap">
   <h2>Salmon run season, late August to November</h2>
@@ -338,9 +363,9 @@ const GUIDES = [
   },
   {
     slug: "ontario-trout-opener",
-    title: `Ontario Trout Opener: Season Dates & Where to Fish`,
-    desc: "When trout season opens in Ontario (the fourth Saturday in April), what the opener means by zone, and the best rivers to fish on opening day.",
-    h1: "The Ontario trout opener",
+    title: `Ontario Trout Opener 2027: April 24 & Where to Fish`,
+    desc: "Ontario's trout opener is Saturday, April 24, 2027 (the fourth Saturday in April). What opens by zone, and the best rivers to fish on opening day.",
+    h1: "The Ontario trout opener: Saturday, April 24, 2027",
     filter: (r) => r.species.includes("BKT") || r.species.includes("BNT"),
     intro: [
       "For Southern Ontario anglers, the trout opener is the real start of the season. Across most of the province, the general stream-trout season opens on the fourth Saturday in April, the first legal day to target brook and brown trout in most rivers and streams.",
@@ -352,7 +377,7 @@ const GUIDES = [
       { h: "Best rivers for the opener", links: true },
     ],
     faqs: [
-      { q: "When is the trout opener in Ontario?", a: "In most of Southern Ontario the general stream-trout season opens on the fourth Saturday in April and runs to September 30. Some zones and waters differ, so confirm the current Ontario regulations for the exact river." },
+      { q: "When is the trout opener in Ontario?", a: "In 2027 it is Saturday, April 24. In most of Southern Ontario the general stream-trout season opens on the fourth Saturday in April and runs to September 30. Some zones and waters differ, so confirm the current Ontario regulations for the exact river." },
       { q: "Do I need a licence for the trout opener?", a: "Yes. A valid Ontario fishing licence (with an Outdoors Card) is required. Check the current regulations for season dates, limits and any sanctuary closures on the water you plan to fish." },
       { q: "What's the best bait or fly for opening day?", a: "Cold, high spring water favours getting down: weighted nymphs and small streamers fished deep and slow, plus egg patterns where migratory fish are still around. Muddy York Fishing recommends the technique and flies for each river based on the day's conditions." },
     ],
@@ -485,7 +510,7 @@ fs.copyFileSync(path.join(ROOT, "icons", "crest.png"), path.join(OUT, "crest.png
 fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   title: withBrand("Ontario Fishing App: River Conditions & Regulations"),
   description: "Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout & salmon rivers. Start free.",
-  canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: HOME_CSS, tail: LIVE_STATUS_SCRIPT, stickyCta: "Start 7 free days",
+  canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: HOME_CSS, tail: LIVE_STATUS_SCRIPT + RETURNING_MEMBER_SCRIPT, stickyCta: "Start 7 free days",
   ogImage: SITE_URL + PHOTOS.elora.src,
   schema: { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
     operatingSystem: "Web, iOS", offers: { "@type": "Offer", price: "9.99", priceCurrency: "CAD" }, url: SITE_URL },
@@ -509,16 +534,33 @@ fs.mkdirSync(path.join(OUT, "salmon-run"), { recursive: true });
 {
   const hub = salmonHub();
   fs.writeFileSync(path.join(OUT, "salmon-run", "index.html"), page({ title: withBrand(hub.title), description: hub.description,
-    canonical: `${SITE_URL}/salmon-run/`, body: hub.body, schema: hub.schema, stickyCta: hub.stickyCta, photo: { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
+    canonical: `${SITE_URL}/salmon-run/`, body: hub.body, schema: hub.schema, stickyCta: hub.stickyCta, tail: RUN_STATUS_SCRIPT, photo: { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
   urls.push(`${SITE_URL}/salmon-run/`);
   for (const sp of SALMON_SPOTS) {
     const dir = path.join(OUT, "salmon-run", sp.slug); fs.mkdirSync(dir, { recursive: true });
     const pg = salmonSpotPage(sp);
     fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(pg.title), description: pg.description,
-      canonical: `${SITE_URL}/salmon-run/${sp.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT,
-      photo: sp.slug.includes("ganaraska") ? PHOTOS.ganaraska : { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
+      canonical: `${SITE_URL}/salmon-run/${sp.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + RUN_STATUS_SCRIPT,
+      photo: sp.slug.includes("ganaraska") ? PHOTOS.ganaraska : sp.slug === "credit-river-mississauga" ? PHOTOS.credit : { ...PHOTOS.salmon, pos: "center 40%" }, ogImage: SITE_URL + PHOTOS.salmon.src }));
     urls.push(`${SITE_URL}/salmon-run/${sp.slug}/`);
   }
+}
+
+// steelhead hub + one page per steelhead river
+fs.mkdirSync(path.join(OUT, "steelhead"), { recursive: true });
+{
+  const hub = steelheadHub();
+  fs.writeFileSync(path.join(OUT, "steelhead", "index.html"), page({ title: withBrand(hub.title), description: hub.description,
+    canonical: `${SITE_URL}/steelhead/`, body: hub.body, schema: hub.schema, stickyCta: "Start free", photo: PHOTOS.steelhead, ogImage: SITE_URL + PHOTOS.steelhead.src }));
+  urls.push(`${SITE_URL}/steelhead/`);
+  steelheadRivers().forEach((g, gi) => {
+    const dir = path.join(OUT, "steelhead", g.slug); fs.mkdirSync(dir, { recursive: true });
+    const pg = steelheadPage(g);
+    const ph = [PHOTOS.wading, PHOTOS.steelhead, PHOTOS.flyFishers][gi % 3];
+    fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(pg.title), description: pg.description,
+      canonical: `${SITE_URL}/steelhead/${g.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT, photo: ph, ogImage: SITE_URL + ph.src }));
+    urls.push(`${SITE_URL}/steelhead/${g.slug}/`);
+  });
 }
 
 // "fishing spots in [town]"

@@ -38,6 +38,9 @@ model User {
   notifications    Notification[]
   following        Follow[]      @relation("following")
   followers        Follow[]      @relation("followers")
+  tripReports      TripReport[]
+  tripIntents      TripIntent[]
+  runCheckins      RunCheckin[]
 }
 
 model Event {
@@ -269,4 +272,65 @@ model MapDataCache {
   key       String   @id
   data      Json
   fetchedAt DateTime
+}
+
+// One angler's day on one river, blank days included. The ground truth the
+// opportunity score is measured and later recalibrated against. Only the
+// river (ref) is stored, never a location.
+model TripReport {
+  id          String   @id @default(cuid())
+  userId      String
+  ref         String
+  river       String
+  section     String   @default("")
+  tripDate    DateTime              // the day fished (Toronto date, stored at noon UTC)
+  fished      Boolean  @default(true)
+  caught      Int      @default(0)
+  species     Json     @default("[]")
+  waterTempC  Float?
+  note        String?
+  scoreAtTrip Int?                  // the opportunity score we showed that morning
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ref, tripDate])
+  @@index([ref, tripDate])
+}
+
+// "Going fishing" signal (a Directions tap), so we can ask how it went the
+// next morning. One per user, river and day.
+model TripIntent {
+  id         String    @id @default(cuid())
+  userId     String
+  ref        String
+  river      String
+  section    String    @default("")
+  score      Int?
+  dayKey     String                 // Toronto date, YYYY-MM-DD
+  remindedAt DateTime?
+  doneAt     DateTime?              // reported or dismissed
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ref, dayKey])
+  @@index([dayKey])
+}
+
+// Salmon and steelhead run sightings from members, per run spot.
+model RunCheckin {
+  id        String   @id @default(cuid())
+  userId    String
+  spot      String
+  status    String                 // none | staging | moving | stacked | spawning | spent
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([spot, createdAt])
+}
+
+// The weekly one-line run status we write for each run spot.
+model RunNote {
+  spot      String   @id
+  note      String
+  updatedAt DateTime @updatedAt
 }

@@ -123,7 +123,7 @@ describe("zone regulation pages", () => {
     expect(idx.body).toContain('href="/regulations/zone-16/"');
     const z = await app.inject({ method: "GET", url: "/regulations/zone-16/" });
     expect(z.statusCode).toBe(200);
-    expect(z.body).toMatch(/<title>Zone 16 Fishing Regulations \d{4}: Seasons &amp; Limits<\/title>/);
+    expect(z.body).toMatch(/<title>Zone 16 Fishing Regulations \d{4} Ontario \(FMZ 16\)<\/title>/);
     expect(z.body).toContain("Rainbow trout");
     expect(z.body).toContain("fourth Saturday in April to September 30");
     expect(z.body).toContain('href="/rivers/credit-river-lower-mouth-to-streetsville/"');

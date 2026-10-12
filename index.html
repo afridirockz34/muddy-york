@@ -3,6 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>
+  /* Visitors who aren't members land on the home page (/fishing/). Members,
+     the installed app, and anyone arriving with a reason (sign up, sign in,
+     a reset or sign-in link, a checkout return) go straight into the app. */
+  (function(){try{
+    var q=location.search;
+    if(q||location.hash){ sessionStorage.setItem("mkApp","1"); return; }
+    if(localStorage.getItem("mkMember")==="1"||sessionStorage.getItem("mkApp")==="1"||sessionStorage.getItem("mkGate")==="1") return;
+    if(navigator.standalone||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)) return;
+    location.replace("/fishing/");
+  }catch(e){}})();
+  </script>
   <title>Muddy York Fishing — Ontario Trout &amp; Salmon River Report</title>
   <meta name="description" content="Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly strategies and access for 30+ trout, steelhead &amp; salmon rivers. Start free." />
   <link rel="canonical" href="https://muddyyorkfishing.ca/" />

@@ -12,8 +12,8 @@ const banned = (profile.split("## Words and Phrases to Avoid Entirely")[1] || ""
   .split("\n").map((l) => l.replace(/^-\s*/, "").trim()).filter((l) => l && !/dash/i.test(l)).map((l) => l.toLowerCase());
 
 // Per page type: [min words, max words, min internal links, min FAQ]
-const RULES = { river: [1100, 2200, 5, 5], salmon: [500, 1500, 4, 4], town: [500, 1300, 5, 4], guide: [400, 2000, 4, 2], region: [300, 2000, 4, 2], other: [0, 99999, 0, 0] };
-const typeOf = (p) => p.startsWith("rivers/") && p !== "rivers/" ? "river" : p.startsWith("salmon-run/") ? "salmon"
+const RULES = { river: [1100, 2200, 5, 5], steelhead: [650, 1800, 5, 4], salmon: [500, 1500, 4, 4], town: [500, 1300, 5, 4], guide: [400, 2000, 4, 2], region: [300, 2000, 4, 2], other: [0, 99999, 0, 0] };
+const typeOf = (p) => p.startsWith("rivers/") && p !== "rivers/" ? "river" : p.startsWith("steelhead/") && p !== "steelhead/" ? "steelhead" : p.startsWith("salmon-run/") ? "salmon"
   : p.startsWith("fishing-spots/") && p !== "fishing-spots/" ? "town" : p.startsWith("guides/") && p !== "guides/" ? "guide"
   : p.startsWith("regions/") && p !== "regions/" ? "region" : "other";
 

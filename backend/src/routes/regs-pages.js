@@ -106,7 +106,7 @@ ${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></de
 <p style="margin-top:18px;"><a href="/regulations/">All Ontario fishing zones →</a> · <a href="/rivers/">Southern Ontario river guides →</a> · <a href="/salmon-run/">Ontario salmon run →</a></p>
 </article></div></section>`;
   return page({
-    title: `Zone ${z} Fishing Regulations ${YEAR()}: Seasons & Limits`,
+    title: `Zone ${z} Fishing Regulations ${YEAR()} Ontario (FMZ ${z})`,
     description: `Official FMZ ${z} fishing seasons, limits, exceptions and sanctuaries for ${YEAR()}, with which species are open today. Checked against ontario.ca daily.`,
     canonical: `${SITE_URL}/regulations/zone-${z}/`, body, extraHead: CSS,
     schema: { "@context": "https://schema.org", "@type": "Article", headline: `Zone ${z} fishing regulations (FMZ ${z})`, dateModified: new Date(checkedAt).toISOString(),
