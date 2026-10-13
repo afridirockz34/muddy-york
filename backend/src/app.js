@@ -24,6 +24,8 @@ import proxyRoutes from "./routes/proxy.js";
 import blogRoutes from "./routes/blog.js";
 import fieldReportRoutes from "./routes/field-reports.js";
 import appLinkRoutes from "./routes/app-link.js";
+import giftRoutes from "./routes/gifts.js";
+import iceRoutes from "./routes/ice.js";
 import regsPagesRoutes from "./routes/regs-pages.js";
 import { requirePremium } from "./billing/require-premium.js";
 
@@ -46,6 +48,8 @@ export function buildApp(opts = {}) {
   app.register(catchRoutes);
   app.register(fieldReportRoutes, { fetchImpl: opts.streamFetch });
   app.register(appLinkRoutes, { sendMail: opts.sendMail });
+  app.register(giftRoutes);
+  app.register(iceRoutes, { fetchImpl: opts.streamFetch, overpassFetch: opts.proxyFetch });
   app.register(eventRoutes);
   app.register(adminRoutes);
   app.register(adminReconcileRoutes);

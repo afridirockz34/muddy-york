@@ -130,7 +130,7 @@ async function emailReport(r) {
   }
   const subject = r.changed.length ? `Ontario fishing regs changed (${r.changed.map((c) => "Zone " + c.zone).join(", ")})`
     : r.unmatched.length ? "Regs check: river sections need review" : "Regs check: some zones couldn't be read";
-  await sendMail({ to: config.resend.adminEmail, subject: `[Muddy York] ${subject}`, text: lines.join("\n") });
+  await sendMail({ to: config.resend.adminEmail, subject: `[Muddy York] ${subject}`, text: lines.join("\n"), plain: true });
 }
 
 // Twice a day, starting shortly after boot. Skipped in tests.

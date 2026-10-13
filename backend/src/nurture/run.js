@@ -57,12 +57,8 @@ Here's how the rivers you've been looking at score this morning:
 
 ${lines}
 
-${top.score >= PRIME ? `The ${top.river} is the pick today.` : `None are prime yet. We'll tell you when one is.`} Members also see the technique and fly for today's water, parking and the walk in, the official season for each stretch, and get one alert when a saved river turns prime.
-
-${cta}: ${SITE}/?join
-
-Tight lines,
-Muddy York Fishing`,
+${top.score >= PRIME ? `The ${top.river} is the pick today.` : `None are prime yet. We'll tell you when one is.`} Members also see the technique and fly for today's water, parking and the walk in, the official season for each stretch, and get one alert when a saved river turns prime.`,
+    cta: { label: cta, url: `${SITE}/?join` },
   };
   return { push, email };
 }
@@ -79,7 +75,7 @@ export async function runNurture({ now = new Date(), fetchWeather, sendEmail = s
   const weather = new Map();
   for (const u of users) {
     const ent = resolveEntitlement({ status: u.subscription?.status || null, currentPeriodEnd: u.subscription?.currentPeriodEnd || null, trialEnd: u.trialEnd || null }, now);
-    if (ent !== "free") continue;
+    if (ent !== "free" || (u.giftUntil && new Date(u.giftUntil).getTime() > t)) continue;
     const last = await prisma.event.findFirst({ where: { userId: u.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
     if (!last || t - last.createdAt.getTime() > 56 * DAY) continue; // dormant: leave them be
     const rivers = await interestOf(u, t);
@@ -114,7 +110,7 @@ export async function runNurture({ now = new Date(), fetchWeather, sendEmail = s
     const emailOk = !u.emailOptOut && (!u.nurtureEmailAt || t - new Date(u.nurtureEmailAt).getTime() >= 7 * DAY) && !pushedToday && !alertedToday;
     if (emailOk && (prime || thursday)) {
       const unsub = unsubUrl(u.id);
-      const ok = await sendEmail({ to: u.email, subject: copy.email.subject, text: copy.email.text + (unsub ? `\n\nUnsubscribe from these emails: ${unsub}` : "") }).catch(() => false);
+      const ok = await sendEmail({ to: u.email, subject: copy.email.subject, heading: copy.email.subject, text: copy.email.text, cta: copy.email.cta, unsubscribe: unsub || undefined }).catch(() => false);
       if (ok) { await prisma.user.update({ where: { id: u.id }, data: { nurtureEmailAt: now } }); emails++; }
     }
   }

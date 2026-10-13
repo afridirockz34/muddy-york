@@ -16,6 +16,8 @@ import { SITE_URL, APP_URL, SIGNIN_URL, HOME, BRAND, SOCIAL, esc, page } from ".
 import { withBrand } from "./seo-content.mjs";
 import { riverPage, salmonHub, salmonSpotPage, townPage, steelheadRivers, steelheadPage, steelheadHub, LIVE_STATUS_SCRIPT, RUN_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
 import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
+import { licencePage, freeFishingPage, sportsmenShowPage, winterFishingPage, giftsPage, giftThanksPage, iceHubPage, iceLakePage, GIFT_SCRIPT, FREEZE_SCRIPT } from "./seasonal-pages.mjs";
+import { ICE_LAKES } from "../lib/ice-lakes.js";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
 const src = fs.readFileSync(path.join(ROOT, "source-app.jsx"), "utf8");
@@ -753,6 +755,24 @@ ${g.body}
 </article></div></section>`;
   fs.writeFileSync(path.join(dir, "index.html"), page({ title: `${g.title} | ${BRAND}`, description: g.desc, canonical: `${SITE_URL}/${g.slug}/`, body }));
   urls.push(`${SITE_URL}/${g.slug}/`);
+}
+
+// late fall and winter pages
+{
+  const put = (rel, pg, extra = {}) => {
+    const dir = path.join(OUT, rel); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "index.html"), page({ title: pg.title.includes(BRAND) ? pg.title : withBrand(pg.title), description: pg.description,
+      canonical: `${SITE_URL}/${rel}/`, body: pg.body, schema: pg.schema, stickyCta: "Start free", ...extra }));
+    if (!extra.noindex) urls.push(`${SITE_URL}/${rel}/`);
+  };
+  put("guides/ontario-fishing-licence", licencePage(), { photo: PHOTOS.flyFishers });
+  put("guides/free-fishing-weekend-ontario", freeFishingPage(), { photo: PHOTOS.wading });
+  put("guides/toronto-sportsmens-show", sportsmenShowPage(), { photo: PHOTOS.steelhead });
+  put("guides/winter-fishing-near-toronto", winterFishingPage(), { photo: PHOTOS.credit, ogImage: SITE_URL + PHOTOS.credit.src });
+  put("gifts", giftsPage(), { photo: PHOTOS.rainbow, tail: GIFT_SCRIPT, stickyCta: "" });
+  put("gifts/thanks", giftThanksPage(), { noindex: true, extraHead: '<meta name="robots" content="noindex"/>', stickyCta: "" });
+  put("ice-fishing", iceHubPage(), { photo: PHOTOS.credit, tail: FREEZE_SCRIPT });
+  for (const l of ICE_LAKES) put(`ice-fishing/${l.id}`, iceLakePage(l), { photo: PHOTOS.credit, tail: FREEZE_SCRIPT });
 }
 
 // photo credits

@@ -137,7 +137,7 @@ export default async function postRoutes(app) {
       await sendMail({
         to: config.resend.adminEmail,
         subject: `Post reported: ${req.params.id}`,
-        text: `Post ${req.params.id} was reported by ${req.user.email}.${reason ? "\n\nReason: " + reason : ""}`,
+        text: `Post ${req.params.id} was reported by ${req.user.email}.${reason ? "\n\nReason: " + reason : ""}`, plain: true,
       }).catch(() => {});
     }
     return { ok: true };

@@ -1,0 +1,100 @@
+{
+ "lake-simcoe": {
+  "name": "Lake Simcoe",
+  "lat": 44.42,
+  "lon": -79.37,
+  "ara": [
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Simcoe",
+    "THERMAL_REGIME": "Cool",
+    "FISH_SPECIES_SUMMARY": "American Eel,Banded Killifish,Black Crappie,Blackchin Shiner,Blacknose Dace,Blacknose Shiner,Bluegill,Bluntnose Minnow,Bowfin,Brassy Minnow,Brook Silverside,Brook Stickleback,Brook Trout,Brown Bullhead,Brown Trout,Burbot,Carps and Minnows,Central Mudminnow,Channel Catfish,Chinook Salmon,Cisco,Common Carp,Common Shiner,Creek Chub,Emerald Shiner,Fathead Minnow,Finescale Dace,Gizzard Shad,Golden Shiner,Hornyhead Chub,Iowa Darter,Johnny Darter,Johnny Darter x Tesselated Darter,Lake Trout,Lake Whitefish,Largemouth Bass,Logperch,Longnose Dace,Longnose Gar,Longnose Sucker,Mottled Sculpin,Muskellunge,Ninespine Stickleback,Northern Pearl Dace,Northern Pike,Northern Redbelly Dace,Pumpkinseed,Rainbow Darter,Rainbow Smelt,Rainbow Trout,River Chub,Rock Bass,Round Goby,Sand Shiner,Shorthead Redhorse,Slimy Sculpin,Smallmouth Bass,Spoonhead Sculpin,Spotfin Shiner,Spottail Shiner,Trout-Perch,Unidentifiable,Walleye,White Crappie,White Sucker,Yellow Bullhead,Yellow Perch",
+    "MAXIMUM_DEPTH": 41.5,
+    "MEAN_DEPTH": 17.0,
+    "SURFACE_AREA": 72500.0,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 16
+   }
+  ]
+ },
+ "lake-nipissing": {
+  "name": "Lake Nipissing",
+  "lat": 46.25,
+  "lon": -79.75,
+  "ara": [
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Nipissing",
+    "THERMAL_REGIME": "Warm",
+    "FISH_SPECIES_SUMMARY": "Blackchin Shiner,Blacknose Shiner,Bluntnose Minnow,Brown Bullhead,Burbot,Chinook Salmon,Cisco,Common Shiner,Eastern Silvery Minnow,Emerald Shiner,Freshwater Drum,Golden Shiner,Greater Redhorse,Iowa Darter,Johnny Darter,Johnny Darter x Tesselated Darter,Lake Chub,Lake Sturgeon,Lake Whitefish,Largemouth Bass,Logperch,Longnose Gar,Mottled Sculpin,Muskellunge,Ninespine Stickleback,Northern Pike,Pumpkinseed,Rainbow Smelt,Rock Bass,Shorthead Redhorse,Silver Lamprey,Silver Redhorse,Smallmouth Bass,Spoonhead Sculpin,Spottail Shiner,Spotted Gar,Trout-Perch,Walleye,White Bass,White Sucker,Whitefish subfamily,Yellow Perch",
+    "MAXIMUM_DEPTH": 52.0,
+    "MEAN_DEPTH": 4.5,
+    "SURFACE_AREA": 87325.0,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 11
+   }
+  ]
+ },
+ "bay-of-quinte": {
+  "name": "Bay of Quinte",
+  "lat": 44.13,
+  "lon": -77.2,
+  "ara": [
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Ontario",
+    "THERMAL_REGIME": "Cold",
+    "FISH_SPECIES_SUMMARY": "Alewife,American Eel,Atlantic Salmon,Black Crappie,Blacknose Dace,Blacknose Shiner,Bluegill,Bluntnose Minnow,Bowfin,Brook Stickleback,Brook Trout,Brown Bullhead,Brown Trout,Carps and Minnows,Central Mudminnow,Central Stoneroller,Channel Catfish,Chinook Salmon,Coho Salmon,Common Carp,Common Shiner,Cottus sp.,Creek Chub,Emerald Shiner,Fantail Darter,Fathead Minnow,Freshwater Drum,Gizzard Shad,Golden Shiner,Goldfish,Green Sunfish,Johnny Darter,Lake Chub,Lake Trout,Lake Whitefish,Largemouth Bass,Logperch,Longnose Dace,Longnose Gar,Longnose Sucker,Mimic Shiner,Mottled Sculpin,Moxostoma sp.,Muskellunge,Northern Pearl Dace,Northern Pike,Northern Redbelly Dace,Pumpkinseed,Rainbow Darter,Rainbow Smelt,Rainbow Trout,River Chub,Rock Bass,Round Goby,Round Whitefish,Sand Shiner,Sea Lamprey,Shorthead Redhorse,Slimy Sculpin,Smallmouth Bass,Spotfin Shiner,Spottail Shiner,Suckers,Sunfishes,Tessellated Darter,Threespine Stickleback,Trout-Perch,Unidentifiable,Walleye,White Bass,White Perch,White Sucker,Yellow Perch",
+    "MAXIMUM_DEPTH": 244.0,
+    "MEAN_DEPTH": 86.0,
+    "SURFACE_AREA": 1896000.0,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 20
+   }
+  ]
+ },
+ "rice-lake": {
+  "name": "Rice Lake",
+  "lat": 44.18,
+  "lon": -78.2,
+  "ara": [
+   {
+    "OFFICIAL_WATERBODY_NAME": "Rice Lake",
+    "THERMAL_REGIME": "Warm",
+    "FISH_SPECIES_SUMMARY": "American Eel,Banded Killifish,Black Crappie,Blackchin Shiner,Bluegill,Bluntnose Minnow,Brook Silverside,Brown Bullhead,Burbot,Carps and Minnows,Common Carp,Creek Chub,Emerald Shiner,Finescale Dace,Golden Shiner,Greater Redhorse,Iowa Darter,Lake Sturgeon,Largemouth Bass,Logperch,Muskellunge,New World Silversides,Northern Pike,Pumpkinseed,Rainbow Smelt,Rock Bass,Round Goby,Smallmouth Bass,Spottail Shiner,Sunfishes,Tiger Muskellunge,Trout-Perch,Walleye,White Sucker,Yellow Bullhead,Yellow Perch",
+    "MAXIMUM_DEPTH": 13.4,
+    "MEAN_DEPTH": 2.6,
+    "SURFACE_AREA": 9156.25,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 17
+   }
+  ]
+ },
+ "lake-scugog": {
+  "name": "Lake Scugog",
+  "lat": 44.14,
+  "lon": -78.85,
+  "ara": [
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Scugog",
+    "THERMAL_REGIME": "Warm",
+    "FISH_SPECIES_SUMMARY": "Banded Killifish,Black Crappie,Blackchin Shiner,Blacknose Dace,Blacknose Shiner,Bluegill,Bluntnose Minnow,Brassy Minnow,Brook Silverside,Brown Bullhead,Common Carp,Common Shiner,Creek Chub,Emerald Shiner,Finescale Dace,Golden Shiner,Iowa Darter,Johnny Darter,Johnny Darter x Tesselated Darter,Lake Chub,Lake Sturgeon,Largemouth Bass,Lepomis sp.,Logperch,Mimic Shiner,Muskellunge,Northern Pearl Dace,Pikes,Pumpkinseed,Pumpkinseed x Bluegill,Rock Bass,Rosyface Shiner,Smallmouth Bass,Spotfin Shiner,Spottail Shiner,Striped Shiner,Trout-Perch,Walleye,White Sucker,Yellow Bullhead,Yellow Perch",
+    "MAXIMUM_DEPTH": 7.62,
+    "MEAN_DEPTH": 1.37,
+    "SURFACE_AREA": 8255.8,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 17
+   },
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Scugog",
+    "THERMAL_REGIME": "Warm",
+    "FISH_SPECIES_SUMMARY": "Banded Killifish,Black Crappie,Blackchin Shiner,Blacknose Dace,Blacknose Shiner,Bluegill,Bluntnose Minnow,Brassy Minnow,Brook Silverside,Brown Bullhead,Common Carp,Common Shiner,Creek Chub,Emerald Shiner,Finescale Dace,Golden Shiner,Iowa Darter,Johnny Darter,Johnny Darter x Tesselated Darter,Lake Chub,Lake Sturgeon,Largemouth Bass,Lepomis sp.,Logperch,Mimic Shiner,Muskellunge,Northern Pearl Dace,Pikes,Pumpkinseed,Pumpkinseed x Bluegill,Rock Bass,Rosyface Shiner,Smallmouth Bass,Spotfin Shiner,Spottail Shiner,Striped Shiner,Trout-Perch,Walleye,White Sucker,Yellow Bullhead,Yellow Perch",
+    "MAXIMUM_DEPTH": 7.62,
+    "MEAN_DEPTH": 1.37,
+    "SURFACE_AREA": 8255.8,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 17
+   },
+   {
+    "OFFICIAL_WATERBODY_NAME": "Lake Scugog",
+    "THERMAL_REGIME": "Warm",
+    "FISH_SPECIES_SUMMARY": "Banded Killifish,Black Crappie,Blackchin Shiner,Blacknose Dace,Blacknose Shiner,Bluegill,Bluntnose Minnow,Brassy Minnow,Brook Silverside,Brown Bullhead,Common Carp,Common Shiner,Creek Chub,Emerald Shiner,Finescale Dace,Golden Shiner,Iowa Darter,Johnny Darter,Johnny Darter x Tesselated Darter,Lake Chub,Lake Sturgeon,Largemouth Bass,Lepomis sp.,Logperch,Mimic Shiner,Muskellunge,Northern Pearl Dace,Pikes,Pumpkinseed,Pumpkinseed x Bluegill,Rock Bass,Rosyface Shiner,Smallmouth Bass,Spotfin Shiner,Spottail Shiner,Striped Shiner,Trout-Perch,Walleye,White Sucker,Yellow Bullhead,Yellow Perch",
+    "MAXIMUM_DEPTH": 7.62,
+    "MEAN_DEPTH": 1.37,
+    "SURFACE_AREA": 8255.8,
+    "FISHERIES_MANAGEMENT_ZONE_ID": 17
+   }
+  ]
+ }
+}

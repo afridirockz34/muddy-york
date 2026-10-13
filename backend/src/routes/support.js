@@ -14,7 +14,7 @@ export default async function supportRoutes(app) {
     if (!to) return reply.code(503).send({ error: "support is not configured yet" });
     const subject = `[Muddy York Support] from ${user.email}`;
     const text = `Support request\n\nFrom: ${user.email}${user.displayName ? ` (${user.displayName})` : ""}\nUser id: ${user.id}\n\n${message}\n`;
-    const ok = await sendMail({ to, subject, text, replyTo: user.email }).catch(() => false);
+    const ok = await sendMail({ to, subject, text, replyTo: user.email, plain: true }).catch(() => false);
     if (!ok) return reply.code(502).send({ error: "couldn't send just now — try again" });
     return { ok: true };
   });

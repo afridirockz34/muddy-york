@@ -4,6 +4,7 @@ import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm, isRiverSpot } 
 import { coldWaterIndex, surveyedTroutSalmon } from "./lib/cold-water.js";
 import { RUN_SPOTS, RUN_STATES, RUN_LABEL } from "./lib/run-spots.js";
 import { scoreAccuracy } from "./lib/score-accuracy.js";
+import { freezingDegreeDays, freezeStage, iceOutlook, iceSpeciesName } from "./lib/ice.js";
 import { elevations } from "./lib/terrain.js";
 import { inferSpecies } from "./lib/species-inference.js";
 import { deriveHabitat } from "./lib/habitat-proxy.js";
@@ -1000,9 +1001,9 @@ function RiverReportBody({ev,m,premium,onUpgrade,signedIn,activity={},distOf=()=
       </div>
       <ActionBar ev={ev} signedIn={signedIn}/>
       <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
-      <RiverIntel sec={ev.sec} cond={ev.cond}/>
       <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
       <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
+      <RiverIntel sec={ev.sec} cond={ev.cond}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
         <AdvHead t="Parking & directions"/>
         <Locked premium={premium} onUpgrade={onUpgrade} label="Upgrade for parking & directions">
@@ -1436,6 +1437,7 @@ function Composer({me,onCreatePost,onSetName,onSignIn}){
   </div>);
 }
 function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, onSaveUrl, personalized, me, premium=false, onUpgrade, posts=[], postsCursor, onLoadMore, onCreatePost, onDeletePost, onToggleLike, onReport, onBlock, onCommentDelta, onSetName, onSignIn, onOpenProfile}){
+  const [openPanel,setOpenPanel]=useState(null); // "run" | "post" | null
   const [cat,setCat]=useState("All");
   const [url,setUrl]=useState(newsUrl||"");
   const [ext,setExt]=useState(null);
@@ -1495,9 +1497,13 @@ function NewsView({derived, savedRivers=[], stockNews=[], flowNews=[], newsUrl, 
   const postProps={me,onToggleLike,onDelete:onDeletePost,onReport,onBlock,onCommentDelta,onSetName,onSignIn,onOpenProfile};
 
   return (<div>
-    <RunTracker premium={premium} signedIn={!!(me&&me.user)} onUpgrade={onUpgrade}/>
     <SectionTitle t="The Feed"/>
-    <Composer me={me} onCreatePost={onCreatePost} onSetName={onSetName} onSignIn={onSignIn}/>
+    {(()=>{ const tab=(key,icon,label)=>{ const on=openPanel===key;
+        return (<button onClick={()=>setOpenPanel(on?null:key)} aria-expanded={on} style={{flex:1,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:7,padding:"11px 10px",borderRadius:10,cursor:"pointer",
+          fontFamily:sans,fontSize:13.5,fontWeight:700,border:`1px solid ${on?C.pine:C.line}`,background:on?C.pine:C.panel,color:on?C.headText:C.pine}}><Icon name={icon} size={16}/>{label}</button>); };
+      return (<div style={{display:"flex",gap:8,marginBottom:14}}>{tab("run","rivers","Run tracker")}{tab("post","plus","Post")}</div>); })()}
+    {openPanel==="run" && <RunTracker premium={premium} signedIn={!!(me&&me.user)} onUpgrade={onUpgrade}/>}
+    {openPanel==="post" && <Composer me={me} onCreatePost={async(f)=>{ const r=await onCreatePost(f); setOpenPanel(null); return r; }} onSetName={onSetName} onSignIn={onSignIn}/>}
     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
       {cats.map(x=><span key={x} className={"seg"+(cat===x?" on":"")} onClick={()=>setCat(x)}>{x}</span>)}
     </div>
@@ -2113,6 +2119,23 @@ export default function App(){
   },[]);
   const intel=useMemo(()=>({streamInfo,riverReports}),[streamInfo,riverReports]);
 
+  // Gift links (/?redeem=CODE): keep the code through sign-in, then redeem it.
+  useEffect(()=>{ try{ const c=new URLSearchParams(location.search).get("redeem"); if(c) sessionStorage.setItem("mkRedeem",c); }catch{} },[]);
+  useEffect(()=>{ if(!API_BASE||!(me&&me.user)) return; let code=null; try{ code=sessionStorage.getItem("mkRedeem"); }catch{} if(!code) return;
+    try{ sessionStorage.removeItem("mkRedeem"); history.replaceState({},"",location.pathname); }catch{}
+    proxyJSON("/gift/redeem",{method:"POST",body:{code}}).then(()=>{ refreshMe(); setFlash("Gift redeemed. Your year of Muddy York starts now."); logEvent("gift_redeem"); })
+      .catch(e=>setFlash((e&&e.info&&e.info.error)||"Couldn't redeem that gift code."))
+      .finally(()=>setTimeout(()=>setFlash(""),7000));
+  },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seasonal modes. The admin switches the ice season on; anglers then choose
+  // Rivers or Ice fishing on the Rivers tab.
+  const [iceSeason,setIceSeason]=useState(false);
+  const [mode,setMode]=useState(()=>{ try{ return localStorage.getItem("mkMode")==="ice"?"ice":"rivers"; }catch{ return "rivers"; } });
+  useEffect(()=>{ if(!API_BASE) return; proxyJSON("/api/season").then(d=>setIceSeason(!!(d&&d.ice))).catch(()=>{}); },[]);
+  const setModeSaved=(m)=>{ setMode(m); try{ localStorage.setItem("mkMode",m); }catch{} logEvent("mode",m); };
+  const iceMode=iceSeason&&mode==="ice";
+
   // First-run guide once per device, after sign-in and username; then, inside
   // the installed app, a one-tap alerts prompt.
   const [showTour,setShowTour]=useState(false), [showPushAsk,setShowPushAsk]=useState(false);
@@ -2199,6 +2222,7 @@ export default function App(){
 
       {/* TopBar */}
       <div style={{position:"sticky",top:0,zIndex:1100,borderBottom:`3px solid ${C.brass}`,background:C.ink2}}>
+        {iceSeason && <Snowfall/>}
         <div style={{maxWidth:820,margin:"0 auto",padding:"calc(9px + env(safe-area-inset-top)) 16px 9px",display:"flex",alignItems:"center",gap:11}}>
           <Crest size={38}/>
           <div style={{flex:1,minWidth:0}}>
@@ -2227,7 +2251,12 @@ export default function App(){
         {tab==="rivers" && pendingTrips[0] && (()=>{ const t=pendingTrips[0]; const when=new Date(`${t.dayKey}T12:00:00`).toLocaleDateString("en-CA",{weekday:"long"});
           return (<div style={{marginBottom:14}}><TripReportForm key={t.id} sec={secForRef(t.ref,t.river,t.section)} score={t.score} dayKey={t.dayKey} signedIn={signedInNow}
             title={`How was the ${t.river||"river"} on ${when}?`} onDone={()=>dropTrip(t.id,false)} onCancel={()=>dropTrip(t.id,true)}/></div>); })()}
-        {tab==="rivers" && (<>
+        {tab==="rivers" && iceSeason && (<div role="tablist" aria-label="Fishing mode" style={{display:"flex",gap:6,padding:4,background:C.panelHi,borderRadius:12,marginBottom:12}}>
+          {[["rivers","Rivers"],["ice","Ice fishing"]].map(([k,l])=><button key={k} role="tab" aria-selected={mode===k} onClick={()=>setModeSaved(k)}
+            style={{flex:1,padding:"9px",borderRadius:9,border:"none",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:700,background:mode===k?C.pine:"transparent",color:mode===k?C.headText:C.pine}}>{l}</button>)}
+        </div>)}
+        {tab==="rivers" && iceMode && <IceView userLoc={userLoc} radiusM={radiusM} premium={isPremium} onUpgrade={openUpgrade} distOf={distOf}/>}
+        {tab==="rivers" && !iceMode && (<>
           <div style={{fontFamily:serif,fontStyle:"italic",fontSize:15,color:C.pine,marginBottom:12}}>Find the right water, morning by morning.</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
             <button onClick={()=>scout()} disabled={isScouting} style={{...btnBig,padding:"6px 10px",fontSize:12,borderColor:C.brass,color:C.pine,opacity:isScouting?0.75:1}}>
@@ -2472,6 +2501,103 @@ function ScoreAccuracy(){
      : (<div style={{color:C.textDim}}>We're measuring it with members' trip reports, blank days included. {d.trips} of {d.target} trips reported so far. Every report brings the answer closer.</div>)}
   </div>);
 }
+// ── Ice fishing (seasonal) ──
+// Light snowfall in the header while the ice season is on.
+function Snowfall(){
+  const flakes=useMemo(()=>Array.from({length:18},(_,i)=>({left:(i*53)%100,delay:(i*0.73)%6,dur:6+(i*1.7)%5,size:2+(i%3)})),[]);
+  return (<div aria-hidden="true" style={{position:"absolute",inset:0,overflow:"hidden",pointerEvents:"none"}}>
+    <style>{`@keyframes mkSnow{from{transform:translateY(-10px)}to{transform:translateY(90px)}}@media (prefers-reduced-motion:reduce){.mk-flake{animation:none!important;opacity:.35}}`}</style>
+    {flakes.map((f,i)=><span key={i} className="mk-flake" style={{position:"absolute",top:-6,left:`${f.left}%`,width:f.size,height:f.size,borderRadius:"50%",background:"rgba(255,255,255,.75)",
+      animation:`mkSnow ${f.dur}s linear ${f.delay}s infinite`}}/>)}
+  </div>);
+}
+// Weather for ice lakes: daily mean temperatures for the last ~90 days (for
+// freezing degree-days) and today's wind, gusts, air and pressure trend.
+async function fetchIceWx(lakes){
+  const out={};
+  for(let i=0;i<lakes.length;i+=40){
+    const chunk=lakes.slice(i,i+40);
+    const u="https://api.open-meteo.com/v1/forecast?latitude="+chunk.map(l=>l.lat).join(",")+"&longitude="+chunk.map(l=>l.lon).join(",")+
+      "&current=temperature_2m,wind_speed_10m,wind_gusts_10m,pressure_msl&hourly=pressure_msl&daily=temperature_2m_mean&past_days=92&forecast_days=1&timezone=America%2FToronto";
+    try{ const r=await fetch(u); if(!r.ok) continue; const d=await r.json(); const arr=Array.isArray(d)?d:[d];
+      chunk.forEach((l,j)=>{ const x=arr[j]; if(!x||!x.daily) return;
+        const h=x.hourly&&x.hourly.pressure_msl||[]; const n=h.length; const now=n-24>=0?h[n-24]:null, ago=n-30>=0?h[n-30]:null;
+        out[l.id]={fdd:freezingDegreeDays(x.daily.temperature_2m_mean.slice(0,-1)),air:x.current&&x.current.temperature_2m,wind:x.current&&x.current.wind_speed_10m,
+          gust:x.current&&x.current.wind_gusts_10m,pressureTrend:now!=null&&ago!=null?+(now-ago).toFixed(1):null}; });
+    }catch(e){}
+  }
+  return out;
+}
+function IceView({userLoc,radiusM,premium,onUpgrade,distOf}){
+  const [lakes,setLakes]=useState(null), [wx,setWx]=useState({}), [busy,setBusy]=useState(false), [near,setNear]=useState(false);
+  const load=useCallback(async(useLoc)=>{ setBusy(true);
+    try{ const q=useLoc&&userLoc?`?lat=${userLoc.lat}&lon=${userLoc.lon}&radiusM=${radiusM}`:"";
+      const d=await proxyJSON(`/api/ice/lakes${q}`); const list=d.lakes||[]; setLakes(list); setNear(!!(useLoc&&userLoc));
+      setWx(await fetchIceWx(list)); logEvent("ice_scout",null,{near:!!(useLoc&&userLoc),count:list.length});
+    }catch(e){ setLakes(l=>l||[]); } finally{ setBusy(false); } },[userLoc,radiusM]);
+  useEffect(()=>{ load(false); },[]); // eslint-disable-line react-hooks/exhaustive-deps
+  const now=new Date();
+  const rows=(lakes||[]).map(l=>{ const w=wx[l.id];
+    const st=l.bundle&&l.species.length?statusFor(l.bundle,l.species,now):null;
+    const sp=st?st.stretches[0].species:[];
+    const open=sp.filter(x=>x.state==="open"), closed=sp.filter(x=>x.state==="closed");
+    const stage=w?freezeStage(w.fdd):null;
+    const out=w?iceOutlook({fdd:w.fdd,openCount:open.length,presentCount:l.species.length,wind:w.wind,gust:w.gust,air:w.air,pressureTrend:w.pressureTrend}):null;
+    return {l,w,sp,open,closed,stage,out,st}; }).sort((a,b)=>((b.out?b.out.score:-1)-(a.out?a.out.score:-1))||((a.l.distKm??999)-(b.l.distKm??999)));
+  const tone={early:C.brick,building:C.amberDeep,established:C.pine};
+  const scoutNear=()=>{ if(!premium) return onUpgrade(); load(true); };
+  return (<div>
+    <div style={{padding:"11px 13px",background:`${C.brick}10`,border:`1px solid ${C.brick}44`,borderRadius:10,fontSize:13,lineHeight:1.55,color:C.text,marginBottom:12}}>
+      <b style={{color:C.brick}}>We can't see the ice.</b> Freeze progress below is weather, not an ice report. Check thickness yourself as you go, ask the hut operators and locals, and follow Canadian Red Cross and Lifesaving Society ice safety guidance.
+    </div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+      <button onClick={scoutNear} disabled={busy} style={{...btnBig,padding:"7px 11px",fontSize:12.5,borderColor:C.brass,color:C.pine,opacity:busy?0.7:1}}><Icon name={premium?"search":"lock"} size={13}/>{busy?"Checking lakes…":near?"Lakes near you · Refresh":"Scout lakes near me"}</button>
+      {near && <button onClick={()=>load(false)} style={{...btn,borderColor:C.line,color:C.textDim}}>Show the main lakes</button>}
+    </div>
+    {lakes===null && <div style={{fontSize:13,color:C.textDim}}>Loading lakes…</div>}
+    {lakes && rows.length===0 && <div style={{fontSize:13,color:C.textDim}}>No lakes found within your radius. Try a wider radius.</div>}
+    {rows.map(({l,w,sp,open,closed,stage,out,st})=>{ const d=l.distKm!=null?l.distKm:(distOf?distOf(l):null);
+      return (<div key={l.id} style={{background:C.panel,border:`1px solid ${C.line}`,borderRadius:12,padding:14,marginBottom:12}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{l.name}</div>
+            <div style={{fontSize:12.5,color:C.textDim}}>{l.zone?`Zone ${l.zone}`:"Zone unknown"}{l.maxDepth?` · deepest ${l.maxDepth} m`:""}{d!=null?` · ${d} km away`:""}</div>
+          </div>
+          {out ? <Gauge value={out.score} size={56} stroke={6} label="Outlook"/> : <div style={{fontFamily:sans,fontSize:11,fontWeight:700,color:C.textFaint,textAlign:"center",width:64}}>{w?"No outlook yet":"…"}</div>}
+        </div>
+        {stage && (<div style={{marginTop:10,padding:"8px 11px",borderRadius:9,background:C.bone,border:`1px solid ${C.lineSoft}`,fontSize:12.5,lineHeight:1.5}}>
+          <b style={{color:tone[stage.stage]}}>{stage.label}</b> <span style={{color:C.textDim}}>· {w.fdd} freezing degree-days this winter.</span> {stage.note}
+        </div>)}
+        {w && (<div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:6,marginTop:10,fontSize:12.5}}>
+          {[["Air",w.air!=null?`${Math.round(w.air)}°C`:"–"],["Wind",w.wind!=null?`${Math.round(w.wind)} km/h`:"–"],["Gusts",w.gust!=null?`${Math.round(w.gust)} km/h`:"–"]].map(([k,v])=>(<div key={k}><div style={{fontSize:9.5,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint}}>{k}</div><b>{v}</b></div>))}
+        </div>)}
+        <div style={{marginTop:10,fontSize:12.5,lineHeight:1.6}}>
+          {sp.length===0 ? <span style={{color:C.textDim}}>No ice species on record for this lake in Ontario's surveys, or its zone couldn't be read. Check the rules before fishing.</span> : (<>
+            <span style={{color:C.textDim}}>Open today: </span>{open.length?open.map(x=><span key={x.code} style={{display:"inline-block",margin:"2px 4px 2px 0",padding:"2px 9px",borderRadius:12,fontSize:12,fontWeight:700,border:`1px solid ${C.pine}`,color:C.pine,background:`${C.pine}12`}}>{iceSpeciesName(x.code)}</span>):<b style={{color:C.brick}}>none of this lake's ice species</b>}
+            {closed.length>0 && <div style={{color:C.textDim,marginTop:2}}>Closed now: {closed.map(x=>iceSpeciesName(x.code)).join(", ")}</div>}
+            {sp.some(x=>x.state==="check") && <div style={{color:C.amberDeep,marginTop:2}}>Check the rules for: {sp.filter(x=>x.state==="check").map(x=>iceSpeciesName(x.code)).join(", ")}</div>}
+          </>)}
+        </div>
+        {st&&st.stretches[0].note && <div style={{fontSize:11.5,color:C.textDim,marginTop:6,lineHeight:1.45}}>{st.stretches[0].note}</div>}
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:10}}>
+          {l.zone && <a href={l.bundle&&l.bundle.stretches[0].entries[0]?l.bundle.stretches[0].entries[0].link:`/regulations/zone-${l.zone}/`} target="_blank" rel="noopener noreferrer" style={{fontSize:12.5,fontWeight:700,color:C.brick}}>Official rules for this lake</a>}
+          {l.page && <a href={l.page} target="_blank" rel="noopener noreferrer" style={{fontSize:12.5,fontWeight:700,color:C.pine}}>Lake guide</a>}
+          <a href={directionsUrl(l.lat,l.lon)} target="_blank" rel="noopener noreferrer" style={{fontSize:12.5,fontWeight:700,color:C.pine}}>Directions</a>
+        </div>
+      </div>); })}
+    <div style={{fontSize:11.5,color:C.textFaint,lineHeight:1.5,margin:"6px 2px 16px"}}>Species and depth from Ontario's lake records. Seasons from the Ontario Fishing Regulations Summary. Freezing degree-days add up how far below 0°C each day's average temperature was this winter. The outlook rates the fishing weather and what's open, never the ice.</div>
+  </div>);
+}
+function SeasonAdmin(){
+  const [ice,setIce]=useState(null);
+  useEffect(()=>{ proxyJSON("/api/season").then(d=>setIce(!!d.ice)).catch(()=>setIce(false)); },[]);
+  const flip=async()=>{ const v=!ice; try{ const d=await proxyJSON("/api/admin/season",{method:"PUT",body:{ice:v}}); setIce(!!d.ice); }catch(e){} };
+  if(ice===null) return <div style={{fontSize:12,color:C.textFaint}}>Loading…</div>;
+  return (<div style={{display:"flex",alignItems:"center",gap:10}}>
+    <div style={{flex:1,fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Ice season adds an Ice fishing mode to Rivers and light snow in the header for everyone. Turn it on when local lakes start to freeze.</div>
+    <button onClick={flip} role="switch" aria-checked={ice} style={{...btn,borderColor:ice?C.pine:C.line,background:ice?C.pine:C.bone,color:ice?C.headText:C.pine,minWidth:96}}>{ice?"Ice season on":"Ice season off"}</button>
+  </div>);
+}
 function AdminSheet({onClose}){
   useScrollLock();
   const [d,setD]=useState(null);
@@ -2553,6 +2679,8 @@ function AdminSheet({onClose}){
 
       {head("Blog")}
       <BlogAdmin/>
+      {head("Seasons")}
+      <SeasonAdmin/>
       {head("Run tracker notes")}
       <RunNotesAdmin/>
       {head("Ontario regulations sync")}
@@ -2985,6 +3113,22 @@ function AlertPrefs(){
 // Account is a normal in-frame page (top bar + bottom nav stay visible), reached
 // from the account button or drawer — not a pop-up.
 // Saved rivers on the Profile screen, with today's read for each.
+// Redeem a gift membership code from Profile.
+function RedeemGift({onAuth}){
+  const [code,setCode]=useState(""), [msg,setMsg]=useState(""), [busy,setBusy]=useState(false);
+  const go=async()=>{ const c=code.trim(); if(!c) return; setBusy(true); setMsg("");
+    try{ await proxyJSON("/gift/redeem",{method:"POST",body:{code:c}}); setMsg("Redeemed. Enjoy your year on the water."); setCode(""); onAuth&&onAuth(); logEvent("gift_redeem"); }
+    catch(e){ setMsg((e&&e.info&&e.info.error)||"Couldn't redeem that code."); } finally{ setBusy(false); } };
+  return (<div style={{marginTop:22}}>
+    <SectionTitle t="Redeem a gift"/>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="MY-XXXX-XXXX" aria-label="Gift code" autoCapitalize="characters"
+        style={{flex:"1 1 180px",minWidth:0,padding:"10px 12px",borderRadius:8,border:`1px solid ${C.line}`,background:"#fff",fontFamily:sans,fontSize:16,letterSpacing:1}}/>
+      <button disabled={busy||!code.trim()} onClick={go} style={{...btn,borderColor:C.pine,color:C.pine,opacity:(busy||!code.trim())?0.5:1}}>{busy?"Checking…":"Redeem"}</button>
+    </div>
+    {msg && <div role="status" style={{fontSize:12.5,color:C.pine,marginTop:8}}>{msg}</div>}
+  </div>);
+}
 function SavedRivers({saved,ranked,distOf,onUnsave,onOpen,goRivers}){
   const evOf=id=>ranked&&ranked.find(e=>e.sec.id===id);
   return (<div style={{marginTop:22}}>
@@ -3029,6 +3173,7 @@ function AccountView({me,onAuth,onLogout,onCheckout,saved=[],ranked,distOf,onUns
         (e.g. signed in with Google) gets to pick it here. */}
     {!me.user.displayName && <DisplayNameEditor me={me} onAuth={onAuth}/>}
     <SavedRivers saved={saved} ranked={ranked} distOf={distOf} onUnsave={onUnsave} onOpen={onOpen} goRivers={goRivers}/>
+    <RedeemGift onAuth={onAuth}/>
     <BlockedAnglers/>
     {premium && (<div style={{marginTop:16,paddingTop:14,borderTop:`2px dotted ${C.line}`}}>
       <div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,marginBottom:6}}>Membership</div>
@@ -3424,11 +3569,10 @@ function RiverIntel({sec,cond}){
   const cw=coldWaterIndex({thermal:info&&info.thermal,habitatCold:sec.h&&Number.isFinite(sec.h.cold)?sec.h.cold:null,
     memberTemps:rep&&rep.temps||[],month:new Date().getMonth()});
   const surveyed=info&&info.surveyed&&info.surveyed.length?info.surveyed:null;
-  if(!cw&&!surveyed&&!rep) return null;
+  if(!cw&&!rep) return null;
   const tone=cw?(cw.index>=75?C.pine:cw.index>=55?C.amberDeep:C.brick):C.textDim;
   return (<div style={{marginTop:10,padding:"9px 11px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:8,display:"flex",flexDirection:"column",gap:5,fontSize:12.5,lineHeight:1.45}}>
     {cw && <div><span style={{fontFamily:sans,fontWeight:800,color:tone}}>Cold-water index {cw.index}</span> <span style={{color:C.textDim}}>· {cw.label}. {cw.source==="official"?`Ontario classifies this stretch as ${String(info.thermal).toLowerCase()} water.`:"Estimated from the river's habitat."}</span></div>}
-    {surveyed && <div style={{color:C.text}}><b style={{color:C.pine}}>Ontario surveys found:</b> {surveyed.map(SP_NAME).join(", ")}</div>}
     {rep && <div style={{color:C.text}}><b style={{color:C.pine}}>Members, last 30 days:</b> {rep.trips} trips, fish caught on {rep.withFish}.</div>}
   </div>);
 }
@@ -3483,6 +3627,8 @@ function MeasuredGauge({lat,lon}){
 }
 function DepthFish({sec,logged}){
   const [d,setD]=useState(undefined);
+  const {streamInfo}=React.useContext(IntelContext);
+  const surveyed=((streamInfo[sec.id]&&streamInfo[sec.id].surveyed)||sec.surveyed||[]).map(k=>SP_NAME(k).replace(/\s*\(.*\)/,"").toLowerCase());
   useEffect(()=>{ let live=true; setD(undefined);
     const jobs=[ API_BASE?proxyJSON(`/api/bathymetry?lat=${sec.lat}&lon=${sec.lon}`).catch(()=>({bathy:null})):Promise.resolve({bathy:null}),
       API_BASE?proxyJSON(`/api/stocking?lat=${sec.lat}&lon=${sec.lon}`).catch(()=>({stocking:null})):Promise.resolve({stocking:null}) ];
@@ -3514,14 +3660,18 @@ function DepthFish({sec,logged}){
       {hw.drivers.length>0 && <> — {hw.drivers.slice(0,2).join(", ")}</>}.
     </div>
     <div style={{fontSize:13.5,color:C.text,lineHeight:1.5,marginTop:4}}>
-      Likely: <b>{spNames.slice(0,3).join(", ")}</b>. Fish size: <b>{fish.sizeClass}</b> · {fish.ageEstimate}.
+      {(()=>{ // our estimate plus Ontario's survey records, one list; surveyed fish are marked
+        const all=[...spNames.map(n=>n.toLowerCase())]; for(const n of surveyed) if(!all.includes(n)) all.push(n);
+        const shown=all.slice(0,5);
+        return (<>Likely fish: {shown.map((n,i)=>(<React.Fragment key={n}>{i>0?", ":""}<b>{n.charAt(0).toUpperCase()+n.slice(1)}</b>{surveyed.includes(n)?<span style={{color:C.pine}}> ✓</span>:null}</React.Fragment>))}.</>); })()}
+      {" "}Fish size: <b>{fish.sizeClass}</b> · {fish.ageEstimate}.
       {stock && <span style={{color:C.textDim}}> Stocked {stock.species} ~{stock.yearsAgo} yr ago ({stock.distanceKm} km).</span>}
     </div>
     {logged && Array.isArray(logged.topSpecies) && logged.topSpecies.length>0 && (()=>{
       const parts=logged.topSpecies.map(t=>{ const sz=logged.sizeBySpecies&&logged.sizeBySpecies[t.species]; return sz?`${t.species} to ${sz.max}"`:t.species; });
       return (<div style={{fontSize:12.5,color:C.pine,fontWeight:600,marginTop:6,lineHeight:1.45}}>
         <Icon name="save" size={12}/> Anglers logging here: {parts.slice(0,3).join(", ")}{logged.count30d>0?` · ${logged.count30d} recent`:""}.</div>); })()}
-    <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>Depth from Ontario surveys where available, else modelled from river shape. Species and size sharpen as anglers log catches and notes.</div>
+    <div style={{fontSize:9.5,color:C.textFaint,marginTop:5,lineHeight:1.4}}>{surveyed.length?"✓ = recorded in Ontario's fish surveys for this stream. ":""}Depth from Ontario surveys where available, else modelled from river shape. Species and size sharpen as anglers log catches and notes.</div>
   </div>);
 }
 function CatchForm({sec, signedIn, compact, startOpen, onCancel}){
@@ -3697,7 +3847,6 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
     </div>
     <ActionBar ev={ev} signedIn={signedIn}/>
     <ConditionsStrip cond={cd} opp={ev.opportunity} warm={ev.warmStress}/>
-    <RiverIntel sec={sec} cond={cd}/>
     {/* Score breakdown — full-width bars under the conditions box */}
     <div style={{width:"100%",marginTop:12,paddingTop:12,borderTop:`1px solid ${C.lineSoft}`,display:"flex",flexDirection:"column",gap:9}}>
       <Bar label="Weather" value={ev.parts.weather}/><Bar label="Water" value={ev.parts.water}/>
@@ -3712,7 +3861,7 @@ function RecCard({ev,rank,m,dist,isSaved,onToggleSave,premium=true,onUpgrade,sig
         <Icon name="pin" size={15}/>Depth &amp; fish<Icon name="chevron" size={13} style={{transform:panel==="depth"?"rotate(180deg)":"none",transition:"transform .2s"}}/></button>
     </div>
     {panel==="adv" && (premium ? <AdvisorPanel ev={ev} m={m}/> : <StrategyPreview ev={ev} m={m} onUpgrade={onUpgrade}/>)}
-    {panel==="depth" && <DepthFish sec={sec} logged={logged}/>}
+    {panel==="depth" && <><DepthFish sec={sec} logged={logged}/><RiverIntel sec={sec} cond={cd}/></>}
   </div>);
 }
 function NotesBlock({month,season,top,live,cached,manual,status,now}){

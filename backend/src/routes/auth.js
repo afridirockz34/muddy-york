@@ -100,7 +100,9 @@ export default async function authRoutes(app) {
         await sendMail({
           to: user.email,
           subject: "Reset your Muddy York Fishing password",
-          text: `Tap the link to set a new password (valid for 1 hour):\n\n${link}\n\nIf you didn't request this, you can ignore this email.`,
+          heading: "Reset your password",
+          text: `Tap the button to set a new password. The link works for one hour.\n\nIf you didn't ask for this, you can ignore this email and nothing will change.`,
+          cta: { label: "Set a new password", url: link },
         }).catch(() => {});
       }
     }

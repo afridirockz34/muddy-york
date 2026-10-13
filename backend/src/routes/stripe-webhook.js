@@ -3,11 +3,12 @@ import { prisma } from "../db.js";
 import { getStripe } from "../billing/stripe.js";
 import { sendMail } from "../alerts/mailer.js";
 import { welcomeEmail, receiptEmail } from "../billing/customer-email.js";
+import { fulfillGift } from "./gifts.js";
 
 // Notify the business owner about membership lifecycle events.
 function notifyBilling(subject, text) {
   if (!config.resend.billingEmail) return;
-  sendMail({ to: config.resend.billingEmail, subject: `[Muddy York Fishing] ${subject}`, text }).catch(() => {});
+  sendMail({ to: config.resend.billingEmail, subject: `[Muddy York Fishing] ${subject}`, text, plain: true }).catch(() => {});
 }
 
 // A user has exactly one Subscription row (userId is unique). Key the upsert by
@@ -63,7 +64,9 @@ export default async function stripeWebhookRoutes(app) {
       return reply.code(400).send({ error: "invalid signature" });
     }
     const obj = event.data.object;
-    if (event.type === "checkout.session.completed") {
+    if (event.type === "checkout.session.completed" && obj.metadata?.kind === "gift") {
+      await fulfillGift(obj);
+    } else if (event.type === "checkout.session.completed") {
       const userId = obj.client_reference_id;
       if (userId && obj.subscription) {
         await prisma.user.update({ where: { id: userId }, data: { stripeCustomerId: obj.customer } }).catch(() => {});

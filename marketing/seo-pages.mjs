@@ -19,7 +19,7 @@ export const RIVERS = block("const RIVERS = [", "\n];").map((r) => ({ ...r, sect
 const SPECIES = block("const SPECIES = {");
 // Official regulations snapshot (the live site reads the twice-daily sync).
 // Dash glyphs in the official wording are shown as plain hyphens (same words).
-const SNAP = JSON.parse(fs.readFileSync(path.join(ROOT, "backend", "src", "data", "regs-zones.json"), "utf8").replace(/[—–]/g, "-")).zones;
+export const SNAP = JSON.parse(fs.readFileSync(path.join(ROOT, "backend", "src", "data", "regs-zones.json"), "utf8").replace(/[—–]/g, "-")).zones;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const plain = (k) => (SPECIES[k] ? SPECIES[k].name.replace(/\s*\((resident)\)/, "") : k);
@@ -40,13 +40,13 @@ function officialStretches(r) {
 }
 
 // ── shared bits ──
-const cta = (h, p, label = "Start your free 7-day trial") => `<div class="callout"><h3>${h}</h3><p style="color:var(--dim);margin-bottom:14px;">${p}</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
-const faqHtml = (faqs) => faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${f.html || esc(f.a)}</p></details>`).join("");
-const faqSchema = (faqs) => ({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) });
+export const cta = (h, p, label = "Start your free 7-day trial") => `<div class="callout"><h3>${h}</h3><p style="color:var(--dim);margin-bottom:14px;">${p}</p><a class="btn primary" href="${APP_URL}">${label}</a></div>`;
+export const faqHtml = (faqs) => faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${f.html || esc(f.a)}</p></details>`).join("");
+export const faqSchema = (faqs) => ({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) });
 const riverCard = (x, note) => `<a class="river-link" href="${riverHref(x)}"><b>${esc(x.river)}</b><span>${esc(note || x.section)}</span></a>`;
 // Live "open today?" chip: filled in the browser from the backend's twice-daily
 // official sync, so the static page never shows a stale season.
-const liveStatus = (r) => `<div class="live-status" data-reach="${esc(r.id)}" data-sp="${esc((r.species || []).join(","))}">
+export const liveStatus = (r) => `<div class="live-status" data-reach="${esc(r.id)}" data-sp="${esc((r.species || []).join(","))}">
   <span class="st check">Checking today's season…</span> <span class="ls-note">Official Ontario regulations, checked twice a day</span></div>`;
 export const LIVE_STATUS_SCRIPT = `<script>
 (function(){document.querySelectorAll(".live-status").forEach(function(el){
@@ -283,7 +283,7 @@ function howItFishes(r) {
   return `This reach rises and clears with rainfall, so timing matters: it fishes best on dropping, clearing water a day or two after a rise.`;
 }
 
-function clampDesc(full, short) {
+export function clampDesc(full, short) {
   if (full.length <= 158) return full;
   if ((short + " Try it free.").length <= 158) return short + " Try it free.";
   return short.slice(0, 155).replace(/\s+\S*$/, "") + "…";
@@ -486,7 +486,7 @@ export const steelheadRivers = () => {
   for (const r of RIVERS.filter((x) => (x.species || []).includes("STL"))) { const l = by.get(r.river) || []; l.push(r); by.set(r.river, l); }
   return [...by.entries()].map(([river, sections]) => ({ river, sections, slug: slug(river) }));
 };
-function stlCalendar(sections) {
+export function stlCalendar(sections) {
   const rows = [];
   for (const r of sections) {
     const b = resolveReach(r.id, SNAP); if (!b) continue;

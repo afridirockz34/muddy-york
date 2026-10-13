@@ -27,6 +27,7 @@ model User {
   nurtureEmailAt   DateTime?                      // last free-member nudge email
   nurturePushLog   Json          @default("[]")   // recent free-member nudge pushes (timestamps)
   appLinkSentAt    DateTime?
+  giftUntil        DateTime?                      // membership from a redeemed gift
   createdAt        DateTime      @default(now())
   sessions         Session[]
   subscription     Subscription?
@@ -336,5 +337,29 @@ model RunCheckin {
 model RunNote {
   spot      String   @id
   note      String
+  updatedAt DateTime @updatedAt
+}
+
+// A gift membership bought on the website. The code is emailed to the buyer
+// (and the recipient, if given) and redeemed in the app.
+model GiftCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  sessionId      String    @unique              // Stripe Checkout session
+  buyerEmail     String
+  recipientEmail String?
+  recipientName  String?
+  fromName       String?
+  message        String?
+  months         Int       @default(12)
+  redeemedBy     String?
+  redeemedAt     DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// Small switches the admin can flip without a deploy (e.g. the ice season).
+model Setting {
+  key       String   @id
+  value     Json
   updatedAt DateTime @updatedAt
 }

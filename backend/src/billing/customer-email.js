@@ -3,13 +3,9 @@ import { unsubUrl } from "./email-tokens.js";
 
 // Send a transactional email to a customer, honouring their opt-out and
 // appending a signed one-click unsubscribe footer.
-export async function emailCustomer(user, subject, body) {
+export async function emailCustomer(user, subject, body, { heading, cta } = {}) {
   if (!user || !user.email || user.emailOptOut) return false;
-  const url = unsubUrl(user.id);
-  const footer = url
-    ? `\n\n—\nMuddy York Fishing · Southern Ontario\nManage your membership anytime in the app. Prefer not to receive emails? Unsubscribe: ${url}`
-    : "\n\n— Muddy York Fishing";
-  return sendMail({ to: user.email, subject, text: body + footer });
+  return sendMail({ to: user.email, subject, text: body, heading, cta, unsubscribe: unsubUrl(user.id) || undefined });
 }
 
 const money = (cents, currency) =>
@@ -24,10 +20,8 @@ export function welcomeEmail(user) {
 
 Welcome to the club. Your 7-day free trial is active, so every river, spot, strategy and your personal guide are unlocked.
 
-You won't be charged until the trial ends, and you can cancel anytime from your account in the app.
-
-Tight lines,
-The Muddy York Fishing crew`,
+You won't be charged until the trial ends, and you can cancel anytime from your account in the app.`,
+    { heading: "Welcome to the club", cta: { label: "Open the app", url: "https://muddyyorkfishing.ca/?app" } },
   );
 }
 
@@ -35,7 +29,7 @@ The Muddy York Fishing crew`,
 export function receiptEmail(user, invoice) {
   const amount = money(invoice.amount_paid, invoice.currency);
   const date = new Date((invoice.created || Date.now() / 1000) * 1000).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" });
-  const link = invoice.hosted_invoice_url ? `\n\nView or download your receipt: ${invoice.hosted_invoice_url}` : "";
+  const link = "";
   return emailCustomer(
     user,
     "Your Muddy York Fishing receipt",
@@ -46,9 +40,7 @@ Thanks for being a member. Here's your receipt:
   Amount:  ${amount}
   Date:    ${date}${invoice.number ? `\n  Invoice: ${invoice.number}` : ""}
 
-Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}
-
-Tight lines,
-The Muddy York Fishing crew`,
+Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}`,
+    { heading: "Thanks for being a member", cta: invoice.hosted_invoice_url ? { label: "View your receipt", url: invoice.hosted_invoice_url } : undefined },
   );
 }
