@@ -78,6 +78,8 @@ export default async function billingRoutes(app) {
         mode: "subscription",
         customer: customerId,
         line_items: [{ price, quantity: 1 }],
+        // Record which terms (including the refund policy) the buyer accepted.
+        metadata: { termsVersion: String(req.body?.termsVersion || "").slice(0, 20) || "unspecified" },
         client_reference_id: user.id,
         // New trials are 7 days. Trials already running keep the end date
         // Stripe set when they started.

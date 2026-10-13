@@ -20,7 +20,9 @@ export function welcomeEmail(user) {
 
 Welcome to the club. Your 7-day free trial is active, so every river, spot, strategy and your personal guide are unlocked.
 
-You won't be charged until the trial ends, and you can cancel anytime from your account in the app.`,
+You won't be charged until the trial ends, and you can cancel anytime from your account in the app.
+
+Refunds: monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since. Full terms you agreed to: https://muddyyorkfishing.ca/terms/#refunds`,
     { heading: "Welcome to the club", cta: { label: "Open the app", url: "https://muddyyorkfishing.ca/?app" } },
   );
 }
@@ -40,7 +42,9 @@ Thanks for being a member. Here's your receipt:
   Amount:  ${amount}
   Date:    ${date}${invoice.number ? `\n  Invoice: ${invoice.number}` : ""}
 
-Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}`,
+Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}
+
+Refund policy: https://muddyyorkfishing.ca/terms/#refunds`,
     { heading: "Thanks for being a member", cta: invoice.hosted_invoice_url ? { label: "View your receipt", url: invoice.hosted_invoice_url } : undefined },
   );
 }

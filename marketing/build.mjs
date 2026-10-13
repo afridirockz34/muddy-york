@@ -704,8 +704,8 @@ const LEGAL = [
 <p>The app is not directed at children under 13, and we do not knowingly collect their information.</p>
 <h2>Changes</h2>
 <p>If we change this policy in a meaningful way, we will update the date above and tell members in the app or by email.</p>` },
-  { slug: "terms", title: "Terms of service", desc: "The terms for using the Muddy York Fishing app and website: membership, the 7-day free trial, billing, cancelling and fishing safely.", body: `
-<p class="meta">Last updated ${UPDATED}</p>
+  { slug: "terms", title: "Terms of service", desc: "The terms for using the Muddy York Fishing app and website: membership, the 7-day free trial, billing, cancelling, refunds, gifts and fishing safely.", body: `
+<p class="meta">Last updated October 14, 2026</p>
 <p>These terms apply to the Muddy York Fishing app and the website at muddyyorkfishing.ca. By creating an account or using the app, you agree to them.</p>
 <h2>Your account</h2>
 <p>You need to be at least 13 to use the app, and the age of majority in your province to buy a membership. Keep your login private; you are responsible for activity on your account. Give us a real email address so we can reach you about your account.</p>
@@ -717,6 +717,33 @@ const LEGAL = [
 <li>Payments are handled by Stripe. If you think you were charged in error, email us and we will make it right.</li>
 <li>If we change prices, we will tell you before your next renewal, and you can cancel before it applies.</li>
 </ul>
+<h2 id="refunds">Refunds</h2>
+<p>The 7-day free trial is how you try every feature before paying. Because of that, and because membership gives you immediate access to information that can't be returned once seen, refunds are limited as set out below. You agree to this policy when you start a membership or buy a gift.</p>
+<h3>Monthly memberships</h3>
+<ul>
+<li>Monthly payments are not refunded, in whole or in part, once the month has started.</li>
+<li>You can cancel anytime. You keep access until the end of the month you paid for, and you won't be charged again.</li>
+</ul>
+<h3>Yearly memberships</h3>
+<ul>
+<li>You can ask for a full refund of a yearly payment (the first payment after your trial, or a renewal) within <b>7 days of the charge</b>, as long as you <b>haven't used member features since that charge</b>.</li>
+<li>Using member features means, for example, opening a river's full report, scouting rivers or lakes, viewing strategy and flies, parking and directions, or receiving and opening a prime-conditions alert. Our records of account activity are used to check this.</li>
+<li>After 7 days, or once member features have been used, the yearly payment is not refunded, including partial or prorated refunds. You can still cancel so it won't renew, and keep access to the end of the year you paid for.</li>
+</ul>
+<h3>Gift memberships</h3>
+<ul>
+<li>A gift can be refunded to the buyer if you ask within <b>14 days of purchase</b> and the gift code <b>hasn't been redeemed</b>.</li>
+<li>Once a gift code is redeemed it is non-refundable.</li>
+<li>When a gift is refunded, its code is cancelled. If a code is redeemed and later refunded for any reason, including a card dispute, the gifted membership ends.</li>
+</ul>
+<h3>Always refunded, and your other rights</h3>
+<ul>
+<li>We always refund duplicate charges, charges made in error, and charges after a cancellation that we failed to process.</li>
+<li>We may give a refund outside this policy at our discretion; doing so once doesn't change the policy.</li>
+<li>Nothing in this policy limits any right you have under consumer protection law where you live. If your province's law gives you more rights, those apply.</li>
+</ul>
+<h3>How to ask</h3>
+<p>Email <a href="mailto:${CONTACT}">${CONTACT}</a> from the email on your account (or the email you used to buy a gift) within the time limit, with the date of the charge. We reply within 3 business days. Approved refunds go back to the original payment method through Stripe and usually appear within 5 to 10 business days. Please contact us before disputing a charge with your bank, so we can sort it out quickly.</p>
 <h2>Fishing information and regulations</h2>
 <p>Conditions, scores, strategies and season status are estimates to help you plan. Season and regulation information is drawn from the official Ontario Fishing Regulations Summary and checked regularly, but the Summary is a guide and the legal regulations are made under the Fisheries Act. You are responsible for holding a valid licence and for following all fishing regulations, sanctuary closures and access rules for the water you fish.</p>
 <h2>Safety and access</h2>

@@ -3,7 +3,7 @@ import { prisma } from "../db.js";
 import { getStripe } from "../billing/stripe.js";
 import { sendMail } from "../alerts/mailer.js";
 import { welcomeEmail, receiptEmail } from "../billing/customer-email.js";
-import { fulfillGift } from "./gifts.js";
+import { fulfillGift, cancelGiftForPayment } from "./gifts.js";
 
 // Notify the business owner about membership lifecycle events.
 function notifyBilling(subject, text) {
@@ -66,6 +66,11 @@ export default async function stripeWebhookRoutes(app) {
     const obj = event.data.object;
     if (event.type === "checkout.session.completed" && obj.metadata?.kind === "gift") {
       await fulfillGift(obj);
+    } else if (event.type === "charge.refunded" && obj.refunded && obj.payment_intent) {
+      // Only a full refund cancels a gift; partial refunds leave it working.
+      await cancelGiftForPayment(typeof obj.payment_intent === "string" ? obj.payment_intent : obj.payment_intent.id, { reason: "refund" });
+    } else if (event.type === "charge.dispute.closed" && obj.status === "lost" && obj.payment_intent) {
+      await cancelGiftForPayment(typeof obj.payment_intent === "string" ? obj.payment_intent : obj.payment_intent.id, { reason: "lost card dispute" });
     } else if (event.type === "checkout.session.completed") {
       const userId = obj.client_reference_id;
       if (userId && obj.subscription) {

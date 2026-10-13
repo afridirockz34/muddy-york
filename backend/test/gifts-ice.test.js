@@ -77,3 +77,28 @@ describe("ice season", () => {
     expect(apr.state).toBe("closed");
   });
 });
+
+describe("gift refunds", () => {
+  beforeEach(async () => { await resetDb(); await prisma.giftCode.deleteMany(); });
+
+  it("a full refund cancels the code and takes back redeemed time", async () => {
+    const { cancelGiftForPayment } = await import("../src/routes/gifts.js");
+    const send = vi.fn().mockResolvedValue(true);
+    const g = await fulfillGift({ id: "cs_r1", payment_intent: "pi_r1", payment_status: "paid", customer_details: { email: "b@b.com" }, metadata: { kind: "gift", termsVersion: "2026-10-14" } }, { send });
+    expect(g.termsVersion).toBe("2026-10-14");
+    const c = await signup("r@b.com");
+    await app.inject({ method: "POST", url: "/gift/redeem", cookies: c, payload: { code: g.code } });
+    expect((await app.inject({ method: "GET", url: "/auth/me", cookies: c })).json().entitlement).toBe("active");
+    await cancelGiftForPayment("pi_r1");
+    expect((await app.inject({ method: "GET", url: "/auth/me", cookies: c })).json().entitlement).toBe("free");
+    expect((await prisma.giftCode.findUnique({ where: { code: g.code } })).canceledAt).toBeTruthy();
+  });
+
+  it("a refunded code can't be redeemed", async () => {
+    const { cancelGiftForPayment } = await import("../src/routes/gifts.js");
+    const g = await fulfillGift({ id: "cs_r2", payment_intent: "pi_r2", payment_status: "paid", customer_details: { email: "b@b.com" }, metadata: { kind: "gift" } }, { send: vi.fn().mockResolvedValue(true) });
+    await cancelGiftForPayment("pi_r2");
+    const c = await signup("s@b.com");
+    expect((await app.inject({ method: "POST", url: "/gift/redeem", cookies: c, payload: { code: g.code } })).statusCode).toBe(410);
+  });
+});

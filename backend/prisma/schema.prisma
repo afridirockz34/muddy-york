@@ -346,6 +346,9 @@ model GiftCode {
   id             String    @id @default(cuid())
   code           String    @unique
   sessionId      String    @unique              // Stripe Checkout session
+  paymentIntent  String?   @unique              // for matching refunds
+  termsVersion   String?
+  canceledAt     DateTime?                      // refunded: code no longer works
   buyerEmail     String
   recipientEmail String?
   recipientName  String?

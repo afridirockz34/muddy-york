@@ -30,6 +30,8 @@ export async function fulfillGift(session, { send = sendMail } = {}) {
   for (let i = 0; i < 5 && !gift; i++) {
     try {
       gift = await prisma.giftCode.create({ data: { code: newGiftCode(), sessionId: session.id, buyerEmail,
+        paymentIntent: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null,
+        termsVersion: m.termsVersion || null,
         recipientEmail: m.recipientEmail || null, recipientName: m.recipientName || null, fromName: m.fromName || null, message: m.message || null } });
     } catch (e) { if (!String(e?.code).includes("P2002")) throw e; }
   }
@@ -41,7 +43,9 @@ export async function fulfillGift(session, { send = sendMail } = {}) {
 
 Gift code: **${gift.code}**
 
-${gift.recipientEmail ? `We've also emailed it to ${gift.recipientEmail}.` : "Pass the code on, or forward this email."} To use it, they open the link below, sign in or create a free account, and the year starts right away.`,
+${gift.recipientEmail ? `We've also emailed it to ${gift.recipientEmail}.` : "Pass the code on, or forward this email."} To use it, they open the link below, sign in or create a free account, and the year starts right away.
+
+Refunds: you can ask for a refund within 14 days of purchase as long as the code hasn't been redeemed. Once it's redeemed it can't be refunded, and a refunded code stops working. Full terms: ${SITE}/terms/#refunds`,
     cta: { label: "Redeem the gift", url: redeem } }).catch(() => {});
   if (gift.recipientEmail) {
     await send({ to: gift.recipientEmail, subject: `${gift.fromName || "Someone"} gave you a year of Muddy York Fishing`, heading: "You've been given a year on the water",
@@ -56,13 +60,33 @@ Tap the button, sign in or create a free account, and your year starts right awa
   return gift;
 }
 
+// A gift's payment was refunded (or lost in a dispute): cancel the code, and if
+// it was already redeemed, take the gifted time back off that account.
+export async function cancelGiftForPayment(paymentIntent, { reason = "refund" } = {}) {
+  if (!paymentIntent) return null;
+  const gift = await prisma.giftCode.findUnique({ where: { paymentIntent } });
+  if (!gift || gift.canceledAt) return gift;
+  await prisma.giftCode.update({ where: { id: gift.id }, data: { canceledAt: new Date() } });
+  if (gift.redeemedBy) {
+    const u = await prisma.user.findUnique({ where: { id: gift.redeemedBy } });
+    if (u && u.giftUntil) {
+      const until = new Date(u.giftUntil); until.setMonth(until.getMonth() - gift.months);
+      await prisma.user.update({ where: { id: u.id }, data: { giftUntil: until > new Date() ? until : null } });
+    }
+  }
+  if (config.resend.billingEmail) sendMail({ to: config.resend.billingEmail, subject: "[Muddy York Fishing] Gift cancelled", plain: true,
+    text: `Gift ${gift.code} (bought by ${gift.buyerEmail}) was cancelled after a ${reason}.${gift.redeemedBy ? " It had been redeemed; the gifted time was removed." : ""}` }).catch(() => {});
+  return gift;
+}
+
 export default async function giftRoutes(app) {
   // Start a gift purchase. No account needed: Stripe collects the buyer's email.
   app.post("/gift/checkout", async (req, reply) => {
     const b = req.body || {};
     const recipientEmail = clean(b.recipientEmail, 200).toLowerCase();
     if (recipientEmail && emailProblem(recipientEmail)) return reply.code(400).send({ error: "invalid recipient email" });
-    const metadata = { kind: "gift", recipientEmail, recipientName: clean(b.recipientName, 60), fromName: clean(b.fromName, 60), message: clean(b.message, 300) };
+    const metadata = { kind: "gift", recipientEmail, recipientName: clean(b.recipientName, 60), fromName: clean(b.fromName, 60), message: clean(b.message, 300),
+      termsVersion: clean(b.termsVersion, 20) || "unspecified" };
     try {
       const session = await getStripe().checkout.sessions.create({
         mode: "payment",
@@ -87,6 +111,7 @@ export default async function giftRoutes(app) {
     const code = clean(req.body?.code, 20).toUpperCase().replace(/\s+/g, "");
     const gift = code ? await prisma.giftCode.findUnique({ where: { code } }) : null;
     if (!gift) return reply.code(404).send({ error: "That code doesn't match a gift. Check it and try again." });
+    if (gift.canceledAt) return reply.code(410).send({ error: "That gift was refunded, so the code no longer works." });
     if (gift.redeemedBy && gift.redeemedBy !== u.id) return reply.code(409).send({ error: "That gift code has already been used." });
     if (gift.redeemedBy === u.id) return { ok: true, giftUntil: u.giftUntil };
     const sub = await prisma.subscription.findUnique({ where: { userId: u.id } });

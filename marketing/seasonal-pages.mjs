@@ -217,7 +217,7 @@ export const GIFT_SCRIPT = `<script>
 (function(){ var f=document.getElementById("gift-form"); if(!f) return;
   f.addEventListener("submit",function(e){ e.preventDefault(); var b=f.querySelector("button"), m=document.getElementById("gift-msg");
     b.disabled=true; b.textContent="Opening checkout…"; m.textContent="";
-    var d={recipientName:f.recipientName.value,recipientEmail:f.recipientEmail.value,fromName:f.fromName.value,message:f.message.value};
+    var d={recipientName:f.recipientName.value,recipientEmail:f.recipientEmail.value,fromName:f.fromName.value,message:f.message.value,termsVersion:"2026-10-14"};
     fetch("/bk/gift/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)})
       .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
       .then(function(x){ if(x.ok&&x.j.url){ location.href=x.j.url; } else { throw new Error(x.j&&x.j.error||"failed"); } })
@@ -229,6 +229,7 @@ export function giftsPage() {
   const faqs = [
     { q: "How does a gift membership work?", a: "You pay once for a year. We email you a gift code right away (and to the recipient too, if you add their email). They open the link, sign in or make a free account, and their year starts immediately." },
     { q: "Does it renew automatically?", a: "No. A gift is a one-time payment for one year. Nothing is charged to the recipient." },
+    { q: "Can I get a refund on a gift?", a: "Yes, within 14 days of purchase as long as the code hasn't been redeemed. Once it's redeemed it can't be refunded. See the refund policy in our Terms." },
     { q: "Can I send it on a specific day?", a: "Leave the recipient's email blank and the code comes only to you, so you can give it whenever you like, in a card or by email." },
   ];
   const ideas = [
@@ -249,6 +250,7 @@ export function giftsPage() {
       <label>Their email (optional, we'll send it to them too)<br><input name="recipientEmail" type="email" maxlength="200" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>
       <label>From (optional)<br><input name="fromName" maxlength="60" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit"></label>
       <label>A short note (optional)<br><textarea name="message" maxlength="300" rows="3" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea></label>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5"><input name="agree" type="checkbox" required style="width:20px;height:20px;margin-top:2px;flex-shrink:0"> <span>I agree to the <a href="/terms/#refunds">Terms</a>, including the gift refund policy: refundable within 14 days of purchase if the code hasn't been redeemed; non-refundable once redeemed.</span></label>
       <button class="btn primary" type="submit" style="cursor:pointer;border:none">Buy the gift: $59.99</button>
       <p id="gift-msg" role="status" style="color:var(--brick);font-weight:600"></p>
     </form>

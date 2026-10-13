@@ -3376,10 +3376,15 @@ function loadStripeJs(){
     document.head.appendChild(s);
   });
 }
+// The terms version a buyer agrees to; saved on the Stripe session as a record.
+const TERMS_VERSION="2026-10-14";
 function CheckoutModal({plan:initialPlan,onClose}){
   useScrollLock();
   const [plan,setPlan]=useState(initialPlan||"annual");
-  const [err,setErr]=useState(""),[loading,setLoading]=useState(true);
+  const [err,setErr]=useState(""),[loading,setLoading]=useState(false);
+  // Ontario requires the refund policy to be shown and accepted before an
+  // online purchase of $50 or more: checkout opens once the box is ticked.
+  const [agreed,setAgreed]=useState(false);
   const mountRef=useRef(null), ecRef=useRef(null), planRef=useRef(plan);
   planRef.current=plan;
   const trialDate=useMemo(()=>new Date(Date.now()+TRIAL_DAYS*86400000).toLocaleDateString(undefined,{month:"long",day:"numeric"}),[]);
@@ -3393,7 +3398,7 @@ function CheckoutModal({plan:initialPlan,onClose}){
       if(!publishableKey) throw new Error("no key");
       const stripe=Stripe(publishableKey);
       const ec=await stripe.initEmbeddedCheckout({ fetchClientSecret: async()=>{
-        const {clientSecret}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan:planRef.current}});
+        const {clientSecret}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan:planRef.current,termsVersion:TERMS_VERSION}});
         return clientSecret;
       }});
       ecRef.current=ec;
@@ -3401,8 +3406,8 @@ function CheckoutModal({plan:initialPlan,onClose}){
     }catch(e){ const why=e&&e.info&&e.info.error;
       setErr(why==="invalid email"?((e.info&&e.info.message)||"Your account email looks invalid."):why?`Checkout error: ${why}`:"Checkout isn't available right now. Try again in a moment."); setLoading(false); }
   },[]);
-  useEffect(()=>{ mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
-  const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; mount(); };
+  useEffect(()=>{ if(agreed){ logEvent("terms_accepted",TERMS_VERSION,{plan:planRef.current}); mount(); } return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount,agreed]);
+  const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; if(agreed) mount(); };
   const planCard=(p)=>{ const on=plan===p, yearly=p==="annual";
     return (<button onClick={()=>changePlan(p)} aria-pressed={on} style={{flex:1,textAlign:"left",padding:"11px 12px",borderRadius:10,cursor:"pointer",position:"relative",
       border:`2px solid ${on?C.brick:C.line}`,background:on?`${C.brick}0d`:"#fff"}}>
@@ -3424,6 +3429,11 @@ function CheckoutModal({plan:initialPlan,onClose}){
       <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:14,padding:"10px 12px",background:"#fff",border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
         <b>$0 today.</b> Your trial ends {trialDate}. Cancel before then and you pay nothing.
       </div>
+      <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:14,cursor:"pointer"}}>
+        <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{width:20,height:20,marginTop:1,flexShrink:0,accentColor:C.pine}}/>
+        <span>I agree to the <a href="/terms/#refunds" target="_blank" rel="noopener noreferrer" style={{color:C.brick,fontWeight:700}}>Terms</a>, including the refund policy: cancel anytime and keep access to the end of the period you paid for. Monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since.</span>
+      </label>
+      {!agreed && <div style={{fontFamily:sans,fontSize:12.5,color:C.textDim,textAlign:"center",padding:"14px 0 4px"}}>Tick the box above to open secure checkout.</div>}
       {err&&<div style={{fontSize:12.5,color:C.brick,lineHeight:1.45,marginBottom:12}}>{err}<button onClick={mount} style={{...btn,borderColor:C.brick,color:C.brick,marginLeft:8}}>Retry</button></div>}
       {loading&&!err&&<div style={{fontFamily:sans,fontSize:13,color:C.textDim,padding:"24px 0",textAlign:"center"}}>Loading secure checkout…</div>}
       <div ref={mountRef}/>
