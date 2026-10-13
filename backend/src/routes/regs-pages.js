@@ -124,7 +124,7 @@ function indexPage(zones, checkedAt) {
 <p class="meta">Every Fisheries Management Zone, from the official Ontario Fishing Regulations Summary. Last checked ${esc(fmtDate(checkedAt))}.</p>
 <p>Ontario sets fishing seasons and limits by Fisheries Management Zone (FMZ). Each zone has zone-wide rules, then exceptions for particular species and waters, and fish sanctuaries where no fishing is allowed at certain times. Pick your zone to see what's open today.</p>
 <h2>Southern Ontario zones</h2>
-<p>Most river fishing within two hours of Toronto is in Zone 16 (inland waters from Lake Huron and Georgian Bay to Lake Erie and the western GTA) and Zone 17 (east of Toronto, including Durham Region and Port Hope). Lake Ontario and the Niagara River below the falls are in Zone 20; Lake Huron is Zone 13 and Georgian Bay is Zone 14.</p>
+<p>Most Southern Ontario river fishing is in Zone 16 (inland waters from Lake Huron and Georgian Bay to Lake Erie and the western GTA) and Zone 17 (east of Toronto, including Durham Region and Port Hope). Lake Ontario and the Niagara River below the falls are in Zone 20; Lake Huron is Zone 13 and Georgian Bay is Zone 14.</p>
 <div class="zone-grid">${featured.map(card).join("")}</div>
 <h2>All zones</h2>
 <div class="zone-grid">${Array.from({ length: 20 }, (_, i) => i + 1).filter((z) => zones[z]).map(card).join("")}</div>

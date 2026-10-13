@@ -148,7 +148,7 @@ async function disablePush(){
 
 /* =============================================================================
    ONTARIO TROUT & SALMON RIVER INTELLIGENCE SYSTEM  —  LIVE EDITION
-   Coverage: rivers within ~2 hrs driving of Jarvis St & College St, Toronto
+   Coverage: trout, steelhead and salmon rivers across Southern Ontario
 
    DATA  /  ENGINE  /  LIVE LAYER  /  UI  are kept separate.
 

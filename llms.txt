@@ -3,7 +3,7 @@
 > Muddy York Fishing is an app for Southern Ontario trout, steelhead and salmon anglers. Each morning it ranks 30+ rivers on live water temperature, flow and weather, shows the official Ontario season status for each stretch (synced from the Ontario Fishing Regulations Summary twice a day), and suggests the technique and fly for the day. 7 days free, then $9.99 a month or $59.99 a year.
 
 Key facts:
-- Coverage: Lake Ontario, Lake Erie, Georgian Bay and Lake Huron tributaries within about two hours of Toronto, plus spots anglers scout within their own radius.
+- Coverage: trout, steelhead and salmon rivers across Southern Ontario (Lake Ontario, Lake Erie, Georgian Bay and Lake Huron tributaries and inland trout water), plus rivers, creeks and, in winter, lakes that anglers scout within their own radius.
 - Regulations come from the official Ontario Fishing Regulations Summary; always confirm the exact stretch before fishing.
 - Exact fishing spots are never published.
 
