@@ -52,11 +52,12 @@ export default async function postRoutes(app) {
       if (!name) return reply.code(400).send({ error: "display name required" });
       if (await isNameTaken(name, req.user.id)) return reply.code(409).send({ error: "username taken" });
       data.displayName = name;
+      data.usernameChosen = true;
     }
     if (b.avatarUrl !== undefined) data.avatarUrl = b.avatarUrl ? clamp(b.avatarUrl, 500) : null;
     if (!Object.keys(data).length) return reply.code(400).send({ error: "nothing to update" });
     const u = await prisma.user.update({ where: { id: req.user.id }, data });
-    return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName, avatarUrl: u.avatarUrl } };
+    return { user: { id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName, usernameChosen: u.usernameChosen !== false, avatarUrl: u.avatarUrl } };
   });
 
   // Public diagnostic: is photo upload configured, and what cloud name does the

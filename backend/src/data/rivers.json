@@ -1,0 +1,562 @@
+[
+ {
+  "id": "grand-tw",
+  "river": "Grand River",
+  "section": "Tailwater: Shand Dam to West Montrose",
+  "lat": 43.71,
+  "lon": -80.37,
+  "habitat": {
+   "hold": 88,
+   "struct": 80,
+   "spawn": 70,
+   "cold": 95,
+   "ox": 86,
+   "gw": 60
+  },
+  "species": [
+   "BNT",
+   "RBT"
+  ],
+  "history": 90,
+  "page": "/rivers/grand-river-tailwater-shand-dam-to-west-montrose/"
+ },
+ {
+  "id": "grand-lower",
+  "river": "Grand River",
+  "section": "Lower: Caledonia to Lake Erie (Dunnville)",
+  "lat": 43,
+  "lon": -79.95,
+  "habitat": {
+   "hold": 80,
+   "struct": 74,
+   "spawn": 66,
+   "cold": 40,
+   "ox": 74,
+   "gw": 35
+  },
+  "species": [
+   "STL",
+   "BNTr"
+  ],
+  "history": 78,
+  "page": "/rivers/grand-river-lower-caledonia-to-lake-erie-dunnville/"
+ },
+ {
+  "id": "credit-lower",
+  "river": "Credit River",
+  "section": "Lower: mouth to Streetsville",
+  "lat": 43.58,
+  "lon": -79.71,
+  "habitat": {
+   "hold": 76,
+   "struct": 72,
+   "spawn": 72,
+   "cold": 46,
+   "ox": 76,
+   "gw": 45
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "BNTr",
+   "ATS"
+  ],
+  "history": 84,
+  "page": "/rivers/credit-river-lower-mouth-to-streetsville/"
+ },
+ {
+  "id": "credit-upper",
+  "river": "Credit River",
+  "section": "Upper: Forks of the Credit / Belfountain",
+  "lat": 43.78,
+  "lon": -80,
+  "habitat": {
+   "hold": 70,
+   "struct": 80,
+   "spawn": 80,
+   "cold": 80,
+   "ox": 86,
+   "gw": 75
+  },
+  "species": [
+   "BKT",
+   "BNT"
+  ],
+  "history": 74,
+  "page": "/rivers/credit-river-upper-forks-of-the-credit-belfountain/"
+ },
+ {
+  "id": "ganaraska",
+  "river": "Ganaraska River",
+  "section": "Lower: Port Hope below the fishway",
+  "lat": 43.95,
+  "lon": -78.29,
+  "habitat": {
+   "hold": 80,
+   "struct": 70,
+   "spawn": 86,
+   "cold": 50,
+   "ox": 78,
+   "gw": 50
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 92,
+  "page": "/rivers/ganaraska-river-lower-port-hope-below-the-fishway/"
+ },
+ {
+  "id": "notty-main",
+  "river": "Nottawasaga River",
+  "section": "Main stem: Angus to Wasaga",
+  "lat": 44.32,
+  "lon": -79.88,
+  "habitat": {
+   "hold": 78,
+   "struct": 70,
+   "spawn": 72,
+   "cold": 42,
+   "ox": 72,
+   "gw": 40
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 86,
+  "page": "/rivers/nottawasaga-river-main-stem-angus-to-wasaga/"
+ },
+ {
+  "id": "notty-tribs",
+  "river": "Nottawasaga tributaries",
+  "section": "Mad / Boyne / Pine Rivers (cold tribs)",
+  "lat": 44.32,
+  "lon": -80.1,
+  "habitat": {
+   "hold": 68,
+   "struct": 82,
+   "spawn": 84,
+   "cold": 86,
+   "ox": 88,
+   "gw": 82
+  },
+  "species": [
+   "BKT",
+   "BNT"
+  ],
+  "history": 76,
+  "page": "/rivers/nottawasaga-tributaries-mad-boyne-pine-rivers-cold-tribs/"
+ },
+ {
+  "id": "beaver-lower",
+  "river": "Beaver River",
+  "section": "Lower: Thornbury below the dam/fishway",
+  "lat": 44.56,
+  "lon": -80.45,
+  "habitat": {
+   "hold": 82,
+   "struct": 78,
+   "spawn": 76,
+   "cold": 60,
+   "ox": 80,
+   "gw": 55
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 85,
+  "page": "/rivers/beaver-river-lower-thornbury-below-the-dam-fishway/"
+ },
+ {
+  "id": "twelve-mile",
+  "river": "Twelve Mile Creek",
+  "section": "St. Catharines / Short Hills cold reach",
+  "lat": 43.13,
+  "lon": -79.25,
+  "habitat": {
+   "hold": 78,
+   "struct": 82,
+   "spawn": 78,
+   "cold": 92,
+   "ox": 88,
+   "gw": 90
+  },
+  "species": [
+   "BKT",
+   "BNT"
+  ],
+  "history": 80,
+  "page": "/rivers/twelve-mile-creek-st-catharines-short-hills-cold-reach/"
+ },
+ {
+  "id": "bronte",
+  "river": "Bronte Creek",
+  "section": "Lower: Oakville to the lake",
+  "lat": 43.39,
+  "lon": -79.71,
+  "habitat": {
+   "hold": 72,
+   "struct": 72,
+   "spawn": 74,
+   "cold": 48,
+   "ox": 74,
+   "gw": 45
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "BNTr"
+  ],
+  "history": 78,
+  "page": "/rivers/bronte-creek-lower-oakville-to-the-lake/"
+ },
+ {
+  "id": "sixteen",
+  "river": "Sixteen Mile Creek",
+  "section": "Lower: Oakville to the lake",
+  "lat": 43.45,
+  "lon": -79.7,
+  "habitat": {
+   "hold": 72,
+   "struct": 70,
+   "spawn": 72,
+   "cold": 46,
+   "ox": 72,
+   "gw": 42
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "BNTr"
+  ],
+  "history": 76,
+  "page": "/rivers/sixteen-mile-creek-lower-oakville-to-the-lake/"
+ },
+ {
+  "id": "duffins",
+  "river": "Duffins Creek",
+  "section": "Lower: Ajax / Pickering",
+  "lat": 43.85,
+  "lon": -79.04,
+  "habitat": {
+   "hold": 74,
+   "struct": 72,
+   "spawn": 76,
+   "cold": 50,
+   "ox": 76,
+   "gw": 48
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "ATS"
+  ],
+  "history": 80,
+  "page": "/rivers/duffins-creek-lower-ajax-pickering/"
+ },
+ {
+  "id": "wilmot",
+  "river": "Wilmot Creek",
+  "section": "Lower: Newcastle",
+  "lat": 43.91,
+  "lon": -78.59,
+  "habitat": {
+   "hold": 74,
+   "struct": 74,
+   "spawn": 80,
+   "cold": 58,
+   "ox": 80,
+   "gw": 60
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "ATS",
+   "BNTr"
+  ],
+  "history": 82,
+  "page": "/rivers/wilmot-creek-lower-newcastle/"
+ },
+ {
+  "id": "niagara-lower",
+  "river": "Niagara River",
+  "section": "Lower: Whirlpool / Devil's Hole drifts",
+  "lat": 43.15,
+  "lon": -79.05,
+  "habitat": {
+   "hold": 90,
+   "struct": 86,
+   "spawn": 58,
+   "cold": 70,
+   "ox": 90,
+   "gw": 40
+  },
+  "species": [
+   "STL",
+   "BNT",
+   "LAT"
+  ],
+  "history": 88,
+  "page": "/rivers/niagara-river-lower-whirlpool-devil-s-hole-drifts/"
+ },
+ {
+  "id": "saugeen-denny",
+  "river": "Saugeen River",
+  "section": "Lower: Denny's Dam to the mouth (Southampton)",
+  "lat": 44.48,
+  "lon": -81.35,
+  "habitat": {
+   "hold": 84,
+   "struct": 78,
+   "spawn": 78,
+   "cold": 52,
+   "ox": 80,
+   "gw": 48
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "BNTr"
+  ],
+  "history": 88,
+  "page": "/rivers/saugeen-river-lower-denny-s-dam-to-the-mouth-southampton/"
+ },
+ {
+  "id": "maitland-lower",
+  "river": "Maitland River",
+  "section": "Lower: Benmiller to Goderich",
+  "lat": 43.72,
+  "lon": -81.65,
+  "habitat": {
+   "hold": 78,
+   "struct": 76,
+   "spawn": 74,
+   "cold": 56,
+   "ox": 78,
+   "gw": 52
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "RBT"
+  ],
+  "history": 80,
+  "page": "/rivers/maitland-river-lower-benmiller-to-goderich/"
+ },
+ {
+  "id": "beaver-upper",
+  "river": "Beaver River",
+  "section": "Upper: Kimberley to below Eugenia",
+  "lat": 44.42,
+  "lon": -80.55,
+  "habitat": {
+   "hold": 74,
+   "struct": 80,
+   "spawn": 80,
+   "cold": 82,
+   "ox": 86,
+   "gw": 78
+  },
+  "species": [
+   "BNT",
+   "BKT",
+   "RBT"
+  ],
+  "history": 76,
+  "page": "/rivers/beaver-river-upper-kimberley-to-below-eugenia/"
+ },
+ {
+  "id": "boyne",
+  "river": "Boyne River",
+  "section": "Primrose / Boyne valley cold headwaters",
+  "lat": 44.15,
+  "lon": -80.05,
+  "habitat": {
+   "hold": 66,
+   "struct": 82,
+   "spawn": 84,
+   "cold": 88,
+   "ox": 88,
+   "gw": 84
+  },
+  "species": [
+   "BKT",
+   "BNT"
+  ],
+  "history": 72,
+  "page": "/rivers/boyne-river-primrose-boyne-valley-cold-headwaters/"
+ },
+ {
+  "id": "credit-mid",
+  "river": "Credit River",
+  "section": "Middle: Norval to Glen Williams",
+  "lat": 43.65,
+  "lon": -79.92,
+  "habitat": {
+   "hold": 76,
+   "struct": 78,
+   "spawn": 72,
+   "cold": 62,
+   "ox": 78,
+   "gw": 58
+  },
+  "species": [
+   "BNT",
+   "RBT",
+   "STL"
+  ],
+  "history": 80,
+  "page": "/rivers/credit-river-middle-norval-to-glen-williams/"
+ },
+ {
+  "id": "humber-lower",
+  "river": "Humber River",
+  "section": "Lower: Old Mill to the mouth (Toronto)",
+  "lat": 43.65,
+  "lon": -79.494,
+  "habitat": {
+   "hold": 74,
+   "struct": 70,
+   "spawn": 74,
+   "cold": 46,
+   "ox": 74,
+   "gw": 44
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "ATS"
+  ],
+  "history": 82,
+  "page": "/rivers/humber-river-lower-old-mill-to-the-mouth-toronto/"
+ },
+ {
+  "id": "conestogo-tw",
+  "river": "Conestogo River",
+  "section": "Tailwater: below Conestogo Dam",
+  "lat": 43.66,
+  "lon": -80.66,
+  "habitat": {
+   "hold": 82,
+   "struct": 76,
+   "spawn": 66,
+   "cold": 92,
+   "ox": 84,
+   "gw": 58
+  },
+  "species": [
+   "BNT",
+   "RBT"
+  ],
+  "history": 80,
+  "page": "/rivers/conestogo-river-tailwater-below-conestogo-dam/"
+ },
+ {
+  "id": "bighead",
+  "river": "Bighead River",
+  "section": "Lower: Meaford to Georgian Bay",
+  "lat": 44.605,
+  "lon": -80.593,
+  "habitat": {
+   "hold": 78,
+   "struct": 74,
+   "spawn": 80,
+   "cold": 56,
+   "ox": 80,
+   "gw": 55
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 84,
+  "page": "/rivers/bighead-river-lower-meaford-to-georgian-bay/"
+ },
+ {
+  "id": "sydenham-os",
+  "river": "Sydenham River",
+  "section": "Lower: Owen Sound below the dam",
+  "lat": 44.567,
+  "lon": -80.943,
+  "habitat": {
+   "hold": 76,
+   "struct": 72,
+   "spawn": 74,
+   "cold": 52,
+   "ox": 78,
+   "gw": 50
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 80,
+  "page": "/rivers/sydenham-river-lower-owen-sound-below-the-dam/"
+ },
+ {
+  "id": "rouge-lower",
+  "river": "Rouge River",
+  "section": "Lower: Twyn Rivers to the mouth (Toronto)",
+  "lat": 43.803,
+  "lon": -79.14,
+  "habitat": {
+   "hold": 72,
+   "struct": 70,
+   "spawn": 74,
+   "cold": 46,
+   "ox": 74,
+   "gw": 44
+  },
+  "species": [
+   "STL",
+   "CHN",
+   "BNTr"
+  ],
+  "history": 78,
+  "page": "/rivers/rouge-river-lower-twyn-rivers-to-the-mouth-toronto/"
+ },
+ {
+  "id": "bowmanville",
+  "river": "Bowmanville Creek",
+  "section": "Lower: Bowmanville to the lake",
+  "lat": 43.905,
+  "lon": -78.688,
+  "habitat": {
+   "hold": 74,
+   "struct": 72,
+   "spawn": 78,
+   "cold": 54,
+   "ox": 78,
+   "gw": 52
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 80,
+  "page": "/rivers/bowmanville-creek-lower-bowmanville-to-the-lake/"
+ },
+ {
+  "id": "sauble",
+  "river": "Sauble River",
+  "section": "Sauble Falls to the mouth",
+  "lat": 44.66,
+  "lon": -81.253,
+  "habitat": {
+   "hold": 76,
+   "struct": 74,
+   "spawn": 80,
+   "cold": 54,
+   "ox": 78,
+   "gw": 50
+  },
+  "species": [
+   "STL",
+   "CHN"
+  ],
+  "history": 82,
+  "page": "/rivers/sauble-river-sauble-falls-to-the-mouth/"
+ }
+]

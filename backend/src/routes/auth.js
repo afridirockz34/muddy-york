@@ -21,7 +21,7 @@ function setSessionCookie(reply, token, expiresAt) {
 // case-insensitively.
 const findByEmail = (email) => prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
 
-const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null, avatarUrl: u.avatarUrl || null });
+const publicUser = (u) => ({ id: u.id, email: u.email, emailVerified: u.emailVerified, displayName: u.displayName || null, usernameChosen: u.usernameChosen !== false, avatarUrl: u.avatarUrl || null });
 
 // Case-insensitive username availability. Optionally exclude one user (for edits).
 export async function isNameTaken(name, exceptUserId) {

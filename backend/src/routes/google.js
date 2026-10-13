@@ -1,5 +1,6 @@
 import { Google, generateState, generateCodeVerifier } from "arctic";
 import { prisma } from "../db.js";
+import { placeholderUsername } from "../auth/username.js";
 import { config } from "../config.js";
 import { createSession } from "../auth/session.js";
 
@@ -35,7 +36,7 @@ export default async function googleRoutes(app) {
     const claims = decodeIdToken(tokens.idToken());
     const googleId = claims.sub, email = claims.email;
     let user = await prisma.user.findFirst({ where: { OR: [{ googleId }, { email }] } });
-    if (!user) user = await prisma.user.create({ data: { email, googleId, emailVerified: true } });
+    if (!user) user = await prisma.user.create({ data: { email, googleId, emailVerified: true, displayName: await placeholderUsername(), usernameChosen: false } });
     else if (!user.googleId) user = await prisma.user.update({ where: { id: user.id }, data: { googleId, emailVerified: true } });
     const { token, expiresAt } = await createSession(user.id);
     reply.setCookie(config.cookieName, token, { httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt });

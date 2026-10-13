@@ -1,0 +1,6447 @@
+{
+ "version": "0.1.20260917",
+ "status_code": 20000,
+ "status_message": "Ok.",
+ "time": "2.1173 sec.",
+ "cost": 0.09,
+ "tasks_count": 1,
+ "tasks_error": 0,
+ "tasks": [
+  {
+   "id": "10131338-1683-0367-0000-16ea6f92e600",
+   "status_code": 20000,
+   "status_message": "Ok.",
+   "time": "2.0378 sec.",
+   "cost": 0.09,
+   "result_count": 102,
+   "path": [
+    "v3",
+    "keywords_data",
+    "google_ads",
+    "search_volume",
+    "live"
+   ],
+   "data": {
+    "api": "keywords_data",
+    "function": "search_volume",
+    "se": "google_ads",
+    "keywords": [
+     "best fishing app",
+     "bowmanville creek steelhead",
+     "bronte creek steelhead",
+     "bronte pier fishing",
+     "brown trout run ontario",
+     "brown trout winter fishing",
+     "centerpin fishing",
+     "coho salmon run ontario",
+     "credit river steelhead",
+     "credit river water level",
+     "december fishing ontario",
+     "duffins creek steelhead",
+     "fall fishing ontario",
+     "fall fishing toronto",
+     "fall steelhead ontario",
+     "fall trout fishing ontario",
+     "family day fishing ontario",
+     "family fishing weekend ontario",
+     "fishing app canada",
+     "fishing forecast ontario",
+     "fishing gift card canada",
+     "fishing gift ideas",
+     "fishing gifts",
+     "fishing in december toronto",
+     "fishing in winter ontario",
+     "fishing licence ontario",
+     "fishing licence ontario 2027",
+     "fishing open all year ontario",
+     "fishing piers ontario",
+     "fishing report ontario",
+     "fishing season ontario 2027",
+     "float fishing steelhead",
+     "fly fishing show toronto",
+     "free fishing weekend ontario",
+     "ganaraska river steelhead",
+     "gift for fisherman",
+     "gifts for fishermen canada",
+     "grand river water level",
+     "humber river steelhead",
+     "humber river water level",
+     "ice conditions ontario",
+     "ice fishing app",
+     "ice fishing bay of quinte",
+     "ice fishing for beginners",
+     "ice fishing gear canada",
+     "ice fishing georgian bay",
+     "ice fishing hut rental lake simcoe",
+     "ice fishing huts ontario",
+     "ice fishing kempenfelt bay",
+     "ice fishing lake nipissing",
+     "ice fishing lake scugog",
+     "ice fishing lake simcoe",
+     "ice fishing lake trout ontario",
+     "ice fishing near me",
+     "ice fishing near toronto",
+     "ice fishing ontario",
+     "ice fishing perch ontario",
+     "ice fishing regulations ontario",
+     "ice fishing regulations ontario 2026",
+     "ice fishing rentals ontario",
+     "ice fishing rice lake",
+     "ice fishing season ontario",
+     "ice fishing toronto",
+     "ice fishing walleye ontario",
+     "ice fishing whitefish lake simcoe",
+     "ice thickness ontario",
+     "is the ice safe",
+     "lake run brown trout ontario",
+     "lake simcoe fishing regulations",
+     "lake simcoe ice conditions",
+     "niagara river steelhead",
+     "nottawasaga river steelhead",
+     "november fishing ontario",
+     "ontario fishing regulations 2027",
+     "open water fishing winter ontario",
+     "outdoors card ontario",
+     "pier fishing toronto",
+     "port credit pier fishing",
+     "river levels ontario",
+     "salmon run november ontario",
+     "salmon run october ontario",
+     "saugeen river steelhead",
+     "spring fishing show toronto",
+     "spring steelhead ontario",
+     "steelhead fishing in winter",
+     "steelhead fishing near me",
+     "steelhead fishing ontario",
+     "steelhead fishing toronto",
+     "steelhead ontario",
+     "steelhead report ontario",
+     "steelhead run ontario",
+     "steelhead season ontario",
+     "toronto sportsmen show",
+     "trout opener 2027",
+     "where to fish in winter ontario",
+     "where to fish steelhead ontario",
+     "winter fishing near me",
+     "winter fishing ontario",
+     "winter fishing toronto",
+     "winter fly fishing ontario",
+     "winter steelhead fishing ontario",
+     "winter trout fishing ontario"
+    ],
+    "location_code": 20121,
+    "language_code": "en"
+   },
+   "result": [
+    {
+     "keyword": "best fishing app",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 29,
+     "search_volume": 40,
+     "low_top_of_page_bid": 0.62,
+     "high_top_of_page_bid": 2.19,
+     "cpc": 2.05,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 40
+      }
+     ]
+    },
+    {
+     "keyword": "bowmanville creek steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "bronte creek steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "bronte pier fishing",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 70
+      }
+     ]
+    },
+    {
+     "keyword": "brown trout run ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "brown trout winter fishing",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "centerpin fishing",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 27,
+     "search_volume": 70,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 0.16,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "coho salmon run ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "credit river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "credit river water level",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 110,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "december fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "duffins creek steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "fall fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 3,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "fall fishing toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "fall steelhead ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "fall trout fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "family day fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 170
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "family fishing weekend ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 1,
+     "search_volume": 170,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 480
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 880
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "fishing app canada",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 33,
+     "search_volume": 20,
+     "low_top_of_page_bid": 0.48,
+     "high_top_of_page_bid": 1.95,
+     "cpc": 1.65,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "fishing forecast ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "fishing gift card canada",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing gift ideas",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "HIGH",
+     "competition_index": 94,
+     "search_volume": 40,
+     "low_top_of_page_bid": 0.43,
+     "high_top_of_page_bid": 0.75,
+     "cpc": 0.77,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 170
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "fishing gifts",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "HIGH",
+     "competition_index": 99,
+     "search_volume": 210,
+     "low_top_of_page_bid": 0.2,
+     "high_top_of_page_bid": 0.7,
+     "cpc": 0.72,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 720
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "fishing in december toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing in winter ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing licence ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 33100,
+     "low_top_of_page_bid": 0.73,
+     "high_top_of_page_bid": 2.32,
+     "cpc": 2.66,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 60500
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 74000
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 60500
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 60500
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 27100
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 14800
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 14800
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 22200
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 8100
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 3600
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 9900
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 22200
+      }
+     ]
+    },
+    {
+     "keyword": "fishing licence ontario 2027",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing open all year ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing piers ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "fishing report ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 3,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 30
+      }
+     ]
+    },
+    {
+     "keyword": "fishing season ontario 2027",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "float fishing steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "MEDIUM",
+     "competition_index": 66,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 0.36,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 30
+      }
+     ]
+    },
+    {
+     "keyword": "fly fishing show toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "free fishing weekend ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 260,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 720
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 880
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 720
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 70
+      }
+     ]
+    },
+    {
+     "keyword": "ganaraska river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "gift for fisherman",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "HIGH",
+     "competition_index": 99,
+     "search_volume": 210,
+     "low_top_of_page_bid": 0.2,
+     "high_top_of_page_bid": 0.7,
+     "cpc": 0.72,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 720
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "gifts for fishermen canada",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "grand river water level",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 260,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 590
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 590
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 170
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 260
+      }
+     ]
+    },
+    {
+     "keyword": "humber river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "humber river water level",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice conditions ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing app",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing bay of quinte",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 260,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 590
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 1000
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 720
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 40
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing for beginners",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing gear canada",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "HIGH",
+     "competition_index": 100,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 1.07,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing georgian bay",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 90,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 260
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 210
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing hut rental lake simcoe",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 2,
+     "search_volume": 590,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 1600
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 2900
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 1300
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 390
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 170
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 70
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing huts ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing kempenfelt bay",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing lake nipissing",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 1,
+     "search_volume": 720,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 1600
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 2900
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 2400
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 720
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 320
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 170
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing lake scugog",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 50,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 260
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing lake simcoe",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 2,
+     "search_volume": 2400,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 170
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 1900
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 8100
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 9900
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 4400
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 880
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 260
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing lake trout ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing near me",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 5,
+     "search_volume": 880,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 0.02,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 3600
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 3600
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 1900
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 110
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing near toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 16,
+     "search_volume": 40,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 14,
+     "search_volume": 1000,
+     "low_top_of_page_bid": 0.29,
+     "high_top_of_page_bid": 5.78,
+     "cpc": 2.6,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 170
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 590
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 2400
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 4400
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 2900
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 1000
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 590
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 480
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing perch ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing regulations ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 40,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 140
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing regulations ontario 2026",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "ice fishing rentals ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 3,
+     "search_volume": 90,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 320
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 320
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 170
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing rice lake",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 110,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 390
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 590
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 260
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing season ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 40,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 11,
+     "search_volume": 140,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 0.22,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 480
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 320
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 50
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing walleye ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice fishing whitefish lake simcoe",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ice thickness ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "is the ice safe",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "lake run brown trout ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "lake simcoe fishing regulations",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 70,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 40
+      }
+     ]
+    },
+    {
+     "keyword": "lake simcoe ice conditions",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 170,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 480
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 880
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "niagara river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "nottawasaga river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "november fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 210
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "ontario fishing regulations 2027",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "open water fishing winter ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "outdoors card ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 9900,
+     "low_top_of_page_bid": 0.62,
+     "high_top_of_page_bid": 2.14,
+     "cpc": 2.26,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 12100
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 12100
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 14800
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 14800
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 9900
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 5400
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 4400
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 8100
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 6600
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 6600
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 8100
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 8100
+      }
+     ]
+    },
+    {
+     "keyword": "pier fishing toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "port credit pier fishing",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "river levels ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 5,
+     "search_volume": 30,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 1.92,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 90
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "salmon run november ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "salmon run october ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "saugeen river steelhead",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "spring fishing show toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 140
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "spring steelhead ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead fishing in winter",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead fishing near me",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 5,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 2,
+     "search_volume": 110,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 260
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 70
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 70
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 170
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 210
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 140
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead fishing toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 40
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 40
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 30
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead report ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "steelhead run ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 20
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 20
+      }
+     ]
+    },
+    {
+     "keyword": "steelhead season ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 50,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 110
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 30
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 50
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 110
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 70
+      }
+     ]
+    },
+    {
+     "keyword": "toronto sportsmen show",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 3600,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": 0.5,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 210
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 320
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 590
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 33100
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 6600
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 2900
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 880
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 590
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 480
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 390
+      }
+     ]
+    },
+    {
+     "keyword": "trout opener 2027",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "where to fish in winter ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "where to fish steelhead ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": null,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": null
+    },
+    {
+     "keyword": "winter fishing near me",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "winter fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "LOW",
+     "competition_index": 0,
+     "search_volume": 20,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 50
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 90
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 30
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "winter fishing toronto",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": "MEDIUM",
+     "competition_index": 50,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 20
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    },
+    {
+     "keyword": "winter fly fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "winter steelhead fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 0
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 0
+      }
+     ]
+    },
+    {
+     "keyword": "winter trout fishing ontario",
+     "spell": null,
+     "location_code": 20121,
+     "language_code": "en",
+     "search_partners": false,
+     "competition": null,
+     "competition_index": null,
+     "search_volume": 10,
+     "low_top_of_page_bid": null,
+     "high_top_of_page_bid": null,
+     "cpc": null,
+     "monthly_searches": [
+      {
+       "year": 2026,
+       "month": 8,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 7,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 6,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 5,
+       "search_volume": 0
+      },
+      {
+       "year": 2026,
+       "month": 4,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 3,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 2,
+       "search_volume": 10
+      },
+      {
+       "year": 2026,
+       "month": 1,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 12,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 11,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 10,
+       "search_volume": 10
+      },
+      {
+       "year": 2025,
+       "month": 9,
+       "search_volume": 10
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

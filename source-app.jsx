@@ -1531,6 +1531,83 @@ function LoadMoreSentinel({onLoadMore}){
 
 /* First-visit "Add to Home Screen" banner. Android/Chrome fires the native
    prompt; iOS Safari gets step-by-step instructions (no native prompt exists). */
+// First-time guide, shown once per device after sign-in: save a river, get the
+// app on your phone, turn on alerts. Phones get install steps for their own
+// browser; desktops get "email me the link" for their phone.
+const isPhoneUA=()=>typeof navigator!=="undefined"&&/iphone|ipod|android.+mobile|android/i.test(navigator.userAgent);
+const isIOSSafari=()=>isIOSDevice()&&/safari/i.test(navigator.userAgent)&&!/crios|fxios|edgios|gsa\//i.test(navigator.userAgent);
+const ShareGlyph=()=>(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:"-3px"}}><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>);
+function FirstRunTour({onDone}){
+  useScrollLock();
+  const phone=isPhoneUA(), standalone=isStandalonePWA();
+  const canPush=pushSupported()&&typeof Notification!=="undefined"&&Notification.permission==="default"&&(!isIOSDevice()||standalone);
+  const steps=["save"]; if(!standalone) steps.push(phone?"install":"phone"); if(canPush) steps.push("alerts");
+  const [i,setI]=useState(0), [note,setNote]=useState(""), [busy,setBusy]=useState(false), [canPrompt,setCanPrompt]=useState(!!_deferredInstall);
+  useEffect(()=>{ const h=()=>setCanPrompt(true); window.addEventListener("mk-installable",h); return ()=>window.removeEventListener("mk-installable",h); },[]);
+  const step=steps[i], last=i===steps.length-1;
+  const finish=()=>{ try{ localStorage.setItem("mkTour","1"); localStorage.setItem("mkInstallDismiss","1"); }catch{} logEvent("tour_done",null,{steps:steps.join(",")}); onDone(); };
+  const next=()=>{ setNote(""); last?finish():setI(i+1); };
+  const install=async()=>{ if(!_deferredInstall) return; try{ _deferredInstall.prompt(); const c=await _deferredInstall.userChoice; if(c&&c.outcome==="accepted"){ setNote("Installed. Open it from your home screen."); logEvent("install",null,{via:"tour"}); } }catch{} _deferredInstall=null; setCanPrompt(false); };
+  const emailLink=async()=>{ setBusy(true); try{ await proxyJSON("/me/send-app-link",{method:"POST"}); setNote("Sent. Open the email on your phone."); }catch{ setNote("Couldn't send just now. Open muddyyorkfishing.ca on your phone instead."); } finally{ setBusy(false); } };
+  const alerts=async()=>{ setBusy(true); try{ await enablePush(); setNote("Alerts are on."); logEvent("push_on",null,{via:"tour"}); setTimeout(next,700); }catch(e){ setNote(e&&e.message==="denied"?"Alerts are blocked in your settings. You can turn them on later in Profile.":"Couldn't turn on alerts here. Try again from Profile."); } finally{ setBusy(false); } };
+  const big={fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine,lineHeight:1.2};
+  const p={fontSize:14.5,color:C.text,lineHeight:1.55,marginTop:8};
+  const tip={marginTop:12,padding:"10px 12px",background:C.bone,border:`1px solid ${C.lineSoft}`,borderRadius:10,fontSize:13.5,lineHeight:1.55,color:C.text};
+  return (<div style={{...sheetOverlay,zIndex:7000,alignItems:"center",padding:16}}>
+    <div role="dialog" aria-modal="true" aria-label="Getting started" style={{width:"100%",maxWidth:420,background:C.panel,borderRadius:16,padding:"20px 20px 16px",boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
+      <div style={{display:"flex",gap:6,marginBottom:14}}>{steps.map((_,k)=><span key={k} style={{flex:1,height:4,borderRadius:4,background:k<=i?C.brass:C.lineSoft}}/>)}</div>
+      {step==="save" && (<>
+        <div style={big}>Save the rivers you fish</div>
+        <div style={p}>Tap the star next to any river. We'll send one heads-up when it turns prime, and your saved rivers are always in Profile.</div>
+        <div style={{...tip,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.pine,flex:1}}>Credit River</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill={C.brass} stroke={C.brass} strokeWidth="1.9" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:iconPath("save")}}/>
+          <span style={{fontSize:12.5,color:C.textDim}}>Saved</span>
+        </div>
+      </>)}
+      {step==="install" && (<>
+        <div style={big}>Put it on your home screen</div>
+        <div style={p}>It opens full screen like an app, loads faster, and can send river alerts. No app store needed.</div>
+        {isIOSSafari() ? (<div style={tip}>1. Tap <b>Share</b> <ShareGlyph/> at the bottom of Safari.<br/>2. Scroll and tap <b>Add to Home Screen</b>.<br/>3. Tap <b>Add</b>.</div>)
+         : isIOSDevice() ? (<div style={tip}>On iPhone, apps are added from <b>Safari</b>. Open <b>muddyyorkfishing.ca</b> in Safari, tap Share <ShareGlyph/>, then <b>Add to Home Screen</b>.</div>)
+         : canPrompt ? (<button onClick={install} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:12,background:C.pine,borderColor:C.pine,color:C.headText}}>Install the app</button>)
+         : (<div style={tip}>Tap the browser menu <b>⋮</b>, then <b>Install app</b> or <b>Add to Home screen</b>.</div>)}
+      </>)}
+      {step==="phone" && (<>
+        <div style={big}>Take it on the water</div>
+        <div style={p}>Muddy York works best on your phone, beside the river. Open <b>muddyyorkfishing.ca</b> on your phone and add it to your home screen. Sign in with this account and your saved rivers come with you.</div>
+        <button disabled={busy} onClick={emailLink} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:12,background:C.pine,borderColor:C.pine,color:C.headText,opacity:busy?0.6:1}}>Email me the link</button>
+      </>)}
+      {step==="alerts" && (<>
+        <div style={big}>Get alerts when your rivers turn prime</div>
+        <div style={p}>One notification when a saved river lines up, and a quick question the morning after a trip. Never a flood.</div>
+        <button disabled={busy} onClick={alerts} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:12,background:C.pine,borderColor:C.pine,color:C.headText,opacity:busy?0.6:1}}>Turn on alerts</button>
+      </>)}
+      {note && <div role="status" style={{fontSize:13,color:C.pine,fontWeight:600,marginTop:10,lineHeight:1.45}}>{note}</div>}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:18}}>
+        <button onClick={finish} style={{background:"none",border:"none",color:C.textDim,fontFamily:sans,fontSize:13,cursor:"pointer",padding:"8px 4px"}}>Skip</button>
+        <span style={{flex:1}}/>
+        {i>0 && <button onClick={()=>{ setNote(""); setI(i-1); }} style={{...btn,borderColor:C.line,color:C.textDim}}>Back</button>}
+        <button onClick={next} style={{...btn,borderColor:C.brick,background:C.brick,color:"#fff",padding:"9px 18px"}}>{last?"Done":"Next"}</button>
+      </div>
+    </div>
+  </div>);
+}
+// The first time the installed app opens, ask once (one tap) for alerts.
+function PushAsk({onDone}){
+  const [busy,setBusy]=useState(false), [note,setNote]=useState("");
+  const close=()=>{ try{ localStorage.setItem("mkPushAsked","1"); }catch{} onDone(); };
+  const on=async()=>{ setBusy(true); try{ await enablePush(); logEvent("push_on",null,{via:"installed"}); close(); }catch(e){ setNote(e&&e.message==="denied"?"Alerts are blocked in settings. You can change that any time.":"Couldn't turn on alerts. Try again from Profile."); } finally{ setBusy(false); } };
+  return (<div style={{position:"fixed",left:12,right:12,bottom:"calc(70px + env(safe-area-inset-bottom))",zIndex:4100,maxWidth:440,margin:"0 auto",background:C.ink2,border:`1.5px solid ${C.brass}`,borderRadius:14,padding:"14px 15px",boxShadow:"0 10px 34px rgba(0,0,0,.4)"}}>
+    <div style={{fontFamily:serif,fontSize:16,fontWeight:700,color:C.bone}}>Turn on river alerts?</div>
+    <div style={{fontSize:13,color:C.headDim,lineHeight:1.5,marginTop:4}}>One heads-up when a saved river turns prime, and a quick trip question the morning after. Nothing else.</div>
+    {note && <div style={{fontSize:12.5,color:C.bone,marginTop:6}}>{note}</div>}
+    <div style={{display:"flex",gap:8,marginTop:10}}>
+      <button disabled={busy} onClick={on} style={{...btn,flex:1,background:C.brass,borderColor:C.brass,color:"#2f2507",fontWeight:800}}>Turn on alerts</button>
+      <button onClick={close} style={{...btn,borderColor:"rgba(239,233,219,.35)",color:C.bone}}>Not now</button>
+    </div>
+  </div>);
+}
 function InstallPrompt(){
   const [show,setShow]=useState(false);
   const [ios,setIos]=useState(isIOSDevice());
@@ -1545,6 +1622,7 @@ function InstallPrompt(){
   // First-visit auto prompt (skipped once installed or dismissed).
   useEffect(()=>{
     if(isStandalonePWA()) return;                                  // already installed
+    try{ if(localStorage.getItem("mkTour")!=="1") return; }catch{}   // the first-run guide covers it
     try{ if(localStorage.getItem("mkInstalled")==="1") return; }catch{}
     try{ if(localStorage.getItem("mkInstallDismiss")==="1") return; }catch{}
     const onInstallable=()=>setCanPrompt(true);
@@ -2035,6 +2113,17 @@ export default function App(){
   },[]);
   const intel=useMemo(()=>({streamInfo,riverReports}),[streamInfo,riverReports]);
 
+  // First-run guide once per device, after sign-in and username; then, inside
+  // the installed app, a one-tap alerts prompt.
+  const [showTour,setShowTour]=useState(false), [showPushAsk,setShowPushAsk]=useState(false);
+  const readyForTour=!!(me&&me.user&&me.user.displayName&&me.user.usernameChosen!==false&&!resetToken);
+  useEffect(()=>{ if(!API_BASE||!readyForTour) return;
+    let done=false; try{ done=localStorage.getItem("mkTour")==="1"; }catch{}
+    if(!done){ const t=setTimeout(()=>setShowTour(true),900); return ()=>clearTimeout(t); }
+    let asked=false; try{ asked=localStorage.getItem("mkPushAsked")==="1"; }catch{}
+    if(!asked&&isStandalonePWA()&&pushSupported()&&typeof Notification!=="undefined"&&Notification.permission==="default"){ const t=setTimeout(()=>setShowPushAsk(true),2500); return ()=>clearTimeout(t); }
+  },[readyForTour]);
+
   // Trips we haven't heard about yet (from yesterday's Directions taps). The
   // reminder push opens /?report=<id>; the card also waits on the Rivers tab.
   const [pendingTrips,setPendingTrips]=useState([]);
@@ -2229,12 +2318,14 @@ export default function App(){
       {methodOpen && <div onClick={()=>setMethodOpen(false)} style={sheetOverlay}><ScrollLock/><div onClick={e=>e.stopPropagation()} style={sheetPanel}><Method logCount={logCount}/><button onClick={()=>setMethodOpen(false)} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button></div></div>}
       {resetToken && <ResetModal token={resetToken} onDone={()=>{ setResetToken(null); refreshMe(); try{ window.history.replaceState({},"",window.location.pathname); }catch{} }}/>}
       {API_BASE && me && !me.user && !resetToken && <SignInGate onAuth={refreshMe} providers={providers}/>}
-      {API_BASE && me && me.user && !me.user.displayName && !resetToken && <UsernameGate onDone={refreshMe} onSignOut={signOut}/>}
+      {API_BASE && me && me.user && (!me.user.displayName || me.user.usernameChosen===false) && !resetToken && <UsernameGate current={me.user.usernameChosen===false?me.user.displayName:null} onDone={refreshMe} onSignOut={signOut}/>}
       {notifOpen && <NotifPanel data={notifs} onClose={()=>setNotifOpen(false)} onOpenProfile={(id)=>{ setNotifOpen(false); setProfileId(id); }} onGoNews={()=>{ setNotifOpen(false); setTab("news"); }}/>}
       {profileId && <ProfileModal userId={profileId} me={me} onClose={()=>setProfileId(null)} onToggleLike={toggleLike} onDelete={deletePost} onReport={reportPost} onBlock={blockAuthor} onCommentDelta={bumpComments} onSetName={setDisplayName} onSignIn={openUpgrade} onOpenProfile={setProfileId}/>}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} onClose={()=>setCheckoutPlan(null)}/>}
       {flash && <div style={{position:"fixed",left:"50%",bottom:82,transform:"translateX(-50%)",zIndex:5000,background:C.pine,color:C.bone,fontFamily:sans,fontSize:13,fontWeight:600,padding:"10px 18px",borderRadius:24,boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}>{flash}</div>}
       {!(API_BASE && me && !me.user) && !resetToken && <InstallPrompt/>}
+      {showTour && <FirstRunTour onDone={()=>setShowTour(false)}/>}
+      {!showTour && showPushAsk && <PushAsk onDone={()=>setShowPushAsk(false)}/>}
     </div>
   </IntelContext.Provider>);
 }
@@ -2802,7 +2893,7 @@ function AvatarEditor({me,onAuth}){
 }
 // Every account needs a public username (Google sign-ins arrive without one).
 // Shown until one is saved; it can't be dismissed, only completed or signed out of.
-function UsernameGate({onDone,onSignOut}){
+function UsernameGate({current,onDone,onSignOut}){
   useScrollLock();
   const [name,setName]=useState(""),[busy,setBusy]=useState(false),[err,setErr]=useState("");
   const n=name.trim(), ok=n.length>=2&&n.length<=40;
@@ -2820,6 +2911,8 @@ function UsernameGate({onDone,onSignOut}){
         onChange={e=>setName(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") save(); }}/>
       {err && <div role="alert" style={{fontSize:12.5,color:"#F3C0B5",marginTop:8,lineHeight:1.4}}>{err}</div>}
       <button disabled={!ok||busy} onClick={save} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:(!ok||busy)?0.6:1}}>{busy?"Saving…":"Continue"}</button>
+      {current && <button disabled={busy} onClick={async()=>{ setBusy(true); try{ await proxyJSON("/me",{method:"PATCH",body:{displayName:current}}); await onDone(); }catch(e){ setErr("Couldn't save. Try again."); } finally{ setBusy(false); } }}
+        style={{...gateBtn,background:"transparent",border:"1px solid rgba(239,233,219,.4)",color:"#EFE9DB",marginTop:10}}>Keep {current}</button>}
       <button onClick={onSignOut} style={{background:"none",border:"none",color:"#B7C7B7",fontFamily:sans,fontSize:12.5,textDecoration:"underline",cursor:"pointer",marginTop:14}}>Sign out</button>
     </div>
   </div>);
@@ -3071,7 +3164,7 @@ function SignInGate({onAuth,providers={}}){
             </div>)
           : (<div style={{marginTop:14}}>
             {err&&<div style={{fontSize:12.5,color:"#F3C0B5",marginBottom:6,lineHeight:1.4}}>{err}</div>}
-            {mode==="signup" && <input style={inp} type="text" placeholder="username (public)" value={username} maxLength={40} autoCapitalize="none" autoCorrect="off" onChange={e=>setUsername(e.target.value)}/>}
+            {mode==="signup" && <input style={inp} type="text" placeholder="Username (required, shown on your posts)" required aria-required="true" value={username} maxLength={40} autoCapitalize="none" autoCorrect="off" onChange={e=>setUsername(e.target.value)}/>}
             <input style={{...inp,...(touched&&emailErr?{borderColor:"#F3C0B5",boxShadow:"0 0 0 2px rgba(243,192,181,.35)"}:{})}} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false}
               placeholder="you@example.com" value={email} aria-invalid={!!(touched&&emailErr)} onBlur={()=>{ if(email) setTouched(true); }} onChange={e=>setEmail(e.target.value)}/>
             {touched && emailErr && <div role="alert" style={{fontSize:12.5,color:"#F3C0B5",marginTop:6,lineHeight:1.4}}>

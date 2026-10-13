@@ -12,7 +12,7 @@ const ROOT = path.join(__dir, "..");
 // paths, so we write them into the repo root next to the app.
 const OUT = ROOT;
 
-import { SITE_URL, APP_URL, SIGNIN_URL, HOME, BRAND, esc, page } from "../lib/site-shell.js";
+import { SITE_URL, APP_URL, SIGNIN_URL, HOME, BRAND, SOCIAL, esc, page } from "../lib/site-shell.js";
 import { withBrand } from "./seo-content.mjs";
 import { riverPage, salmonHub, salmonSpotPage, townPage, steelheadRivers, steelheadPage, steelheadHub, LIVE_STATUS_SCRIPT, RUN_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
 import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
@@ -512,8 +512,12 @@ fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   description: "Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout & salmon rivers. Start free.",
   canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: HOME_CSS, tail: LIVE_STATUS_SCRIPT + RETURNING_MEMBER_SCRIPT, stickyCta: "Start 7 free days",
   ogImage: SITE_URL + PHOTOS.elora.src,
-  schema: { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
-    operatingSystem: "Web, iOS", offers: { "@type": "Offer", price: "9.99", priceCurrency: "CAD" }, url: SITE_URL },
+  schema: [
+    { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
+      operatingSystem: "Web, iOS, Android", offers: { "@type": "Offer", price: "9.99", priceCurrency: "CAD" }, url: SITE_URL },
+    { "@context": "https://schema.org", "@type": "Organization", name: BRAND, url: SITE_URL, logo: `${SITE_URL}/crest.png`,
+      email: "info@muddyyorkfishing.ca", areaServed: "Southern Ontario, Canada", sameAs: SOCIAL.map((x) => x.url) },
+  ],
 }));
 
 const urls = [SITE_URL + "/", SITE_URL + "/fishing/", SITE_URL + "/rivers/"];
@@ -765,6 +769,12 @@ fs.writeFileSync(path.join(OUT, "photo-credits", "index.html"), page({
 </article></div></section>`,
 }));
 urls.push(`${SITE_URL}/photo-credits/`);
+
+// River data for the server (free-member nudges score the rivers people look at).
+fs.writeFileSync(path.join(ROOT, "backend", "src", "data", "rivers.json"), JSON.stringify(RIVERS.map((r) => ({
+  id: r.id, river: r.river, section: r.section, lat: r.lat, lon: r.lon, habitat: r.h, species: r.species, history: r.history ?? 60,
+  page: `/rivers/${slug(r.river + " " + r.section)}/`,
+})), null, 1));
 
 // sitemap + robots
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),

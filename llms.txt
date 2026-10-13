@@ -1,0 +1,30 @@
+# Muddy York Fishing
+
+> Muddy York Fishing is an app for Southern Ontario trout, steelhead and salmon anglers. Each morning it ranks 30+ rivers on live water temperature, flow and weather, shows the official Ontario season status for each stretch (synced from the Ontario Fishing Regulations Summary twice a day), and suggests the technique and fly for the day. 7 days free, then $9.99 a month or $59.99 a year.
+
+Key facts:
+- Coverage: Lake Ontario, Lake Erie, Georgian Bay and Lake Huron tributaries within about two hours of Toronto, plus spots anglers scout within their own radius.
+- Regulations come from the official Ontario Fishing Regulations Summary; always confirm the exact stretch before fishing.
+- Exact fishing spots are never published.
+
+## Salmon run
+- [Ontario salmon run: where and when to see it](https://muddyyorkfishing.ca/salmon-run/): run timing, viewing spots and what's legal, with a weekly run status.
+- [Old Mill salmon run, Toronto](https://muddyyorkfishing.ca/salmon-run/humber-river-old-mill-toronto/)
+- [Port Hope salmon run and fish ladder](https://muddyyorkfishing.ca/salmon-run/port-hope-ganaraska-river/)
+- [Credit River salmon run, Mississauga](https://muddyyorkfishing.ca/salmon-run/credit-river-mississauga/)
+- [Bowmanville salmon run](https://muddyyorkfishing.ca/salmon-run/bowmanville-creek/)
+
+## Steelhead and trout
+- [Ontario steelhead rivers](https://muddyyorkfishing.ca/steelhead/): which stretches are open in fall, winter and spring, river by river.
+- [River guides](https://muddyyorkfishing.ca/rivers/): species, best months, official seasons and access for 26 river sections.
+- [Fishing spots by town](https://muddyyorkfishing.ca/fishing-spots/)
+
+## Regulations
+- [Ontario fishing regulations by zone](https://muddyyorkfishing.ca/regulations/): seasons and limits for all 20 Fisheries Management Zones, checked against ontario.ca twice a day.
+
+## Guides and blog
+- [Guides](https://muddyyorkfishing.ca/guides/)
+- [Blog](https://muddyyorkfishing.ca/blog/)
+
+## App
+- [Muddy York Fishing app](https://muddyyorkfishing.ca/fishing/)

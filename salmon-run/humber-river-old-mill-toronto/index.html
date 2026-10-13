@@ -246,6 +246,15 @@ document.querySelectorAll(".run-status").forEach(function(el){
 });})();
 </script>
 <script>
+/* Members reading a river page: note which river, so their free-member updates
+   are about rivers they actually care about. Signed-in browsers only. */
+(function(){try{ if(localStorage.getItem("mkMember")!=="1") return;
+  var el=document.querySelector("[data-reach]"); if(!el) return;
+  fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
+    body:JSON.stringify({events:[{type:"page_view",ref:el.getAttribute("data-reach"),meta:{path:location.pathname.slice(0,80)}}]})}).catch(function(){});
+}catch(e){}})();
+</script>
+<script>
 /* First-touch acquisition beacon: shares the sessionStorage flag with the app,
    so the true entry page (this marketing page or the app) is the one recorded. */
 (function(){try{
