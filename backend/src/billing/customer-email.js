@@ -48,3 +48,39 @@ Refund policy: https://muddyyorkfishing.ca/terms/#refunds`,
     { heading: "Thanks for being a member", cta: invoice.hosted_invoice_url ? { label: "View your receipt", url: invoice.hosted_invoice_url } : undefined },
   );
 }
+
+const longDate = (d) => new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric", timeZone: "America/Toronto" });
+
+// A few days before a free trial ends (Stripe's trial_will_end event).
+export function trialEndingEmail(user, { trialEnd, amountCents, currency, interval }) {
+  const amount = amountCents != null ? money(amountCents, currency) : null;
+  const plan = interval === "year" ? "yearly" : "monthly";
+  return emailCustomer(
+    user,
+    `Your free trial ends ${longDate(trialEnd)}`,
+    `Hi${user.displayName ? " " + user.displayName : ""},
+
+A heads-up: your 7-day free trial of Muddy York Fishing ends on ${longDate(trialEnd)}.${amount ? ` After that your ${plan} membership starts and you'll be charged ${amount}${interval === "year" ? " for the year" : " a month"}.` : ""}
+
+If you'd like to keep going, you don't need to do anything. If not, cancel before ${longDate(trialEnd)} from Profile, Manage subscription, and you won't be charged.
+
+Refunds: monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since.`,
+    { heading: "Your free trial ends soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
+  );
+}
+
+// Before a yearly membership renews (Stripe's invoice.upcoming event).
+export function renewalReminderEmail(user, { renewsOn, amountCents, currency }) {
+  return emailCustomer(
+    user,
+    `Your yearly membership renews ${longDate(renewsOn)}`,
+    `Hi${user.displayName ? " " + user.displayName : ""},
+
+Your yearly Muddy York Fishing membership renews on ${longDate(renewsOn)} for ${money(amountCents, currency)}.
+
+To keep it, you don't need to do anything. If you'd rather not renew, cancel before ${longDate(renewsOn)} from Profile, Manage subscription. You'll keep access until then.
+
+Refunds: you can ask for a refund of the renewal within 7 days of the charge, as long as you haven't used member features since. Full terms: https://muddyyorkfishing.ca/terms/#refunds`,
+    { heading: "Your membership renews soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
+  );
+}

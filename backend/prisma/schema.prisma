@@ -218,6 +218,8 @@ model Subscription {
   status           String
   priceId          String?
   currentPeriodEnd DateTime?
+  trialReminderFor DateTime?   // trial end we already sent a reminder for
+  renewReminderFor DateTime?   // renewal date we already sent a reminder for
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)

@@ -2,7 +2,7 @@ import { config } from "../config.js";
 import { prisma } from "../db.js";
 import { getStripe } from "../billing/stripe.js";
 import { sendMail } from "../alerts/mailer.js";
-import { welcomeEmail, receiptEmail } from "../billing/customer-email.js";
+import { welcomeEmail, receiptEmail, trialEndingEmail, renewalReminderEmail } from "../billing/customer-email.js";
 import { fulfillGift, cancelGiftForPayment } from "./gifts.js";
 
 // Notify the business owner about membership lifecycle events.
@@ -71,6 +71,30 @@ export default async function stripeWebhookRoutes(app) {
       await cancelGiftForPayment(typeof obj.payment_intent === "string" ? obj.payment_intent : obj.payment_intent.id, { reason: "refund" });
     } else if (event.type === "charge.dispute.closed" && obj.status === "lost" && obj.payment_intent) {
       await cancelGiftForPayment(typeof obj.payment_intent === "string" ? obj.payment_intent : obj.payment_intent.id, { reason: "lost card dispute" });
+    } else if (event.type === "customer.subscription.trial_will_end") {
+      // Stripe sends this 3 days before a trial ends. Remind once per trial.
+      const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer }, include: { subscription: true } });
+      const trialEnd = obj.trial_end ? new Date(obj.trial_end * 1000) : null;
+      if (user && trialEnd && obj.status === "trialing" && !obj.cancel_at_period_end
+          && !(user.subscription?.trialReminderFor && +new Date(user.subscription.trialReminderFor) === +trialEnd)) {
+        const item = obj.items?.data?.[0]?.price || obj.plan || {};
+        await trialEndingEmail(user, { trialEnd, amountCents: item.unit_amount ?? item.amount ?? null, currency: item.currency, interval: item.recurring?.interval || item.interval });
+        if (user.subscription) await prisma.subscription.update({ where: { userId: user.id }, data: { trialReminderFor: trialEnd } }).catch(() => {});
+      }
+    } else if (event.type === "invoice.upcoming") {
+      // Before a renewal. Only yearly plans get a reminder (a monthly one
+      // every month would be noise). Once per renewal date.
+      const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer }, include: { subscription: true } });
+      const line = obj.lines?.data?.find((l) => l.price?.recurring || l.plan) || obj.lines?.data?.[0];
+      const interval = line?.price?.recurring?.interval || line?.plan?.interval;
+      const yearly = interval === "year" || (config.stripe.priceAnnual && line?.price?.id === config.stripe.priceAnnual);
+      const renewsOn = obj.next_payment_attempt ? new Date(obj.next_payment_attempt * 1000) : obj.period_end ? new Date(obj.period_end * 1000) : null;
+      const firstCharge = user?.subscription?.status === "trialing"; // the trial email already covers that one
+      if (user && yearly && renewsOn && obj.amount_due > 0 && !firstCharge
+          && !(user.subscription?.renewReminderFor && Math.abs(+new Date(user.subscription.renewReminderFor) - +renewsOn) < 864e5)) {
+        await renewalReminderEmail(user, { renewsOn, amountCents: obj.amount_due, currency: obj.currency });
+        if (user.subscription) await prisma.subscription.update({ where: { userId: user.id }, data: { renewReminderFor: renewsOn } }).catch(() => {});
+      }
     } else if (event.type === "checkout.session.completed") {
       const userId = obj.client_reference_id;
       if (userId && obj.subscription) {
