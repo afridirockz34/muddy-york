@@ -6,6 +6,11 @@ try {
   // no .env present (e.g. CI with env vars already set) — ignore
 }
 
+// SAFETY: never send real email from tests. backend/.env holds the live Resend
+// key, and webhook tests fire billing notices to the real inbox. Tests that
+// check sending set their own fake key and fetch.
+process.env.RESEND_API_KEY = "";
+
 // SAFETY: the suite wipes tables (resetDb). It must NEVER run against the real
 // database. Tests use a dedicated throwaway DB via TEST_DATABASE_URL; without
 // it, point DATABASE_URL at an unreachable host so DB-backed tests fail loudly
