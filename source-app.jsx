@@ -41,13 +41,29 @@ async function proxyJSON(path, opts){ const o = opts||{};
   if(!r.ok){ let info=null; try{ info=await r.json(); }catch{} const e=new Error("proxy "+r.status); e.status=r.status; e.info=info; throw e; }
   return r.json(); }
 
-/* ---- Usage telemetry: batch interaction events and flush to the backend ---- */
+/* ---- Usage telemetry: batch interaction events and flush to the backend ----
+   visitorId (this browser) and sessionId (this visit, renewed after 30 idle
+   minutes) are shared with the website's tracker, so a person's path from a
+   web page into the app reads as one journey in the admin. */
 const evQueue=[]; let evTimer=null;
+// Bots, and the owner's own browsers (marked when an admin signs in), aren't counted.
+const isBot=()=>{ try{ return localStorage.getItem("mkNoTrack")==="1"||navigator.webdriver||/bot|crawl|spider|headless|lighthouse/i.test(navigator.userAgent||""); }catch{ return false; } };
+const lsGet=(k)=>{ try{ return localStorage.getItem(k); }catch{ return null; } };
+const lsSet=(k,v)=>{ try{ localStorage.setItem(k,v); }catch{} };
+const randId=()=>(Date.now().toString(36)+Math.random().toString(36).slice(2,12)).slice(0,22);
+let sessionFresh=false;
+function trackIds(){
+  let vid=lsGet("mkVid"); if(!vid){ vid=randId(); lsSet("mkVid",vid); }
+  const now=Date.now(), last=+(lsGet("mkSeen")||0); let sid=lsGet("mkSid");
+  if(!sid||now-last>1800000){ sid=randId(); lsSet("mkSid",sid); sessionFresh=true; }
+  lsSet("mkSeen",String(now));
+  return {visitorId:vid,sessionId:sid};
+}
 function flushEvents(){
   if(evTimer){ clearTimeout(evTimer); evTimer=null; }
-  if(!API_BASE || !evQueue.length) return;
+  if(!API_BASE || !evQueue.length || isBot()) return;
   const events=evQueue.splice(0,50);
-  try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({events}),keepalive:true}).catch(()=>{}); }catch{}
+  try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({...trackIds(),events}),keepalive:true}).catch(()=>{}); }catch{}
 }
 function logEvent(type,ref,meta){
   if(!API_BASE||!type) return;
@@ -55,7 +71,19 @@ function logEvent(type,ref,meta){
   if(evQueue.length>=20) flushEvents();
   else if(!evTimer) evTimer=setTimeout(flushEvents,10000);
 }
-if(typeof window!=="undefined") window.addEventListener("pagehide",flushEvents);
+if(typeof window!=="undefined"){
+  window.addEventListener("pagehide",flushEvents);
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden") flushEvents(); });
+  // Every tap on a button or link: its label, never anything typed.
+  document.addEventListener("click",(e)=>{ try{
+    const a=e.target.closest&&e.target.closest("a,button,summary,[role=button]"); if(!a) return;
+    const label=(a.getAttribute("aria-label")||a.textContent||"").replace(/\s+/g," ").trim().slice(0,60)||"(icon)";
+    const href=a.getAttribute("href")||"";
+    logEvent("click",label,{app:1,href:href?href.slice(0,160):undefined});
+  }catch{} },true);
+  // Errors people hit, so broken screens show up in the admin.
+  window.addEventListener("error",(e)=>{ try{ logEvent("js_error",String(e.message||"error").slice(0,120),{src:String(e.filename||"").split("/").pop().slice(0,40),line:e.lineno}); }catch{} });
+}
 
 /* ---- Acquisition: record where a visitor came from and the first page they hit,
    once per session (a matching beacon on the marketing pages shares this flag, so
@@ -92,9 +120,11 @@ function trackFirstVisit(){
     utmSource:p.get("utm_source")||null, utmMedium:p.get("utm_medium")||null, utmCampaign:p.get("utm_campaign")||null };
   // First-touch attribution, kept for the eventual per-user acquisition record.
   try{ if(!localStorage.getItem("mkAttr")) localStorage.setItem("mkAttr",JSON.stringify(attr)); }catch{}
-  try{ if(sessionStorage.getItem("mkVisit")==="1") return; sessionStorage.setItem("mkVisit","1"); }catch{ return; }
-  try{ fetch(API_BASE+"/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({events:[{type:"visit",ref:attr.source,meta:attr},{type:"landing",ref:landing}]})}).catch(()=>{}); }catch{}
+  trackIds();
+  if(sessionFresh) logEvent("session_start",attr.source,{source:attr.source,referrer:attr.referrer,landing,utmCampaign:attr.utmCampaign,
+    ...(()=>{ const d=deviceInfo(); return {type:d.type,os:d.os,browser:d.browser,standalone:d.standalone}; })(),w:window.innerWidth,lang:(navigator.language||"").slice(0,10)});
+  try{ if(sessionStorage.getItem("mkVisit")!=="1"){ sessionStorage.setItem("mkVisit","1"); logEvent("visit",attr.source,attr); logEvent("landing",landing); } }catch{}
+  flushEvents();
 }
 // Once a visitor is signed in, tie their first-touch attribution + device to the
 // account (one user-linked event, so the admin can see how each customer arrived).
@@ -106,7 +136,6 @@ function sendAcquisitionOnce(userId){
   logEvent("acquisition", meta.source||"direct", meta); flushEvents();
   try{ localStorage.setItem("mkAttrSent",userId); }catch{}
 }
-if(typeof window!=="undefined") trackFirstVisit();
 
 /* ---- PWA install: capture Android/Chrome's install event before React mounts,
    so the "Add to Home Screen" button can trigger the native prompt on demand. */
@@ -116,6 +145,8 @@ if(typeof window!=="undefined"){
   window.addEventListener("appinstalled",()=>{ _deferredInstall=null; try{localStorage.setItem("mkInstalled","1");}catch{} });
 }
 const isStandalonePWA=()=> typeof window!=="undefined" && (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true);
+// Record the visit once the helpers it uses are defined.
+if(typeof window!=="undefined") trackFirstVisit();
 const isIOSDevice=()=> typeof navigator!=="undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent);
 
 /* ---- Web Push (prime-condition alerts) ---- */
@@ -1676,6 +1707,7 @@ export default function App(){
   const [mFlow,setMFlow]=useState("Normal");
   const [mDays,setMDays]=useState(4);
   const [tab,setTab]=useState("rivers");
+  useEffect(()=>{ logEvent("screen",tab); },[tab]);
   const [drawerOpen,setDrawerOpen]=useState(false);
   const [riversView,setRiversView]=useState("list");
   const [radiusOpen,setRadiusOpen]=useState(false);
@@ -1710,7 +1742,7 @@ export default function App(){
   const [providers,setProviders]=useState({google:true,apple:false});
   const gateArmedRef=useRef(false);
   const refreshMe=useCallback(async()=>{ if(!API_BASE) return; try{ const m=await proxyJSON("/auth/me"); setMe(m); dbSet("me:last",m);
-    if(m&&m.user){ try{ localStorage.setItem("mkMember","1"); }catch{} } }catch{ setMe(prev=>prev&&prev.user?prev:{user:null,entitlement:"free"}); } },[]);
+    if(m&&m.user){ try{ localStorage.setItem("mkMember","1"); if(m.isAdmin) localStorage.setItem("mkNoTrack","1"); }catch{} } }catch{ setMe(prev=>prev&&prev.user?prev:{user:null,entitlement:"free"}); } },[]);
   useEffect(()=>{ if(API_BASE) proxyJSON("/auth/providers").then(setProviders).catch(()=>{}); },[]);
   const isPremium = !API_BASE || isPremiumMe(me);
   // A free user tapping a locked feature goes straight to the subscription page;
@@ -2598,6 +2630,77 @@ function SeasonAdmin(){
     <button onClick={flip} role="switch" aria-checked={ice} style={{...btn,borderColor:ice?C.pine:C.line,background:ice?C.pine:C.bone,color:ice?C.headText:C.pine,minWidth:96}}>{ice?"Ice season on":"Ice season off"}</button>
   </div>);
 }
+// Website + app analytics from our own event log: who visits, from where,
+// what they read and tap, where they drop off, and each visit's full journey.
+function AnalyticsAdmin(){
+  const [days,setDays]=useState(7),[d,setD]=useState(null),[open,setOpen]=useState(null),[journey,setJourney]=useState(null);
+  useEffect(()=>{ let live=true; setD(null);
+    proxyJSON(`/api/admin/analytics?days=${days}`).then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); });
+    return ()=>{live=false;}; },[days]);
+  const showSession=async(id)=>{ if(open===id){ setOpen(null); return; } setOpen(id); setJourney(null);
+    try{ setJourney((await proxyJSON(`/api/admin/analytics/session/${id}`)).events||[]); }catch{ setJourney([]); } };
+  const sub=(t)=>(<div style={{fontFamily:sans,fontSize:11.5,fontWeight:700,color:C.pine,margin:"14px 0 6px"}}>{t}</div>);
+  const stat=(label,val)=>(<div style={{flex:"1 1 22%",minWidth:72,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:"9px 10px"}}>
+    <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
+    <div style={{fontSize:10,letterSpacing:0.5,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:4}}>{label}</div></div>);
+  const rows=(list,extra)=>{ const max=Math.max(1,...(list||[]).map(r=>r.count)); return (list||[]).length ? (
+    <div style={{display:"flex",flexDirection:"column",gap:5}}>{list.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+      <span title={r.label} style={{flex:"0 0 46%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:C.text}}>{r.label}</span>
+      <span style={{flex:1,height:8,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.round(r.count/max*100)}%`,background:C.brass}}/></span>
+      <span style={{flex:"0 0 auto",fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums",textAlign:"right"}}>{r.count}{extra?extra(r):""}</span>
+    </div>))}</div>) : <div style={{fontSize:12,color:C.textFaint}}>Nothing yet.</div>; };
+  const tm=(iso)=>new Date(iso).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  const clock=(iso)=>new Date(iso).toLocaleTimeString([], {hour:"numeric",minute:"2-digit",second:"2-digit"});
+  const evText=(e)=>{ const m=e.meta||{};
+    if(e.type==="pageview") return `Viewed page ${e.ref}`;
+    if(e.type==="screen") return `Opened app screen: ${e.ref}`;
+    if(e.type==="click") return `Tapped "${e.ref}"${m.href?` → ${m.href}`:""}`;
+    if(e.type==="page_leave") return `Left ${e.ref} after ${m.secs}s, scrolled ${m.scroll}%`;
+    if(e.type==="session_start") return `Arrived from ${m.source||"direct"} on ${m.type||""} ${m.os||""}${m.referrer?` (${m.referrer})`:""}`;
+    if(e.type==="view_reach") return `Opened river report ${e.ref}`;
+    return `${e.type}${e.ref?`: ${e.ref}`:""}`; };
+  return (<div>
+    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+      {[1,7,30,90].map(n=>(<button key={n} onClick={()=>setDays(n)} style={{...btn,padding:"6px 11px",borderColor:days===n?C.pine:C.line,color:days===n?C.pine:C.textDim,fontWeight:days===n?700:500}}>{n===1?"24 hours":`${n} days`}</button>))}
+      {d&&!d.error && <span style={{marginLeft:"auto",fontSize:12,color:C.pine,fontWeight:700,display:"inline-flex",alignItems:"center",gap:6}}><span style={{width:8,height:8,borderRadius:8,background:d.liveNow?"#3a9a5b":C.textFaint}}/>{d.liveNow} on now</span>}
+    </div>
+    {!d ? <div style={{fontSize:13,color:C.textFaint}}>Loading…</div> : d.error ? <div style={{fontSize:13,color:C.brick}}>Couldn't load analytics.</div> : (<div>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+        {stat("Visitors",d.totals.visitors)}{stat("Visits",d.totals.sessions)}{stat("Page views",d.totals.pageviews)}{stat("App screens",d.totals.screens)}
+      </div>
+      <div style={{fontSize:11.5,color:C.textDim,marginTop:6}}>{d.totals.viewsPerSession} pages or screens per visit · {d.totals.members} signed-in people</div>
+      {d.daily.length>1 && (()=>{ const max=Math.max(1,...d.daily.map(x=>x.visitors)); return (<>{sub("Visitors per day")}
+        <div style={{display:"flex",alignItems:"flex-end",gap:2,height:70,borderBottom:`1px solid ${C.lineSoft}`}}>
+          {d.daily.map(x=>(<div key={x.day} title={`${x.day}: ${x.visitors} visitors, ${x.pageviews} page views`} style={{flex:1,background:C.brass,borderRadius:"3px 3px 0 0",height:`${Math.max(4,Math.round(x.visitors/max*100))}%`}}/>))}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.textFaint,marginTop:3}}><span>{d.daily[0].day}</span><span>{d.daily[d.daily.length-1].day}</span></div></>); })()}
+      {sub("Funnel")}
+      {(()=>{ const top=Math.max(1,d.funnel[0].count); return d.funnel.map((f,i)=>(<div key={f.step} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+        <span style={{flex:"0 0 46%",fontSize:12,color:C.text}}>{f.step}</span>
+        <span style={{flex:1,height:10,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.min(100,Math.round(f.count/top*100))}%`,background:i>=4?C.pine:C.brass}}/></span>
+        <span style={{fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{f.count}</span></div>)); })()}
+      {sub("Where they came from")}{rows(d.sources)}
+      {sub("Website pages")}<div style={{fontSize:11,color:C.textFaint,marginBottom:5}}>Views · average time on page · how far they scrolled</div>
+      {rows(d.pages,(r)=>r.secs!=null?` · ${r.secs}s · ${r.scroll}%`:"")}
+      {sub("App screens")}{rows(d.screens,(r)=>` · ${r.visitors} ppl`)}
+      {sub("What they tap")}{rows(d.clicks)}
+      {sub("Devices")}{rows(d.devices)}
+      {sub("Recent visits")}<div style={{fontSize:11,color:C.textFaint,marginBottom:5}}>Tap a visit to see everything they did, in order.</div>
+      <div style={{display:"flex",flexDirection:"column"}}>{d.sessions.map(v=>(<div key={v.id} style={{borderBottom:`1px solid ${C.lineSoft}`}}>
+        <button onClick={()=>showSession(v.id)} style={{display:"flex",justifyContent:"space-between",gap:8,width:"100%",background:"none",border:"none",padding:"8px 2px",cursor:"pointer",textAlign:"left",fontSize:12.5,color:C.text}}>
+          <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><b style={{color:C.pine}}>{v.email||"Visitor"}</b> · {v.source||"direct"} · {v.entry||"?"}</span>
+          <span style={{flexShrink:0,color:C.textFaint}}>{v.views} views · {tm(v.ended)}</span>
+        </button>
+        {open===v.id && <div style={{padding:"2px 4px 10px 10px",borderLeft:`2px solid ${C.brass}`,margin:"0 0 8px 4px"}}>
+          <div style={{fontSize:11,color:C.textFaint,marginBottom:4}}>{v.device||""}</div>
+          {journey===null ? <div style={{fontSize:12,color:C.textFaint}}>Loading…</div>
+            : journey.filter(e=>!["visit","landing"].includes(e.type)).map((e,i)=>(<div key={i} style={{display:"flex",gap:8,fontSize:12,lineHeight:1.45,color:C.text,padding:"2px 0"}}>
+              <span style={{flex:"0 0 auto",color:C.textFaint,fontVariantNumeric:"tabular-nums"}}>{clock(e.at)}</span><span style={{minWidth:0,wordBreak:"break-word"}}>{evText(e)}</span></div>))}
+        </div>}
+      </div>))}</div>
+    </div>)}
+  </div>);
+}
 function AdminSheet({onClose}){
   useScrollLock();
   const [d,setD]=useState(null);
@@ -2625,6 +2728,8 @@ function AdminSheet({onClose}){
       {!d ? <div style={{fontSize:13,color:C.textFaint,padding:"14px 0"}}>Loading…</div>
         : d.error ? <div style={{fontSize:13,color:C.brick,padding:"14px 0"}}>Couldn't load — are you signed in as the admin?</div>
         : (<div>
+          {head("Website & app traffic")}
+          <AnalyticsAdmin/>
           {head("Members & signups")}
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {card("Users",d.users.total,`+${d.users.new7d} this week`)}
@@ -3377,14 +3482,11 @@ function loadStripeJs(){
   });
 }
 // The terms version a buyer agrees to; saved on the Stripe session as a record.
-const TERMS_VERSION="2026-10-14";
+const TERMS_VERSION="2026-10-14b";
 function CheckoutModal({plan:initialPlan,onClose}){
   useScrollLock();
   const [plan,setPlan]=useState(initialPlan||"annual");
   const [err,setErr]=useState(""),[loading,setLoading]=useState(false);
-  // Ontario requires the refund policy to be shown and accepted before an
-  // online purchase of $50 or more: checkout opens once the box is ticked.
-  const [agreed,setAgreed]=useState(false);
   const mountRef=useRef(null), ecRef=useRef(null), planRef=useRef(plan);
   planRef.current=plan;
   const trialDate=useMemo(()=>new Date(Date.now()+TRIAL_DAYS*86400000).toLocaleDateString(undefined,{month:"long",day:"numeric"}),[]);
@@ -3406,8 +3508,11 @@ function CheckoutModal({plan:initialPlan,onClose}){
     }catch(e){ const why=e&&e.info&&e.info.error;
       setErr(why==="invalid email"?((e.info&&e.info.message)||"Your account email looks invalid."):why?`Checkout error: ${why}`:"Checkout isn't available right now. Try again in a moment."); setLoading(false); }
   },[]);
-  useEffect(()=>{ if(agreed){ logEvent("terms_accepted",TERMS_VERSION,{plan:planRef.current}); mount(); } return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount,agreed]);
-  const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; if(agreed) mount(); };
+  // Checkout opens straight away. The Terms and refund policy are accepted with
+  // Stripe's own tick box beside the Start trial button (Ontario wants express
+  // acceptance before an online purchase of $50 or more).
+  useEffect(()=>{ logEvent("checkout_open",planRef.current); mount(); return ()=>{ try{ ecRef.current&&ecRef.current.destroy(); }catch{} }; },[mount]);
+  const changePlan=(p)=>{ if(p===plan) return; setPlan(p); planRef.current=p; logEvent("checkout_plan",p); mount(); };
   const planCard=(p)=>{ const on=plan===p, yearly=p==="annual";
     return (<button onClick={()=>changePlan(p)} aria-pressed={on} style={{flex:1,textAlign:"left",padding:"11px 12px",borderRadius:10,cursor:"pointer",position:"relative",
       border:`2px solid ${on?C.brick:C.line}`,background:on?`${C.brick}0d`:"#fff"}}>
@@ -3429,14 +3534,10 @@ function CheckoutModal({plan:initialPlan,onClose}){
       <div style={{fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:14,padding:"10px 12px",background:"#fff",border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
         <b>$0 today.</b> Your trial ends {trialDate}. Cancel before then and you pay nothing.
       </div>
-      <label style={{display:"flex",gap:10,alignItems:"flex-start",fontFamily:sans,fontSize:13,color:C.text,lineHeight:1.5,marginBottom:14,cursor:"pointer"}}>
-        <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} style={{width:20,height:20,marginTop:1,flexShrink:0,accentColor:C.pine}}/>
-        <span>I agree to the <a href="/terms/#refunds" target="_blank" rel="noopener noreferrer" style={{color:C.brick,fontWeight:700}}>Terms</a>, including the refund policy: cancel anytime and keep access to the end of the period you paid for. Monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since.</span>
-      </label>
-      {!agreed && <div style={{fontFamily:sans,fontSize:12.5,color:C.textDim,textAlign:"center",padding:"14px 0 4px"}}>Tick the box above to open secure checkout.</div>}
       {err&&<div style={{fontSize:12.5,color:C.brick,lineHeight:1.45,marginBottom:12}}>{err}<button onClick={mount} style={{...btn,borderColor:C.brick,color:C.brick,marginLeft:8}}>Retry</button></div>}
       {loading&&!err&&<div style={{fontFamily:sans,fontSize:13,color:C.textDim,padding:"24px 0",textAlign:"center"}}>Loading secure checkout…</div>}
       <div ref={mountRef}/>
+      <div style={{fontFamily:sans,fontSize:12,color:C.textDim,textAlign:"center",lineHeight:1.5,marginTop:12}}>Cancel anytime. <a href="/terms/#refunds" target="_blank" rel="noopener noreferrer" style={{color:C.textDim}}>Terms and refund policy</a></div>
       <button onClick={onClose} style={{...btn,borderColor:C.line,color:C.textDim,width:"100%",padding:"12px",marginTop:16}}>Not now</button>
     </div>
   </div>);

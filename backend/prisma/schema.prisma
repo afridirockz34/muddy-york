@@ -54,10 +54,15 @@ model Event {
   type      String                        // view_reach | save | discover | radius | open_map | open_profile | …
   ref       String?                       // reach id when relevant
   meta      Json?
+  visitorId String?                       // anonymous browser id (site + app share it)
+  sessionId String?                       // one visit; a new one after 30 idle minutes
   createdAt DateTime @default(now())
 
   @@index([type, createdAt])
   @@index([ref, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([sessionId])
+  @@index([userId, createdAt])
 }
 
 model Follow {

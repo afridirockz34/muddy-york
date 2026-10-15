@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import { prisma } from "../src/db.js";
 import { resetDb } from "./helpers/db.js";
 
+const sessionCreate = vi.hoisted(() => vi.fn());
 vi.mock("../src/billing/stripe.js", () => ({
   getStripe: () => ({
     customers: { create: vi.fn().mockResolvedValue({ id: "cus_test" }) },
-    checkout: { sessions: { create: vi.fn().mockResolvedValue({ client_secret: "cs_test_embedded_abc" }) } },
+    checkout: { sessions: { create: sessionCreate } },
     billingPortal: { sessions: { create: vi.fn().mockResolvedValue({ url: "https://portal.stripe.test/xyz" }) } },
   }),
 }));
@@ -20,7 +21,11 @@ async function signup(email) {
 }
 
 describe("billing routes", () => {
-  beforeEach(resetDb);
+  beforeEach(async () => {
+    await resetDb();
+    sessionCreate.mockReset();
+    sessionCreate.mockResolvedValue({ client_secret: "cs_test_embedded_abc" });
+  });
   afterAll(() => prisma.$disconnect());
 
   it("returns an embedded checkout clientSecret for an authed user and stores the customer id", async () => {
@@ -31,6 +36,25 @@ describe("billing routes", () => {
     expect(res.json().clientSecret).toBe("cs_test_embedded_abc");
     const user = await prisma.user.findUnique({ where: { email: "c@b.com" } });
     expect(user.stripeCustomerId).toBe("cus_test");
+  });
+  it("asks for Terms acceptance inside Stripe checkout", async () => {
+    const token = await signup("t@b.com");
+    await app.inject({ method: "POST", url: "/billing/checkout", cookies: { [cookieName]: token }, payload: { plan: "monthly" } });
+    const params = sessionCreate.mock.calls[0][0];
+    expect(params.consent_collection).toEqual({ terms_of_service: "required" });
+    expect(params.custom_text.terms_of_service_acceptance.message).toContain("/terms/#refunds");
+  });
+  it("falls back to a line by the button when Stripe has no Terms URL", async () => {
+    sessionCreate.mockReset();
+    sessionCreate
+      .mockRejectedValueOnce({ raw: { message: "You cannot collect consent to your terms of service unless a URL is set in the Stripe Dashboard." } })
+      .mockResolvedValueOnce({ client_secret: "cs_fallback" });
+    const token = await signup("f@b.com");
+    const res = await app.inject({ method: "POST", url: "/billing/checkout", cookies: { [cookieName]: token }, payload: { plan: "monthly" } });
+    expect(res.json().clientSecret).toBe("cs_fallback");
+    const params = sessionCreate.mock.calls[1][0];
+    expect(params.consent_collection).toBeUndefined();
+    expect(params.custom_text.submit.message).toContain("Terms and refund policy");
   });
   it("401s checkout when unauthenticated", async () => {
     const res = await app.inject({ method: "POST", url: "/billing/checkout", payload: { plan: "monthly" } });

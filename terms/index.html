@@ -79,9 +79,18 @@ header.nav{position:sticky;top:0;z-index:20;background:var(--pine);border-bottom
 .pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--pine);margin:3px 6px 3px 0;}
 .callout{background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:22px;margin:26px 0;text-align:center;}
 .callout h3{font-size:20px;margin-bottom:8px;}
-footer{background:var(--ink);color:#9FB0A0;padding:36px 0;font-size:14px;margin-top:auto;}
-footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;}
-footer a{color:#CBD8C9;text-decoration:none;margin-right:16px;}
+footer{background:var(--ink);color:#9FB0A0;padding:40px 0 28px;font-size:14px;margin-top:auto;}
+footer a{color:#CBD8C9;text-decoration:none;}
+footer a:hover{color:#fff;}
+.foot-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:28px;}
+.foot-brand p{margin:10px 0 16px;max-width:260px;line-height:1.5;}
+.foot-brand .fb-name{font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:18px;color:#EFE9DB;}
+.foot-col h4{color:#EFE9DB;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;margin:0 0 10px;font-family:inherit;}
+.foot-col ul{list-style:none;margin:0;padding:0;}
+.foot-col li{margin:0;}
+.foot-col a{display:block;padding:6px 0;}
+.foot-legal{border-top:1px solid rgba(239,233,219,.12);margin-top:28px;padding-top:16px;font-size:13px;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between;}
+@media(max-width:820px){.foot-grid{grid-template-columns:1fr 1fr;gap:22px 18px;}.foot-brand{grid-column:1/-1;}.foot-col a{padding:9px 0;}}
 .live-status{margin:10px 0 14px;font-size:13px;color:var(--dim);display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 .st{display:inline-block;font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:14px;white-space:nowrap;}
 .st.open{background:#2C4C3B1a;color:var(--pine);border:1px solid var(--pine);}
@@ -128,8 +137,9 @@ body.has-sticky{padding-bottom:70px;}}
 .mnav-cta{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
 .mnav-cta .btn{text-align:center;}
 .btn.ghost-light{color:#EFE9DB;border-color:rgba(239,233,219,.5);background:transparent;}
-.social{display:flex;gap:16px;flex-wrap:wrap;}
-.social a{display:inline-flex;align-items:center;gap:7px;margin-right:0;}
+.social{display:flex;gap:10px;flex-wrap:wrap;}
+.social a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:1px solid rgba(239,233,219,.28);transition:background .15s ease,border-color .15s ease;}
+.social a:hover{background:rgba(239,233,219,.1);border-color:var(--gold);}
 @media(max-width:820px){.nav .links{display:none;}.mnav{display:block;}}
 @media(max-width:820px){.hero .wrap{grid-template-columns:1fr;}.hero .art{order:-1;}.grid{grid-template-columns:1fr;}.price{grid-template-columns:1fr;}.nav .links a:not(.cta){display:none;}}
 </style>
@@ -169,11 +179,11 @@ body.has-sticky{padding-bottom:70px;}}
 <li>If we change prices, we will tell you before your next renewal, and you can cancel before it applies.</li>
 </ul>
 <h2 id="refunds">Refunds</h2>
-<p>The 7-day free trial is how you try every feature before paying. Because of that, and because membership gives you immediate access to information that can't be returned once seen, refunds are limited as set out below. You agree to this policy when you start a membership or buy a gift.</p>
+<p>The 7-day free trial is how you try every feature before paying, and you can cancel anytime. If a payment still doesn't sit right with you, ask us. Here is how we handle refunds. You agree to this policy when you start a membership or buy a gift.</p>
 <h3>Monthly memberships</h3>
 <ul>
-<li>Monthly payments are not refunded, in whole or in part, once the month has started.</li>
 <li>You can cancel anytime. You keep access until the end of the month you paid for, and you won't be charged again.</li>
+<li>A monthly payment may be refundable if you ask within <b>7 days of the charge</b> and <b>haven't used member features since that charge</b>. We look at each request and decide case by case.</li>
 </ul>
 <h3>Yearly memberships</h3>
 <ul>
@@ -218,36 +228,82 @@ body.has-sticky{padding-bottom:70px;}}
   <div class="join-cta"><a class="btn primary" href="/?join">Start your 7 free days</a><a class="join-signin" href="/?signin">Already a member? Sign in</a></div>
 </div></section>
 <footer><div class="wrap">
-  <div>© 2026 Muddy York Fishing · Southern Ontario trout &amp; salmon intelligence</div>
-  <div><a href="/rivers/">Rivers</a><a href="/salmon-run/">Salmon run</a><a href="/steelhead/">Steelhead</a><a href="/ice-fishing/">Ice fishing</a><a href="/regions/">Regions</a><a href="/guides/">Guides</a><a href="/gifts/">Gifts</a><a href="/blog/">Blog</a><a href="/?join">Open the app</a></div>
-  <div class="social" aria-label="Follow us"><a href="https://www.instagram.com/muddyyorkfishing/" rel="noopener" target="_blank" aria-label="Instagram"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg><span>Instagram</span></a><a href="https://www.facebook.com/share/1K8TkgPzcF/?mibextid=wwXIfr" rel="noopener" target="_blank" aria-label="Facebook"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z"/></svg><span>Facebook</span></a><a href="https://muddyyorkfishing.substack.com/" rel="noopener" target="_blank" aria-label="Substack"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M5 8h14M5 12h14v8l-7-4-7 4z"/></svg><span>Substack</span></a></div>
-  <div style="width:100%;font-size:13px"><a href="/contact/">Contact</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></div>
+  <div class="foot-grid">
+    <div class="foot-brand">
+      <div class="fb-name">Muddy York <span style="color:var(--gold)">Fishing</span></div>
+      <p>Live conditions, official seasons and what to tie on for Southern Ontario trout, steelhead and salmon rivers.</p>
+      <div class="social" aria-label="Follow us"><a href="https://www.instagram.com/muddyyorkfishing/" rel="noopener" target="_blank" aria-label="Instagram" title="Instagram"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a><a href="https://www.facebook.com/share/1K8TkgPzcF/?mibextid=wwXIfr" rel="noopener" target="_blank" aria-label="Facebook" title="Facebook"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8z"/></svg></a><a href="https://muddyyorkfishing.substack.com/" rel="noopener" target="_blank" aria-label="Substack" title="Substack"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14M5 8h14M5 12h14v8l-7-4-7 4z"/></svg></a></div>
+    </div>
+    <nav class="foot-col" aria-label="Fishing"><h4>Fishing</h4><ul>
+      <li><a href="/rivers/">Rivers</a></li><li><a href="/salmon-run/">Salmon run</a></li><li><a href="/steelhead/">Steelhead</a></li><li><a href="/ice-fishing/">Ice fishing</a></li><li><a href="/regions/">Regions</a></li><li><a href="/fishing-spots/">Spots by town</a></li>
+    </ul></nav>
+    <nav class="foot-col" aria-label="Learn"><h4>Learn</h4><ul>
+      <li><a href="/guides/">Guides</a></li><li><a href="/regulations/">Regulations</a></li><li><a href="/guides/ontario-fishing-licence/">Fishing licence</a></li><li><a href="/blog/">Blog</a></li>
+    </ul></nav>
+    <nav class="foot-col" aria-label="Muddy York"><h4>Muddy York</h4><ul>
+      <li><a href="/?join">Open the app</a></li><li><a href="/fishing/#pricing">Pricing</a></li><li><a href="/gifts/">Gifts</a></li><li><a href="/contact/">Contact</a></li>
+    </ul></nav>
+  </div>
+  <div class="foot-legal"><span>© 2026 Muddy York Fishing</span><span style="display:flex;gap:18px;flex-wrap:wrap"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></span></div>
 </div></footer>
 
 
 <script>
-/* Members reading a river page: note which river, so their free-member updates
-   are about rivers they actually care about. Signed-in browsers only. */
-(function(){try{ if(localStorage.getItem("mkMember")!=="1") return;
-  var el=document.querySelector("[data-reach]"); if(!el) return;
-  fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({events:[{type:"page_view",ref:el.getAttribute("data-reach"),meta:{path:location.pathname.slice(0,80)}}]})}).catch(function(){});
-}catch(e){}})();
-</script>
-<script>
-/* First-touch acquisition beacon: shares the sessionStorage flag with the app,
-   so the true entry page (this marketing page or the app) is the one recorded. */
+/* Site analytics (first-party, no third parties). Every page view, link and
+   button click, how far down the page people scroll and how long they stay.
+   visitorId (this browser) and sessionId (this visit, renewed after 30 idle
+   minutes) are shared with the app, so one person's path from a search result
+   to membership reads as one journey. Nothing typed into forms is recorded. */
 (function(){try{
+  try{if(localStorage.getItem("mkNoTrack")==="1")return;}catch(e){}
+  if(navigator.webdriver||/bot|crawl|spider|headless|lighthouse/i.test(navigator.userAgent))return;
+  var rid=function(){return (Date.now().toString(36)+Math.random().toString(36).slice(2,12)).slice(0,22);};
+  var ls=function(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){}};
+  var vid=ls("mkVid");if(!vid){vid=rid();ls("mkVid",vid);}
+  var now=Date.now(),last=+(ls("mkSeen")||0),sid=ls("mkSid"),fresh=!sid||now-last>1800000;
+  if(fresh){sid=rid();ls("mkSid",sid);}ls("mkSeen",String(now));
+  var q=[],path=(location.pathname||"/").slice(0,120);
+  var send=function(){if(!q.length)return;var b=JSON.stringify({visitorId:vid,sessionId:sid,events:q.splice(0,50)});
+    try{fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,body:b}).catch(function(){});}catch(e){}};
+  var ev=function(type,ref,meta){q.push({type:type,ref:ref||null,meta:meta||undefined});};
+
+  /* Where they came from: utm_source, else the referring site. */
   var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
-  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\./,"");
-    if(h===location.hostname)src="direct";else if(/google\./.test(h))src="google";else if(/(bing\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
-    else if(/(facebook|fb\.|instagram|t\.co|twitter|x\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
-  var landing=(location.pathname||"/").slice(0,60);
-  var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:landing,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
+  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www./,"");
+    if(h===location.hostname)src="direct";else if(/google./.test(h))src="google";else if(/(bing.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
+    else if(/(facebook|fb.|instagram|t.co|twitter|x.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
+  var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:path,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
   try{if(!localStorage.getItem("mkAttr"))localStorage.setItem("mkAttr",JSON.stringify(meta));}catch(e){}
-  if(sessionStorage.getItem("mkVisit")==="1")return;sessionStorage.setItem("mkVisit","1");
-  fetch("/bk/api/events",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},keepalive:true,
-    body:JSON.stringify({events:[{type:"visit",ref:src,meta:meta},{type:"landing",ref:landing}]})}).catch(function(){});
+  if(fresh){var ua=navigator.userAgent||"";
+    ev("session_start",src,{source:src,referrer:meta.referrer,landing:path,utmCampaign:meta.utmCampaign,
+      type:/mobile|iphone|android/i.test(ua)?"Mobile":"Desktop",
+      os:/iphone|ipad|ipod/i.test(ua)?"iOS":/android/i.test(ua)?"Android":/mac os/i.test(ua)?"macOS":/windows/i.test(ua)?"Windows":"Other",
+      w:window.innerWidth,lang:(navigator.language||"").slice(0,10)});}
+  /* First-touch acquisition, once per browser session (the app shares the flag). */
+  try{if(sessionStorage.getItem("mkVisit")!=="1"){sessionStorage.setItem("mkVisit","1");ev("visit",src,meta);ev("landing",path);}}catch(e){}
+  ev("pageview",path,{title:document.title.slice(0,90),referrer:fresh?meta.referrer:undefined});
+  /* Members reading a river page: note which river, for their updates. */
+  try{var el=document.querySelector("[data-reach]");if(el&&ls("mkMember")==="1")ev("page_view",el.getAttribute("data-reach"),{path:path});}catch(e){}
+  send();
+
+  /* Clicks on links and buttons: what they tapped and where it goes. */
+  document.addEventListener("click",function(e){try{
+    var a=e.target.closest&&e.target.closest("a,button,summary");if(!a)return;
+    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/s+/g," ").trim().slice(0,60)||"(icon)";
+    var href=a.getAttribute("href")||"";
+    ev("click",label,{path:path,href:href.slice(0,160),out:/^https?:/.test(href)&&href.indexOf(location.host)<0||undefined});
+    send();
+  }catch(x){}},true);
+  document.addEventListener("submit",function(e){try{ev("form_submit",(e.target.id||e.target.getAttribute("name")||"form").slice(0,40),{path:path});send();}catch(x){}},true);
+
+  /* Scroll depth and time on page, sent when they leave. */
+  var maxS=0,t0=Date.now();
+  var onS=function(){var d=document.documentElement,h=d.scrollHeight-window.innerHeight;var pc=h>0?Math.round((window.scrollY||d.scrollTop)/h*100):100;if(pc>maxS)maxS=Math.min(100,pc);};
+  window.addEventListener("scroll",onS,{passive:true});onS();
+  var left=false;var leave=function(){if(left)return;left=true;
+    ev("page_leave",path,{secs:Math.round((Date.now()-t0)/1000),scroll:maxS});ls("mkSeen",String(Date.now()));send();};
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")leave();});
+  window.addEventListener("pagehide",leave);
 }catch(e){}})();
 </script>
 </body></html>

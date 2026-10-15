@@ -4,7 +4,7 @@ import { renderEmail } from "../../../lib/email-template.js";
 // Generic transactional send (used by post reports, etc.).
 // Customer emails go out in the branded template (HTML + plain text) with the
 // house signature. `plain: true` is for internal notices to the team.
-export async function sendMail({ to, subject, text, replyTo, plain = false, heading, cta, unsubscribe }, opts = {}) {
+export async function sendMail({ to, subject, text, replyTo, plain = false, heading, cta, unsubscribe, terms }, opts = {}) {
   const { fetchImpl = fetch } = opts;
   const apiKey = process.env.RESEND_API_KEY || config.resend.apiKey;
   if (!apiKey || !to) return false;
@@ -12,7 +12,7 @@ export async function sendMail({ to, subject, text, replyTo, plain = false, head
     // `to` may be a comma-separated list (e.g. ADMIN_EMAIL); Resend wants an array.
     const recipients = Array.isArray(to) ? to : String(to).split(",").map((s) => s.trim()).filter(Boolean);
     const payload = plain ? { from: config.resend.from, to: recipients, subject, text }
-      : { from: config.resend.from, to: recipients, subject, ...renderEmail({ subject, text, heading, cta, unsubscribe }) };
+      : { from: config.resend.from, to: recipients, subject, ...renderEmail({ subject, text, heading, cta, unsubscribe, terms }) };
     if (replyTo) payload.reply_to = replyTo;
     const res = await fetchImpl("https://api.resend.com/emails", {
       method: "POST",

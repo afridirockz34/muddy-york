@@ -101,6 +101,9 @@ export default async function stripeWebhookRoutes(app) {
         await prisma.user.update({ where: { id: userId }, data: { stripeCustomerId: obj.customer } }).catch(() => {});
         // Our checkout always creates a free trial; subscription events fill the rest.
         await upsertSubscription(userId, { id: obj.subscription, status: "trialing", priceId: null, currentPeriodEnd: null });
+        // Keep a record of the Terms the member accepted at checkout.
+        await prisma.event.create({ data: { userId, type: "terms_accepted", ref: obj.metadata?.termsVersion || null,
+          meta: { session: obj.id || null, consent: obj.consent?.terms_of_service || null } } }).catch(() => {});
         const u = await prisma.user.findUnique({ where: { id: userId } });
         notifyBilling("New free trial started", `${u?.email || userId} started a 7-day free trial (card on file).`);
         if (u) welcomeEmail(u).catch(() => {});

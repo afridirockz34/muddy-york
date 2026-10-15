@@ -232,13 +232,6 @@ export function giftsPage() {
     { q: "Can I get a refund on a gift?", a: "Yes, within 14 days of purchase as long as the code hasn't been redeemed. Once it's redeemed it can't be refunded. See the refund policy in our Terms." },
     { q: "Can I send it on a specific day?", a: "Leave the recipient's email blank and the code comes only to you, so you can give it whenever you like, in a card or by email." },
   ];
-  const ideas = [
-    ["Polarized sunglasses", "The single best upgrade for seeing fish and reading water."],
-    ["A wading staff and wading belt", "Safer crossings on slippery Ontario rivers, especially in spring flows."],
-    ["A day with a local guide", "The fastest way to learn a new river. Book early for spring."],
-    ["Nippers, forceps and a small net", "Kinder, quicker releases."],
-    ["A fly box with local patterns", "Egg patterns and stoneflies for steelhead, small dries for brook trout."],
-  ];
   const body = page("Gifts", "Fishing gifts for Ontario anglers", `
   <p><b>The gift that gets them on the right river on the right day:</b> a year of ${BRAND}. Live conditions on 30+ Southern Ontario trout and salmon rivers every morning, the official season for every stretch, and what to tie on.</p>
 
@@ -257,14 +250,11 @@ export function giftsPage() {
     <p class="src">Secure checkout by Stripe. Prices in CAD.</p>
   </div>
 
-  <h2>More gift ideas for river anglers</h2>
-  <ul>${ideas.map(([t, d]) => `<li><b>${t}:</b> ${d}</li>`).join("")}</ul>
-
   <h2>Frequently asked</h2>
   ${faqHtml(faqs)}
   <p style="margin-top:18px;"><a href="${HOME}">What ${BRAND} does</a> · <a href="/rivers/">River guides</a> · <a href="/steelhead/">Steelhead rivers</a> · <a href="/salmon-run/">Salmon run</a></p>`);
   return { title: "Fishing Gifts Ontario: Gift a Year of Muddy York",
-    description: "Give an Ontario angler a year of live river conditions, official seasons and fly picks. $59.99, one payment, code emailed instantly. Plus gift ideas.",
+    description: "Give an Ontario angler a year of live river conditions, official seasons and fly picks. $59.99, one payment, code emailed instantly.",
     body, schema: [faqSchema(faqs)] };
 }
 export function giftThanksPage() {

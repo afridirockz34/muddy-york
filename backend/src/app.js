@@ -11,6 +11,7 @@ import savedRoutes from "./routes/saved.js";
 import catchRoutes from "./routes/catches.js";
 import eventRoutes from "./routes/events.js";
 import adminRoutes from "./routes/admin.js";
+import analyticsRoutes from "./routes/analytics.js";
 import adminReconcileRoutes from "./routes/admin-reconcile.js";
 import adminUserRoutes from "./routes/admin-user.js";
 import noteRoutes from "./routes/notes.js";
@@ -52,6 +53,7 @@ export function buildApp(opts = {}) {
   app.register(iceRoutes, { fetchImpl: opts.streamFetch, overpassFetch: opts.proxyFetch });
   app.register(eventRoutes);
   app.register(adminRoutes);
+  app.register(analyticsRoutes);
   app.register(adminReconcileRoutes);
   app.register(adminUserRoutes);
   app.register(noteRoutes);

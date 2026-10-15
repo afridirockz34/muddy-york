@@ -3,9 +3,9 @@ import { unsubUrl } from "./email-tokens.js";
 
 // Send a transactional email to a customer, honouring their opt-out and
 // appending a signed one-click unsubscribe footer.
-export async function emailCustomer(user, subject, body, { heading, cta } = {}) {
+export async function emailCustomer(user, subject, body, { heading, cta, terms } = {}) {
   if (!user || !user.email || user.emailOptOut) return false;
-  return sendMail({ to: user.email, subject, text: body, heading, cta, unsubscribe: unsubUrl(user.id) || undefined });
+  return sendMail({ to: user.email, subject, text: body, heading, cta, terms, unsubscribe: unsubUrl(user.id) || undefined });
 }
 
 const money = (cents, currency) =>
@@ -20,10 +20,8 @@ export function welcomeEmail(user) {
 
 Welcome to the club. Your 7-day free trial is active, so every river, spot, strategy and your personal guide are unlocked.
 
-You won't be charged until the trial ends, and you can cancel anytime from your account in the app.
-
-Refunds: monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since. Full terms you agreed to: https://muddyyorkfishing.ca/terms/#refunds`,
-    { heading: "Welcome to the club", cta: { label: "Open the app", url: "https://muddyyorkfishing.ca/?app" } },
+You won't be charged until the trial ends, and you can cancel anytime from your account in the app.`,
+    { terms: true, heading: "Welcome to the club", cta: { label: "Open the app", url: "https://muddyyorkfishing.ca/?app" } },
   );
 }
 
@@ -42,10 +40,8 @@ Thanks for being a member. Here's your receipt:
   Amount:  ${amount}
   Date:    ${date}${invoice.number ? `\n  Invoice: ${invoice.number}` : ""}
 
-Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}
-
-Refund policy: https://muddyyorkfishing.ca/terms/#refunds`,
-    { heading: "Thanks for being a member", cta: invoice.hosted_invoice_url ? { label: "View your receipt", url: invoice.hosted_invoice_url } : undefined },
+Your membership keeps every river, spot and strategy unlocked. Manage or cancel anytime from your account in the app.${link}`,
+    { terms: true, heading: "Thanks for being a member", cta: invoice.hosted_invoice_url ? { label: "View your receipt", url: invoice.hosted_invoice_url } : undefined },
   );
 }
 
@@ -62,10 +58,8 @@ export function trialEndingEmail(user, { trialEnd, amountCents, currency, interv
 
 A heads-up: your 7-day free trial of Muddy York Fishing ends on ${longDate(trialEnd)}.${amount ? ` After that your ${plan} membership starts and you'll be charged ${amount}${interval === "year" ? " for the year" : " a month"}.` : ""}
 
-If you'd like to keep going, you don't need to do anything. If not, cancel before ${longDate(trialEnd)} from Profile, Manage subscription, and you won't be charged.
-
-Refunds: monthly payments aren't refunded. A yearly payment can be refunded if you ask within 7 days of the charge and haven't used member features since.`,
-    { heading: "Your free trial ends soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
+If you'd like to keep going, you don't need to do anything. If not, cancel before ${longDate(trialEnd)} from Profile, Manage subscription, and you won't be charged.`,
+    { terms: true, heading: "Your free trial ends soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
   );
 }
 
@@ -78,9 +72,7 @@ export function renewalReminderEmail(user, { renewsOn, amountCents, currency }) 
 
 Your yearly Muddy York Fishing membership renews on ${longDate(renewsOn)} for ${money(amountCents, currency)}.
 
-To keep it, you don't need to do anything. If you'd rather not renew, cancel before ${longDate(renewsOn)} from Profile, Manage subscription. You'll keep access until then.
-
-Refunds: you can ask for a refund of the renewal within 7 days of the charge, as long as you haven't used member features since. Full terms: https://muddyyorkfishing.ca/terms/#refunds`,
-    { heading: "Your membership renews soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
+To keep it, you don't need to do anything. If you'd rather not renew, cancel before ${longDate(renewsOn)} from Profile, Manage subscription. You'll keep access until then.`,
+    { terms: true, heading: "Your membership renews soon", cta: { label: "Manage subscription", url: "https://muddyyorkfishing.ca/?app" } },
   );
 }

@@ -664,7 +664,7 @@ fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
 urls.push(SITE_URL + "/regions/");
 
 // ---- trust pages: privacy, terms, contact ----
-const UPDATED = "October 2, 2026";
+const UPDATED = "October 14, 2026";
 const CONTACT = "info@muddyyorkfishing.ca";
 const LEGAL = [
   { slug: "privacy", title: "Privacy policy", desc: "How Muddy York Fishing collects, uses and protects your information, which services we rely on, and your privacy rights under PIPEDA.", body: `
@@ -677,7 +677,7 @@ const LEGAL = [
 <li><b>Location:</b> when you tap Scout or Use my location, your phone's location is used to find water near you. It is kept on your device and sent to our servers only to look up nearby rivers, parking and weather. If you drop a pin on a private note, that pin is saved with the note.</li>
 <li><b>Membership and payments:</b> Stripe processes all payments. We never see or store your card number; we keep your Stripe customer ID and subscription status.</li>
 <li><b>Notifications:</b> if you turn on push notifications, we store your device's push subscription so we can send alerts.</li>
-<li><b>Usage:</b> basic, first-party analytics such as which screens are opened and how you found us (for example a search engine or a link). We do not use third-party advertising trackers and we do not sell your information.</li>
+<li><b>Usage:</b> our own analytics on this website and in the app: the pages and screens you open, the links and buttons you tap, how far you scroll and how long you stay, your device type and browser, and how you found us (for example a search engine or a link). We use a random ID stored in your browser to connect one visit's pages together, and once you sign in, your earlier visits on that browser are linked to your account. We never record what you type into forms, and we don't store your IP address with this data. We use it to improve the site and the app. We do not use third-party advertising trackers and we do not sell your information.</li>
 </ul>
 <h2>How we use it</h2>
 <ul>
@@ -718,11 +718,11 @@ const LEGAL = [
 <li>If we change prices, we will tell you before your next renewal, and you can cancel before it applies.</li>
 </ul>
 <h2 id="refunds">Refunds</h2>
-<p>The 7-day free trial is how you try every feature before paying. Because of that, and because membership gives you immediate access to information that can't be returned once seen, refunds are limited as set out below. You agree to this policy when you start a membership or buy a gift.</p>
+<p>The 7-day free trial is how you try every feature before paying, and you can cancel anytime. If a payment still doesn't sit right with you, ask us. Here is how we handle refunds. You agree to this policy when you start a membership or buy a gift.</p>
 <h3>Monthly memberships</h3>
 <ul>
-<li>Monthly payments are not refunded, in whole or in part, once the month has started.</li>
 <li>You can cancel anytime. You keep access until the end of the month you paid for, and you won't be charged again.</li>
+<li>A monthly payment may be refundable if you ask within <b>7 days of the charge</b> and <b>haven't used member features since that charge</b>. We look at each request and decide case by case.</li>
 </ul>
 <h3>Yearly memberships</h3>
 <ul>

@@ -4,6 +4,8 @@ import { getStripe } from "../billing/stripe.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { emailProblem } from "../../../lib/email-validate.js";
 
+const TERMS_URL = "https://muddyyorkfishing.ca/terms/#refunds";
+
 async function ensureCustomer(user) {
   // Reuse the stored customer only if it still exists in the CURRENT Stripe mode.
   // A test→live key switch leaves a stale test id that fails checkout, so we
@@ -73,7 +75,7 @@ export default async function billingRoutes(app) {
       return reply.code(400).send({ error: "invalid email", message: "Your account email looks invalid. Contact info@muddyyorkfishing.ca and we'll fix it." });
     try {
       const customerId = await ensureCustomer(user);
-      const session = await getStripe().checkout.sessions.create({
+      const params = {
         ui_mode: "embedded",
         mode: "subscription",
         customer: customerId,
@@ -86,7 +88,24 @@ export default async function billingRoutes(app) {
         subscription_data: { trial_period_days: 7 },
         allow_promotion_codes: true, // show the "Add promotion code" field at checkout
         return_url: `${config.frontendOrigin}/?checkout=complete`,
-      });
+        // Express acceptance of the Terms (including refunds) with Stripe's tick
+        // box next to the Start trial button. Needs a Terms of service URL in
+        // Stripe Settings > Public details.
+        consent_collection: { terms_of_service: "required" },
+        custom_text: { terms_of_service_acceptance: { message: `I agree to the [Terms and refund policy](${TERMS_URL}).` } },
+      };
+      let session;
+      try {
+        session = await getStripe().checkout.sessions.create(params);
+      } catch (e) {
+        // No Terms URL set in Stripe yet: fall back to a plain line by the
+        // button so checkout never breaks over it.
+        if (!/terms of service/i.test(e?.raw?.message || e?.message || "")) throw e;
+        req.log?.warn?.("stripe terms URL not set; using submit text for terms acceptance");
+        delete params.consent_collection;
+        params.custom_text = { submit: { message: `By starting your trial you agree to the [Terms and refund policy](${TERMS_URL}).` } };
+        session = await getStripe().checkout.sessions.create(params);
+      }
       return { clientSecret: session.client_secret };
     } catch (e) {
       // Surface the real Stripe reason (bad price id, wrong mode, etc.) instead of a blank 500.
