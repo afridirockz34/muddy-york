@@ -2179,14 +2179,17 @@ export default function App(){
     if(!asked&&isStandalonePWA()&&pushSupported()&&typeof Notification!=="undefined"&&Notification.permission==="default"){ const t=setTimeout(()=>setShowPushAsk(true),2500); return ()=>clearTimeout(t); }
   },[readyForTour]);
 
-  // Trips we haven't heard about yet (from yesterday's Directions taps). The
-  // reminder push opens /?report=<id>; the card also waits on the Rivers tab.
+  // The one trip we'd like to hear about (the last river someone tapped
+  // Directions on, yesterday or the day before). The card shows once: it stays
+  // up for this visit and isn't shown again on the next app open. The morning
+  // reminder push opens /?report=<id>, which brings that trip back.
   const [pendingTrips,setPendingTrips]=useState([]);
   const signedInNow=!!(me&&me.user);
   useEffect(()=>{ if(!API_BASE||!signedInNow) { setPendingTrips([]); return; }
-    proxyJSON("/trip-intents/pending").then(d=>{ const list=d.pending||[];
-      let want=null; try{ want=new URLSearchParams(location.search).get("report"); }catch{}
-      if(want){ list.sort((a,b)=>(a.id===want?-1:b.id===want?1:0)); try{ history.replaceState({},"",location.pathname); }catch{} setTab("rivers"); }
+    let want=null; try{ want=new URLSearchParams(location.search).get("report"); }catch{}
+    proxyJSON(`/trip-intents/pending${want?`?report=${encodeURIComponent(want)}`:""}`).then(d=>{ const list=d.pending||[];
+      if(want){ try{ history.replaceState({},"",location.pathname); }catch{} setTab("rivers"); }
+      list.forEach(t=>proxyJSON(`/trip-intents/${t.id}/shown`,{method:"POST"}).catch(()=>{}));
       setPendingTrips(list); }).catch(()=>{});
   },[signedInNow]); // eslint-disable-line react-hooks/exhaustive-deps
   const secForRef=useCallback((ref,river,section)=>RIVERS.find(r=>r.id===ref)||discovered.find(r=>r.id===ref)||{id:ref,river,section,species:[]},[discovered]);

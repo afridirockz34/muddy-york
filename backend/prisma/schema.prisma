@@ -320,7 +320,8 @@ model TripIntent {
   score      Int?
   dayKey     String                 // Toronto date, YYYY-MM-DD
   remindedAt DateTime?
-  doneAt     DateTime?              // reported or dismissed
+  shownAt    DateTime?              // in-app card shown once; not asked again in the app
+  doneAt     DateTime?              // reported, dismissed, or replaced by a later river that day
   createdAt  DateTime  @default(now())
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 

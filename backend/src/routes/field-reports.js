@@ -72,28 +72,48 @@ export default async function fieldReportRoutes(app, opts = {}) {
   };
 
   // ── trip intents: a Directions tap means "probably fishing today" ──
+  // We ask about one trip per day: the river tapped last. Tapping Directions on
+  // several rivers is usually just looking around, so a later tap replaces the
+  // earlier ones that day.
   app.post("/trip-intents", { preHandler: auth }, async (req, reply) => {
     const b = req.body || {};
     const ref = str(b.ref, 120);
     if (!ref) return reply.code(400).send({ error: "ref required" });
     const dayKey = torontoDay();
     const score = Number.isFinite(+b.score) ? Math.round(+b.score) : null;
+    const reported = await prisma.tripReport.findFirst({ where: { userId: req.user.id, ref, tripDate: dayDate(dayKey) }, select: { id: true } });
     const it = await prisma.tripIntent.upsert({
       where: { userId_ref_dayKey: { userId: req.user.id, ref, dayKey } },
       create: { userId: req.user.id, ref, river: str(b.river, 120), section: str(b.section, 160), score, dayKey },
-      update: score != null ? { score } : {},
+      // Back to a river replaced earlier today: it's the one to ask about again.
+      update: { ...(score != null ? { score } : {}), ...(reported ? {} : { doneAt: null }) },
+    });
+    await prisma.tripIntent.updateMany({
+      where: { userId: req.user.id, dayKey, id: { not: it.id }, doneAt: null },
+      data: { doneAt: new Date() },
     });
     return { intent: { id: it.id, dayKey } };
   });
 
-  // Unanswered trips from the last three days, newest first.
+  // The one trip to ask about in the app: the newest unanswered trip from the
+  // last two days that hasn't been shown yet. The morning reminder links here
+  // with ?report=<id>, which still opens that trip after the card was shown.
   app.get("/trip-intents/pending", { preHandler: auth }, async (req) => {
     const today = torontoDay();
+    const want = str(req.query?.report, 40);
     const rows = await prisma.tripIntent.findMany({
-      where: { userId: req.user.id, doneAt: null, dayKey: { lt: today, gte: shiftDay(today, -3) } },
-      orderBy: { createdAt: "desc" }, take: 3,
+      where: { userId: req.user.id, doneAt: null, dayKey: { lt: today, gte: shiftDay(today, -2) },
+        OR: [{ shownAt: null }, ...(want ? [{ id: want }] : [])] },
+      orderBy: { createdAt: "desc" },
     });
-    return { pending: rows.map((r) => ({ id: r.id, ref: r.ref, river: r.river, section: r.section, dayKey: r.dayKey, score: r.score })) };
+    const pick = rows.find((r) => r.id === want) || rows[0];
+    return { pending: pick ? [{ id: pick.id, ref: pick.ref, river: pick.river, section: pick.section, dayKey: pick.dayKey, score: pick.score }] : [] };
+  });
+
+  // The card was on screen: don't put it up again on the next app open.
+  app.post("/trip-intents/:id/shown", { preHandler: auth }, async (req) => {
+    await prisma.tripIntent.updateMany({ where: { id: req.params.id, userId: req.user.id, shownAt: null }, data: { shownAt: new Date() } });
+    return { ok: true };
   });
 
   app.post("/trip-intents/:id/dismiss", { preHandler: auth }, async (req) => {

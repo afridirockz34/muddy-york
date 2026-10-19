@@ -42,6 +42,39 @@ describe("trip reports", () => {
     expect((await prisma.tripReport.findFirst()).caught).toBe(2);
   });
 
+  it("asks about one trip a day: the last river tapped", async () => {
+    const c = await signup("one@b.com");
+    const tap = (ref, river) => app.inject({ method: "POST", url: "/trip-intents", cookies: c, payload: { ref, river } });
+    await tap("credit-lower", "Credit River");
+    await tap("humber-lower", "Humber River");
+    await prisma.tripIntent.updateMany({ data: { dayKey: day(-1) } });
+    let pend = (await app.inject({ method: "GET", url: "/trip-intents/pending", cookies: c })).json().pending;
+    expect(pend).toHaveLength(1);
+    expect(pend[0].ref).toBe("humber-lower");
+    // Going back to a river replaced earlier the same day makes it the one again.
+    await prisma.tripIntent.deleteMany();
+    await tap("credit-lower", "Credit River"); await tap("humber-lower", "Humber River"); await tap("credit-lower", "Credit River");
+    expect((await prisma.tripIntent.findMany({ where: { doneAt: null } })).map((x) => x.ref)).toEqual(["credit-lower"]);
+  });
+
+  it("shows the card once, but the reminder link still opens it", async () => {
+    const c = await signup("once@b.com");
+    await app.inject({ method: "POST", url: "/trip-intents", cookies: c, payload: { ref: "credit-lower", river: "Credit River" } });
+    await prisma.tripIntent.updateMany({ data: { dayKey: day(-1) } });
+    const [t] = (await app.inject({ method: "GET", url: "/trip-intents/pending", cookies: c })).json().pending;
+    await app.inject({ method: "POST", url: `/trip-intents/${t.id}/shown`, cookies: c });
+    expect((await app.inject({ method: "GET", url: "/trip-intents/pending", cookies: c })).json().pending).toHaveLength(0);
+    const viaPush = (await app.inject({ method: "GET", url: `/trip-intents/pending?report=${t.id}`, cookies: c })).json().pending;
+    expect(viaPush.map((x) => x.id)).toEqual([t.id]);
+  });
+
+  it("stops asking after two days", async () => {
+    const c = await signup("old@b.com");
+    await app.inject({ method: "POST", url: "/trip-intents", cookies: c, payload: { ref: "credit-lower", river: "Credit River" } });
+    await prisma.tripIntent.updateMany({ data: { dayKey: day(-3) } });
+    expect((await app.inject({ method: "GET", url: "/trip-intents/pending", cookies: c })).json().pending).toHaveLength(0);
+  });
+
   it("rejects future and old dates, and needs sign-in", async () => {
     expect((await app.inject({ method: "POST", url: "/trip-reports", payload: { ref: "x" } })).statusCode).toBe(401);
     const c = await signup("d@b.com");
