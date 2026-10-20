@@ -14,6 +14,12 @@ Key facts:
 - [Credit River salmon run, Mississauga](https://muddyyorkfishing.ca/salmon-run/credit-river-mississauga/)
 - [Bowmanville salmon run](https://muddyyorkfishing.ca/salmon-run/bowmanville-creek/)
 
+## Fly fishing and river conditions
+- [Fly fishing in Ontario](https://muddyyorkfishing.ca/fly-fishing/): tailwaters, cold trout creeks and steelhead rivers, what's open today, best months and flies.
+- [The Ontario fly fishing app](https://muddyyorkfishing.ca/fly-fishing-app/): what Muddy York Fishing does, pricing and how to install it.
+- [Trout and fly fishing spots near me](https://muddyyorkfishing.ca/fishing-spots/near-me/): rivers sorted by distance from the reader.
+- [Credit River fishing](https://muddyyorkfishing.ca/rivers/credit-river/), [Grand River fishing](https://muddyyorkfishing.ca/rivers/grand-river/), [Beaver River fishing](https://muddyyorkfishing.ca/rivers/beaver-river/): spots by section, live water level and flow from Water Survey of Canada gauges, water temperature guidance.
+
 ## Steelhead and trout
 - [Ontario steelhead rivers](https://muddyyorkfishing.ca/steelhead/): which stretches are open in fall, winter and spring, river by river.
 - [River guides](https://muddyyorkfishing.ca/rivers/): species, best months, official seasons and access for 26 river sections.
@@ -28,3 +34,4 @@ Key facts:
 
 ## App
 - [Muddy York Fishing app](https://muddyyorkfishing.ca/fishing/)
+- [Ontario fly fishing app](https://muddyyorkfishing.ca/fly-fishing-app/)

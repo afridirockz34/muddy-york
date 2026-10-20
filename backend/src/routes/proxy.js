@@ -4,7 +4,7 @@ import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
 import { discoverSpots } from "../discovery/tiles.js";
-import { buildHydroUrl, nearestGauge } from "../proxy/hydrometric.js";
+import { buildHydroUrl, nearestGauge, STATION, buildStationUrl, stationReading } from "../proxy/hydrometric.js";
 import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
 import { parseStocking } from "../../../lib/stocking.js";
 import { stockingNews } from "../../../lib/stocking-news.js";
@@ -152,6 +152,23 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       } catch { return reply.code(502).send({ error: "gauge data unavailable" }); }
       const payload = { gauge: nearestGauge(geojson, { lat, lon }) };
       cache.set(key, payload, 60 * 60 * 1000);
+      return payload;
+    });
+
+    // A named gauge's latest level and flow, with a 24-hour trend (public pages).
+    app.get("/api/gauge/:station", async (req, reply) => {
+      const station = String(req.params.station || "").toUpperCase();
+      if (!STATION.test(station)) return reply.code(400).send({ error: "bad station" });
+      const key = `gauge:${station}`;
+      const hit = cache.get(key);
+      if (hit) return hit;
+      let geojson;
+      try {
+        const res = await proxyFetch([buildStationUrl(station)], {}, { retries: 1, timeoutMs: 15000 });
+        geojson = await res.json();
+      } catch { return reply.code(502).send({ error: "gauge data unavailable" }); }
+      const payload = { gauge: stationReading(geojson) };
+      cache.set(key, payload, 20 * 60 * 1000);
       return payload;
     });
 

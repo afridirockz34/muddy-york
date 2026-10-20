@@ -46,3 +46,22 @@ describe("nearestGauge", () => {
     expect(nearestGauge(geojson, loc, 40).stationNumber).toBe("E");
   });
 });
+
+describe("stationReading", async () => {
+  const { stationReading, STATION } = await import("./hydrometric.js");
+  const at = (h) => new Date(Date.UTC(2026, 9, 20, 12) - h * 36e5).toISOString();
+  it("returns the latest reading and a rising trend over a day", () => {
+    const g = { features: [feat("02HB029", "CREDIT RIVER AT STREETSVILLE", 0, 0, 6, 4.6, at(0)), feat("02HB029", "CREDIT RIVER AT STREETSVILLE", 0, 0, 3.5, 4.4, at(12)), feat("02HB029", "CREDIT RIVER AT STREETSVILLE", 0, 0, 3, 4.4, at(24))] };
+    expect(stationReading(g)).toMatchObject({ name: "CREDIT RIVER AT STREETSVILLE", discharge: 6, level: 4.6, discharge24hAgo: 3, trend: "rising" });
+  });
+  it("calls small changes steady and skips a trend without a day of data", () => {
+    const g = { features: [feat("X", "X", 0, 0, 3.1, 1, at(0)), feat("X", "X", 0, 0, 3, 1, at(24))] };
+    expect(stationReading(g).trend).toBe("steady");
+    expect(stationReading({ features: [feat("X", "X", 0, 0, 3.1, 1, at(0)), feat("X", "X", 0, 0, 9, 1, at(2))] }).trend).toBeNull();
+    expect(stationReading({ features: [] })).toBeNull();
+  });
+  it("only accepts real station numbers", () => {
+    expect(STATION.test("02HB029")).toBe(true);
+    expect(STATION.test("02HB029&x=1")).toBe(false);
+  });
+});

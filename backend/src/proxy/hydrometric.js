@@ -39,3 +39,25 @@ export function nearestGauge(geojson, loc, maxKm = 40) {
   const list = parseGauges(geojson, loc);
   return list.length && list[0].distanceKm <= maxKm ? list[0] : null;
 }
+
+// One station's latest reading plus how the flow changed over about a day,
+// for the public river pages (each page names the gauge on its own river).
+export const STATION = /^0[0-9][A-Z]{2}[0-9]{3}$/;
+export function buildStationUrl(station) {
+  return `https://api.weather.gc.ca/collections/hydrometric-realtime/items?STATION_NUMBER=${station}&sortby=-DATETIME&limit=320&f=json`;
+}
+export function stationReading(geojson) {
+  const rows = ((geojson && geojson.features) || []).map((f) => f.properties || {}).filter((p) => p.DATETIME && (p.DISCHARGE != null || p.LEVEL != null));
+  if (!rows.length) return null;
+  rows.sort((a, b) => new Date(b.DATETIME) - new Date(a.DATETIME));
+  const now = rows[0], t0 = new Date(now.DATETIME).getTime();
+  const dayAgo = rows.reduce((best, p) => (Math.abs(t0 - 864e5 - new Date(p.DATETIME)) < Math.abs(t0 - 864e5 - new Date(best.DATETIME)) ? p : best), rows[rows.length - 1]);
+  const hoursBack = (t0 - new Date(dayAgo.DATETIME)) / 36e5;
+  let trend = null;
+  if (hoursBack >= 12 && now.DISCHARGE != null && dayAgo.DISCHARGE != null && dayAgo.DISCHARGE > 0) {
+    const ch = (now.DISCHARGE - dayAgo.DISCHARGE) / dayAgo.DISCHARGE;
+    trend = ch > 0.15 ? "rising" : ch < -0.15 ? "falling" : "steady";
+  }
+  return { stationNumber: now.STATION_NUMBER, name: now.STATION_NAME || now.STATION_NUMBER, discharge: now.DISCHARGE ?? null,
+    level: now.LEVEL ?? null, observedAt: now.DATETIME, discharge24hAgo: dayAgo.DISCHARGE ?? null, trend };
+}

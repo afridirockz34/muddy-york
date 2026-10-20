@@ -116,12 +116,14 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
     runs(r)
       ? { q: `When is the salmon run on the ${r.river}?`, a: `Chinook salmon usually enter the ${r.river} from late August, peak in September and finish in October${spKeys.includes("COH") ? ", with coho a little later into October and November" : ""}. Each fresh rain brings a new push of fish.` }
       : { q: `When is the best time to fish the ${r.river}?`, a: peaks.length ? `Peak months are ${listJoin(peaks.map((p) => `${listJoin(p.m)} for ${p.name.toLowerCase()}`))}. Within those months, cool cloudy days and the first and last light are best.` : "Spring and fall, in cool water and low light." },
+    { q: `What is the ${r.river} water level today?`, a: !GAUGES[r.id] ? `There's no federal flow gauge on this stretch, so ${BRAND} estimates its conditions each morning from live weather and recent rain.` : `The live reading on this page comes from a Water Survey of Canada gauge on the ${r.river}. A rising level brings fresh fish in; the drop and clear a day or two later usually fishes best.` },
+    { q: `What is the water temperature of the ${r.river}?`, a: `It changes daily. ${BRAND} estimates it each morning from live air temperature, weather and flow. Trout feed best at about 10 to 18°C and struggle above 20°C.` },
     { q: `Where can I fish the ${r.river}?`, a: `Public places along this section include ${listJoin(seo.access && seo.access.length ? seo.access : towns)}. Only fish where access is public or permitted, respect posted private land, and check the stretch rules above.` },
     { q: "Do I need a fishing licence?", a: `Yes, most anglers need an Outdoors Card and a valid Ontario fishing licence.${zone ? ` This river is in Fisheries Management Zone ${zone}.` : ""}` },
   ];
 
   const body = `
-<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(r.river)}</div></div>
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${hubFor(r) ? `<a href="${mainHref(r)}">${esc(r.river)}</a> › ${esc(r.section.split(":")[0])}` : esc(r.river)}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(r.river)} fishing${esc(where)}</h1>
   <div class="meta">${esc(r.section)} · ${esc(region)}${zone ? ` · <a href="/regulations/zone-${zone}/">FMZ ${zone}</a>` : ""}</div>
@@ -130,6 +132,10 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
   <p><b>${esc(seo.hook)}</b></p>
   <p>${esc(r.note)}</p>
   <div class="cta-row"><a class="btn primary" href="${APP_URL}">See today's ${esc(r.river)} conditions</a><span>7 days free, then $5.00/mo yearly</span></div>
+  ${hubFor(r) ? `<p>This is one of ${hubFor(r).sections.length} ${esc(r.river)} sections we cover. <a href="${mainHref(r)}">All ${esc(r.river)} fishing spots, water level and conditions →</a></p>` : ""}
+
+  <h2>${esc(r.river)} water level and flow today</h2>
+  ${gaugeBox(r)}
 
   <h2>What fish are in the ${esc(r.river)}?</h2>
   <p>This section holds ${esc(listJoin(spNames))}. The table shows when each is most active through the year, from ${BRAND}'s species model. It shows the fish, not the law, so check the open season below too.</p>
@@ -152,15 +158,18 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
   <h2>The ${esc(r.river)} through the year</h2>
   ${seasonsHtml(r, spKeys, official)}
 
-  <h2>Flies and lures for the ${esc(r.river)}</h2>
+  <h2>Fly fishing the ${esc(r.river)}: flies and lures</h2>
   <ul>${spKeys.filter((k) => FLIES[k]).map((k) => `<li><b>${esc(plain(k))}:</b> on the fly rod, ${esc(FLIES[k].fly)}. On spinning gear, ${esc(FLIES[k].spin)}.</li>`).join("")}</ul>
   <p>Gear and bait rules can differ by stretch, so match what you tie on to the rules for your water above. ${BRAND} picks the technique and fly for the day from live water temperature and clarity.</p>
+
+  <h2>${esc(r.river)} water temperature</h2>
+  ${waterTempHtml(r.river)}
 
   <h2>Reading the water</h2>
   <p>${esc(readWaterHtml(r))}</p>
   <p>Before a trip, check the river's flow on the <a href="https://wateroffice.ec.gc.ca" rel="noopener">Water Survey of Canada</a> real-time gauges${authorityOf(r.id) ? ` and any flood or safety messages from the <a href="${authorityOf(r.id).url}" rel="noopener">${esc(authorityOf(r.id).name)}</a>, which manages the ${esc(r.river)} watershed and publishes maps of its conservation areas and trails` : ""}.</p>
 
-  <h2>Where to fish the ${esc(r.river)}</h2>
+  <h2>${esc(r.river)} fishing spots</h2>
   <p>Public places along this section include ${esc(listJoin(seo.access && seo.access.length ? seo.access : towns))}. Park in public lots, follow posted signs, and never cross private land without permission. ${BRAND} members get parking and walk-in routes for each section, and exact spots are never shared publicly.</p>
 
   <h2>Before you go</h2>
@@ -590,3 +599,264 @@ export function steelheadHub() {
 </article></div></section>`;
   return { title: `Ontario Steelhead Rivers ${Y}: Open in Winter & Spring`, description: `Ontario steelhead rivers with run timing and the official stretches open in fall, winter and spring, from the Credit and Humber to the Nottawasaga. Try it free.`, body, schema: [faqSchema(faqs)] };
 }
+
+// ── Buyer-intent pages (Oct 2026 research: marketing/seo-research-2026-10-intent.md) ──
+// People searching "[river] fishing spots", "[river] water level" or "fly
+// fishing app ontario" want exactly what the app does, so these pages answer
+// that first and point to the app second.
+
+// Rivers we cover in more than one section get one main page, so "Credit River
+// fishing" has a single strong page instead of three competing ones.
+export const RIVER_HUBS = [...new Set(RIVERS.map((r) => r.river))]
+  .map((name) => ({ name, slug: slug(name), sections: RIVERS.filter((r) => r.river === name) }))
+  .filter((h) => h.sections.length > 1);
+export const hubFor = (r) => RIVER_HUBS.find((h) => h.name === r.river) || null;
+// The main page for a river: its hub, or its only section page.
+export const mainHref = (r) => (hubFor(r) ? `/rivers/${hubFor(r).slug}/` : riverHref(r));
+
+// Live water level and flow from a Water Survey of Canada gauge on the same
+// river, filled in the browser. Each stretch names its gauge by hand: the
+// nearest gauge is often on a different creek, which would mislead.
+export const GAUGES = block("const GAUGE_STATIONS = {");
+export const gaugeBox = (r, label = "") => GAUGES[r.id] ? `<div class="gauge" data-station="${GAUGES[r.id]}">
+  ${label ? `<p class="g-label"><b>${esc(label)}</b></p>` : ""}<div class="g-row"><div><b class="g-val" data-k="flow">…</b><span>Flow (m³/s)</span></div><div><b class="g-val" data-k="trend">…</b><span>Last 24 hours</span></div><div><b class="g-val" data-k="level">…</b><span>Water level (m)</span></div></div>
+  <p class="g-note">Loading the latest reading from the Water Survey of Canada…</p></div>`
+  : `<p>There's no federal flow gauge on this stretch of the ${esc(r.river)}. ${BRAND} estimates its conditions each morning from live weather and recent rain.</p>`;
+export const GAUGE_SCRIPT = `<script>
+(function(){document.querySelectorAll(".gauge").forEach(function(el){
+  var note=el.querySelector(".g-note"),set=function(k,v){var x=el.querySelector('[data-k="'+k+'"]');if(x)x.textContent=v;};
+  var st=el.dataset.station;
+  fetch("/bk/api/gauge/"+st).then(function(r){return r.ok?r.json():null}).then(function(d){
+    var g=d&&d.gauge; if(!g) throw 0;
+    set("flow",g.discharge!=null?(+g.discharge).toFixed(1):"n/a"); set("level",g.level!=null?(+g.level).toFixed(2):"n/a");
+    set("trend",g.trend==="rising"?"Rising":g.trend==="falling"?"Dropping":g.trend==="steady"?"Steady":"n/a");
+    var mins=Math.max(0,Math.round((Date.now()-new Date(g.observedAt).getTime())/60000)),ago=mins<90?mins+" minutes ago":Math.round(mins/60)+" hours ago";
+    var tip=g.trend==="rising"?"Rising water brings fresh fish in but can be high and dirty.":g.trend==="falling"?"Dropping, clearing water after a rise is often the best fishing.":"";
+    note.innerHTML="Gauge: "+g.name.replace(/[<>&]/g,"")+", read "+ago+". "+tip+" Real-time provisional data from the <a href=\\"https://wateroffice.ec.gc.ca/report/real_time_e.html?stn="+st+"\\" rel=\\"noopener\\">Water Survey of Canada</a>.";
+  }).catch(function(){ note.innerHTML="The gauge didn't answer just now. See it on the <a href=\\"https://wateroffice.ec.gc.ca/report/real_time_e.html?stn="+st+"\\" rel=\\"noopener\\">Water Survey of Canada</a>, or get today's read in the app."; });
+});})();
+</script>`;
+
+// Water temperature: what it means for the fish, and how we get it (honestly:
+// modelled each morning, plus readings members log on their trips).
+export const waterTempHtml = (river) => `<p>Water temperature decides where trout and salmon hold and how hard they feed. Ontario's river gauges report level and flow, but very few report temperature, so ${BRAND} estimates the ${esc(river)}'s water temperature every morning from live air temperature, recent weather and the river's flow. Members can add a thermometer reading when they log a trip, which keeps the estimate honest.</p>
+<div class="tbl-wrap"><table class="months temps"><thead><tr><th>Water temp</th><th>What the fish do</th></tr></thead><tbody>
+<tr><td>Below 4°C</td><td>Slow. Fish deep, slow pools at midday with small flies.</td></tr>
+<tr><td>4 to 10°C</td><td>Cool. Steelhead and browns feed, mostly near the bottom.</td></tr>
+<tr><td>10 to 18°C</td><td>Prime. Trout feed actively; hatches and dries come into play.</td></tr>
+<tr><td>18 to 20°C</td><td>Warm. Fish early, play fish fast, keep them in the water.</td></tr>
+<tr><td>Above 20°C</td><td>Too warm. Trout are stressed; leave them be or find colder water.</td></tr>
+</tbody></table></div>`;
+
+const spotsList = (r) => {
+  const seo = RIVER_SEO[r.id] || {};
+  return listJoin(seo.access && seo.access.length ? seo.access : seo.towns || []);
+};
+
+export function riverHubPage(h) {
+  const secs = h.sections;
+  const species = [...new Set(secs.flatMap((r) => (r.species || []).filter((k) => SPECIES[k])))];
+  const spNames = [...new Set(species.map(plain))];
+  const towns = [...new Set(secs.flatMap((r) => (RIVER_SEO[r.id] || {}).towns || []))];
+  const auth = authorityOf(secs[0].id);
+  const zones = [...new Set(secs.map((r) => (officialStretches(r) || {}).zone).filter(Boolean))];
+  const salmon = secs.map(salmonFor).find(Boolean);
+  const faqs = [
+    { q: `Where are the best fishing spots on the ${h.name}?`, a: secs.map((r) => `${r.section}: ${spotsList(r)}`).join(". ") + `. Fish only where access is public, and check the stretch rules first.` },
+    { q: `What is the ${h.name} water level today?`, a: `The live readings on this page come from Water Survey of Canada gauges on the ${h.name} itself, one for each section. A rising level means fresh water and moving fish; the drop and clear a day or two later is usually the best fishing.` },
+    { q: `What is the water temperature of the ${h.name}?`, a: `It changes by the day and by stretch. ${BRAND} estimates it every morning from live air temperature, weather and flow. Trout feed best between about 10 and 18°C and struggle above 20°C.` },
+    { q: `Can you fly fish the ${h.name}?`, a: `Yes. The ${h.name} is a well-known fly fishing river for ${listJoin(spNames.slice(0, 3)).toLowerCase()}. Gear and bait rules differ by stretch, so check the section pages.` },
+    { q: `Is the ${h.name} open for fishing?`, a: `Each section has its own official season. The status chips on this page are checked against the Ontario Fishing Regulations Summary twice a day.` },
+  ];
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(h.name)}</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>${esc(h.name)} fishing: spots, water level and conditions</h1>
+  <div class="meta">${esc(secs[0].region)} · ${secs.length} sections${zones.length ? ` · ${zones.map((z) => `<a href="/regulations/zone-${z}/">FMZ ${z}</a>`).join(", ")}` : ""}</div>
+  <p><b>The ${esc(h.name)} holds ${esc(listJoin(spNames))}${towns.length ? ` from ${esc(listJoin(towns.slice(0, 4)))}` : ""}.</b> This page has today's water level and flow, the season on each section, where you can fish, and the flies that work.</p>
+  ${secs.map((r) => liveStatus(r).replace('<span class="ls-note">', `<span class="ls-note"><b>${esc(r.section)}</b>: `)).join("\n")}
+  <div class="cta-row"><a class="btn primary" href="${APP_URL}">See today's ${esc(h.name)} score</a><span>7 days free, then $5.00/mo yearly</span></div>
+
+  <h2>${esc(h.name)} water level and flow today</h2>
+  ${secs.map((r) => gaugeBox(r, r.section)).join("\n")}
+
+  <h2>${esc(h.name)} fishing spots</h2>
+  <p>The ${esc(h.name)} changes character along its length, and so do the rules. Here are the public places on each section we cover:</p>
+  ${secs.map((r) => `<h3><a href="${riverHref(r)}">${esc(r.section)}</a></h3>
+  <p>${esc((RIVER_SEO[r.id] || {}).hook || r.note || "")}</p>
+  <ul><li><b>Public access:</b> ${esc(spotsList(r))}</li><li><b>Fish:</b> ${esc(listJoin([...new Set((r.species || []).filter((k) => SPECIES[k]).map(plain))]))}</li></ul>
+  <p><a href="${riverHref(r)}">${esc(r.section)}: seasons, tactics and spots →</a></p>`).join("\n")}
+  <p>Park in public lots, follow posted signs and never cross private land without permission. ${BRAND} members get parking and walk-in routes for each section, and we never publish anyone's private spots.</p>
+  ${salmon ? `<p>Here for the salmon? See <a href="/salmon-run/${salmon.slug}/">${esc(salmon.h1)}</a>, with this week's run status.</p>` : ""}
+
+  ${cta(`Know which ${esc(h.name)} section to fish tomorrow`, `${BRAND} scores every section each morning from water temperature, flow and weather, tells you if it's open, and picks the fly.`, "Try it free for 7 days")}
+
+  <h2>${esc(h.name)} water temperature</h2>
+  ${waterTempHtml(h.name)}
+
+  <h2>Fly fishing the ${esc(h.name)}</h2>
+  <ul>${species.filter((k) => FLIES[k]).map((k) => `<li><b>${esc(plain(k))}:</b> ${esc(FLIES[k].fly)}.</li>`).join("")}</ul>
+  <p>On spinning gear: ${species.filter((k) => FLIES[k]).slice(0, 3).map((k) => `${esc(plain(k)).toLowerCase()}, ${esc(FLIES[k].spin)}`).join("; ")}. Hook and bait rules vary by stretch.</p>
+
+  <h2>Best months on the ${esc(h.name)}</h2>
+  <div class="tbl-wrap"><table class="months"><thead><tr><th></th>${MONTHS.map((m) => `<th>${m[0]}</th>`).join("")}</tr></thead><tbody>${species.map((k) => `<tr><td>${esc(plain(k))}</td>${SPECIES[k].a.map((v, i) => `<td class="m${v >= 0.8 ? 3 : v >= 0.5 ? 2 : v >= 0.2 ? 1 : 0}" title="${MONTHS[i]}">${v >= 0.8 ? "●" : v >= 0.5 ? "◐" : v >= 0.2 ? "○" : ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <p class="src">● peak · ◐ good · ○ fair. When the fish are active, not the legal season.</p>
+
+  <h2>${esc(h.name)} seasons by section</h2>
+  <p>Ontario sets the season stretch by stretch, so the ${esc(h.name)} can be open in one place and closed a few kilometres away. From the Ontario Fishing Regulations Summary:</p>
+  <ul>${secs.map((r) => { const o = officialStretches(r); const line = o && o.stretches[0] ? [...new Set(o.stretches[0].species.map((x) => `${x.official}: ${x.season}`))].slice(0, 3).join("; ") : "see the official summary"; return `<li><b><a href="${riverHref(r)}">${esc(r.section)}</a>:</b> ${esc(line)}${o && o.stretches.length > 1 ? ` (and ${o.stretches.length - 1} more stretch${o.stretches.length > 2 ? "es" : ""} with their own rules)` : ""}.</li>`; }).join("")}</ul>
+  <p>Each section page lists every stretch, its limits and any sanctuaries, with links to the official wording.</p>
+
+  <h2>Before you fish the ${esc(h.name)}</h2>
+  <ul>
+    <li>Carry your Outdoors Card and fishing licence.</li>
+    <li>Check which section you'll fish and its season above. Rules often change at a bridge, dam or road.</li>
+    <li>Look at the level and flow at the top of this page. After heavy rain the ${esc(h.name)} can rise fast and be dangerous to wade.</li>
+    <li>Above about 20°C water, trout and salmon struggle. Fish early, or rest them.</li>
+    <li>Pack out everything you bring, including line and bait containers.</li>
+  </ul>
+
+  ${auth ? `<p>The ${esc(auth.name)} manages the ${esc(h.name)} watershed and posts flood and safety messages at <a href="${auth.url}" rel="noopener">${esc(auth.url.replace(/^https?:\/\/(www\.)?/, ""))}</a>.</p>` : ""}
+
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+  ${cta(`Fish the ${esc(h.name)} on the right day`, `Live conditions, the official season for your stretch and today's fly, for 30+ Southern Ontario rivers.`)}
+</article></div></section>`;
+  const title = `${h.name} Fishing: Spots, Water Level & Conditions`;
+  const description = clampDesc(`${h.name} fishing spots, today's water level and flow, water temperature, seasons by section and the flies that work. Live conditions free for 7 days.`, `${h.name} fishing spots, live water level and flow, seasons and flies.`);
+  return { title, description, body, stickyCta: "See today's conditions",
+    schema: [faqSchema(faqs), { "@context": "https://schema.org", "@type": "Article", headline: title, description, mainEntityOfPage: `${SITE_URL}/rivers/${h.slug}/`, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } }] };
+}
+
+// Fly-fishing rivers grouped by the kind of water, for the fly fishing hub.
+const flyGroups = () => {
+  const by = (f) => RIVERS.filter(f);
+  const lakeRun = (r) => (r.species || []).some((k) => ["STL", "CHN", "COH"].includes(k));
+  const tail = by((r) => /tailwater/i.test(r.water || "") && !lakeRun(r));
+  const cold = by((r) => !tail.includes(r) && !lakeRun(r));
+  const run = by((r) => lakeRun(r));
+  return [
+    { h: "Tailwaters: trout all season", p: "Cold releases below the dams keep these rivers fishing when others run warm. Brown trout, hatches and dries.", list: tail },
+    { h: "Cold creeks and headwaters: wild brook and brown trout", p: "Small, clear, spring-fed water. Light rods, short casts and a quiet approach.", list: cold },
+    { h: "Lake-run rivers: steelhead, salmon and lake-run browns", p: "Fish run up from Lake Ontario, Lake Erie, Lake Huron and Georgian Bay in fall, winter and spring. Swing streamers or drift eggs and nymphs.", list: run },
+  ];
+};
+const flyRow = (r) => `<li><a href="${riverHref(r)}"><b>${esc(r.river)}</b></a>, ${esc(r.section)}${liveStatus(r).replace('<div class="live-status"', '<div class="live-status mini"').replace(/<span class="ls-note">[^<]*<\/span>/, "")}</li>`;
+
+export function flyFishingHub() {
+  const groups = flyGroups();
+  const faqs = [
+    { q: "Where is the best fly fishing in Ontario?", a: "In Southern Ontario, the Grand River below Shand Dam, the Credit River, the Saugeen, the Nottawasaga and its cold tributaries, and the Beaver and Bighead rivers are the best-known fly water. The right one depends on the week: water temperature, flow and the season on each stretch." },
+    { q: "When is the best time to fly fish in Ontario?", a: "For resident trout, late April to June and again in September, in water between about 10 and 18°C. For steelhead, October to December and March to April. Tailwaters like the Grand below Shand Dam fish through summer." },
+    { q: "Do I need a licence to fly fish in Ontario?", a: "Yes. Most anglers need an Outdoors Card and a fishing licence, and every stretch has its own season, limits and gear rules. Check the stretch before you fish." },
+    { q: "Is there an app for fly fishing in Ontario?", a: `${BRAND} scores Southern Ontario trout and steelhead rivers each morning from water temperature, flow and weather, shows the official season for each stretch, and picks the fly for the day.` },
+  ];
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › Fly fishing</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>Fly fishing in Ontario: where to go and when</h1>
+  <p><b>Southern Ontario has some of the best trout and steelhead fly fishing in eastern North America, within an easy drive of most of the province's anglers.</b> Here are the rivers, what they hold, what's open today, and the flies that work.</p>
+  <div class="cta-row"><a class="btn primary" href="${APP_URL}">Find today's best fly water</a><span>7 days free, then $5.00/mo yearly</span></div>
+  ${groups.map((g) => `<h2>${esc(g.h)}</h2><p>${esc(g.p)}</p><ul class="fly-list">${g.list.map(flyRow).join("")}</ul>`).join("\n")}
+  ${cta("Which river is fishing best tomorrow?", `${BRAND} reads water temperature, flow and weather on every river each morning, scores them, and tells you the fly and technique. No more driving two hours to blown-out water.`, "Try it free for 7 days")}
+  <h2>Ontario fly fishing through the year</h2>
+  <ul>
+    <li><b>Spring (March to May):</b> steelhead on the lake-run rivers, then the trout opener on the fourth Saturday in April across most of Zones 16 and 17. Nymphs and streamers in cold water.</li>
+    <li><b>Early summer (June):</b> the best hatches of the year on the Grand and the cold creeks. Caddis, sulphurs and evening spinner falls.</li>
+    <li><b>Summer (July and August):</b> fish the tailwaters and spring creeks early and late, and stop when water passes 20°C.</li>
+    <li><b>Fall (September to November):</b> salmon runs, then steelhead and lake-run browns. Egg patterns, stoneflies and swung streamers.</li>
+    <li><b>Winter:</b> a few stretches stay open for steelhead all year. Mild afternoons, slow and deep.</li>
+  </ul>
+  <h2>Flies that work in Ontario</h2>
+  <ul>${["BNT", "BKT", "RBT", "STL", "CHN"].map((k) => `<li><b>${esc(plain(k))}:</b> ${esc(FLIES[k].fly)}.</li>`).join("")}</ul>
+  <h2>Water temperature for fly fishing</h2>
+  ${waterTempHtml("river")}
+  <p>More: <a href="/guides/fly-fishing-near-toronto/">fly fishing near Toronto</a> · <a href="/fishing-spots/near-me/">trout and fly fishing spots near you</a> · <a href="/fly-fishing-app/">the ${BRAND} app</a> · <a href="/steelhead/">steelhead rivers</a></p>
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+</article></div></section>`;
+  return { title: "Fly Fishing in Ontario: Best Rivers, Spots & Seasons",
+    description: "Where to fly fish in Southern Ontario: trout tailwaters, cold creeks and steelhead rivers, what's open today, the best months and the flies that work.",
+    body, schema: [faqSchema(faqs)] };
+}
+
+export function flyAppPage() {
+  const faqs = [
+    { q: "Is there a fly fishing app for Ontario?", a: `Yes. ${BRAND} is built for Southern Ontario trout, steelhead and salmon rivers. Each morning it scores every river from live water temperature, flow and weather, shows the official season on each stretch, and tells you the fly and technique for the day.` },
+    { q: "Is it on the App Store or Google Play?", a: "Not yet. It runs in your phone's browser and installs to your home screen in a few seconds on iPhone and Android, with alerts. Native apps are planned." },
+    { q: "How much does it cost?", a: "Seven days free with every feature. Then $9.99 a month, or $59.99 a year ($5.00 a month). Cancel any time." },
+    { q: "Which rivers does it cover?", a: `30+ Southern Ontario rivers and hundreds of spots, including the Grand, Credit, Humber, Saugeen, Nottawasaga, Ganaraska and Niagara, plus any creek or river you scout within your radius.` },
+    { q: "Does it give away fishing spots?", a: "It shows public access, parking and walk-in routes for the rivers it covers. It never publishes members' private spots." },
+  ];
+  const feats = [
+    ["A score for every river, every morning", "From live air and modelled water temperature, flow and recent rain, so you know which river is fishing before you drive."],
+    ["Today's official season on your stretch", "Checked against the Ontario Fishing Regulations Summary twice a day, stretch by stretch, including sanctuaries."],
+    ["The fly and technique for the day", "Picked from water temperature and clarity: nymph, dry-dropper, streamer or eggs, and which patterns."],
+    ["Water level and flow", "The nearest federal gauge for each river, so you can see a rise or a drop at a glance."],
+    ["Parking and walk-in routes", "Public access for each section, mapped. Never private spots."],
+    ["Scout new water", "Find rivers and creeks within your radius, with species and depth from Ontario's official surveys."],
+    ["Prime-condition alerts", "A notification when one of your saved rivers turns prime, at most twice a week per river."],
+    ["Run tracker and trip log", "See where salmon and steelhead are running from members' sightings, and log your days, blanks included."],
+  ];
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/fly-fishing/">Fly fishing</a> › The app</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>The fly fishing app for Ontario rivers</h1>
+  <p><b>${BRAND} tells you which Southern Ontario river to fish tomorrow, whether your stretch is open, and what to tie on.</b> It's made for trout, steelhead and salmon anglers, from first-timers to lifers.</p>
+  <div class="cta-row"><a class="btn primary" href="${APP_URL}">Start your 7 free days</a><span>Then $9.99/mo, or $59.99/yr</span></div>
+  <h2>What it does</h2>
+  <ul>${feats.map(([a, b]) => `<li><b>${esc(a)}.</b> ${esc(b)}</li>`).join("")}</ul>
+  <h2>Why not just check the weather?</h2>
+  <p>Air temperature and rain tell you half the story. Trout and steelhead respond to water temperature, flow and clarity, and to what's legal on the stretch you're standing on. Checking a gauge, a forecast, the regulations summary and a fishing forum for every river takes an hour. The app does it for 30+ rivers before you wake up.</p>
+  <h2>How to get it</h2>
+  <ol><li>Open <a href="${APP_URL}">muddyyorkfishing.ca</a> on your phone and create a free account.</li><li>Start the 7-day trial. You won't be charged if you cancel before it ends.</li><li>Add it to your home screen: Share, then Add to Home Screen on iPhone; the menu, then Install app on Android.</li></ol>
+  ${cta("Try every feature free for 7 days", "Live conditions, the official season for your stretch and today's fly, for 30+ Southern Ontario rivers.", "Start free")}
+  <p>Where to go: <a href="/fly-fishing/">fly fishing in Ontario</a> · <a href="/fishing-spots/near-me/">fishing spots near you</a> · <a href="/rivers/">all river guides</a></p>
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+</article></div></section>`;
+  return { title: "Ontario Fly Fishing App: River Conditions & Spots",
+    description: "The fly fishing app for Southern Ontario: a daily score for 30+ rivers, today's season on your stretch, water level and the fly to use. 7 days free.",
+    body, stickyCta: "Start free",
+    schema: [faqSchema(faqs), { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "SportsApplication",
+      operatingSystem: "iOS, Android, Web", url: SITE_URL + "/fly-fishing-app/", description: "Daily river conditions, official seasons and fly picks for Southern Ontario trout, steelhead and salmon rivers.",
+      offers: [{ "@type": "Offer", price: "9.99", priceCurrency: "CAD", description: "Monthly, after a 7-day free trial" }, { "@type": "Offer", price: "59.99", priceCurrency: "CAD", description: "Yearly, after a 7-day free trial" }] }] };
+}
+
+export function nearMePage() {
+  const list = RIVERS.map((r) => ({ r, towns: ((RIVER_SEO[r.id] || {}).towns || []).slice(0, 2) }));
+  const faqs = [
+    { q: "Where can I go trout fishing near me?", a: "Tap \"Use my location\" and this page sorts 30+ Southern Ontario trout, steelhead and salmon rivers by distance from you, with what each holds and whether it's open today. Your location stays on your phone." },
+    { q: "Where can I fly fish near Toronto?", a: "The Credit, Humber and Rouge are inside the GTA, Bronte and Sixteen Mile creeks are in Oakville, Duffins Creek is in Ajax and Pickering, and the Grand, Ganaraska and Nottawasaga are a short drive away." },
+    { q: "What is the best time to go trout fishing near me?", a: "Cool, cloudy days and the first and last light of the day, in water between about 10 and 18°C. For steelhead, the day or two after a rain as the river drops and clears." },
+    { q: "Are these public fishing spots?", a: "Each river page lists public access along the stretch we cover. Fish only where access is public or permitted, and respect posted private land." },
+  ];
+  const body = `
+<div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/fishing-spots/">Fishing spots</a> › Near me</div></div>
+<section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
+  <h1>Trout and fly fishing spots near me</h1>
+  <p><b>Find the closest trout, steelhead and salmon rivers to you in Southern Ontario, what they hold and whether they're open today.</b> Your location is used on your phone only and never sent to us.</p>
+  <p><button class="btn primary" id="near-btn" type="button" style="border:none;cursor:pointer">Use my location</button> <span id="near-msg" class="src"></span></p>
+  <ul class="fly-list" id="near-list">${list.map(({ r, towns }) => `<li data-lat="${r.lat}" data-lon="${r.lon}"><a href="${riverHref(r)}"><b>${esc(r.river)}</b></a>, ${esc(r.section)}${towns.length ? ` · ${esc(listJoin(towns))}` : ""} <span class="near-km src"></span> <span class="src">· ${esc(listJoin([...new Set((r.species || []).filter((k) => SPECIES[k]).map(plain))].slice(0, 3)))}</span>${liveStatus(r).replace('<div class="live-status"', '<div class="live-status mini"').replace(/<span class="ls-note">[^<]*<\/span>/, "")}</li>`).join("")}</ul>
+  ${cta("Which one is fishing best today?", `Distance is only half of it. ${BRAND} scores every river each morning from water temperature, flow and weather, and tells you the fly to use.`, "Try it free for 7 days")}
+  <p>By town: <a href="/fishing-spots/">fishing spots in Toronto, Mississauga, Oakville and more</a> · <a href="/fly-fishing/">fly fishing in Ontario</a></p>
+  <h2>Frequently asked</h2>
+  ${faqHtml(faqs)}
+</article></div></section>`;
+  return { title: "Trout & Fly Fishing Spots Near Me: Southern Ontario",
+    description: "The nearest trout, steelhead and salmon rivers to you in Southern Ontario, sorted by distance, with what they hold and whether they're open today.",
+    body, stickyCta: "See today's conditions", schema: [faqSchema(faqs)] };
+}
+export const NEAR_ME_SCRIPT = `<script>
+(function(){var b=document.getElementById("near-btn"),m=document.getElementById("near-msg"),ul=document.getElementById("near-list");if(!b)return;
+  var R=6371,t=function(x){return x*Math.PI/180};
+  b.addEventListener("click",function(){ if(!navigator.geolocation){m.textContent="Location isn't available in this browser.";return;}
+    m.textContent="Finding you…";
+    navigator.geolocation.getCurrentPosition(function(p){var la=p.coords.latitude,lo=p.coords.longitude;
+      var items=[].slice.call(ul.children).map(function(li){var a=+li.dataset.lat,o=+li.dataset.lon;
+        var s=Math.pow(Math.sin(t(a-la)/2),2)+Math.cos(t(la))*Math.cos(t(a))*Math.pow(Math.sin(t(o-lo)/2),2);
+        var d=Math.round(R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s)));li.querySelector(".near-km").textContent="· "+d+" km";return {li:li,d:d};});
+      items.sort(function(x,y){return x.d-y.d}).forEach(function(x){ul.appendChild(x.li)});m.textContent="Sorted by distance from you.";
+    },function(){m.textContent="Location was blocked. The list is in alphabetical order by region.";},{maximumAge:600000,timeout:10000});
+  });})();
+</script>`;

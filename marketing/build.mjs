@@ -14,7 +14,7 @@ const OUT = ROOT;
 
 import { SITE_URL, APP_URL, SIGNIN_URL, HOME, BRAND, SOCIAL, esc, page } from "../lib/site-shell.js";
 import { withBrand } from "./seo-content.mjs";
-import { riverPage, salmonHub, salmonSpotPage, townPage, steelheadRivers, steelheadPage, steelheadHub, LIVE_STATUS_SCRIPT, RUN_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
+import { riverPage, riverHubPage, RIVER_HUBS, GAUGE_SCRIPT, flyFishingHub, flyAppPage, nearMePage, NEAR_ME_SCRIPT, salmonHub, salmonSpotPage, townPage, steelheadRivers, steelheadPage, steelheadHub, LIVE_STATUS_SCRIPT, RUN_STATUS_SCRIPT, TOWNS, SALMON_SPOTS } from "./seo-pages.mjs";
 import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
 import { licencePage, freeFishingPage, sportsmenShowPage, winterFishingPage, giftsPage, giftThanksPage, iceHubPage, iceLakePage, GIFT_SCRIPT, FREEZE_SCRIPT } from "./seasonal-pages.mjs";
 import { ICE_LAKES } from "../lib/ice-lakes.js";
@@ -530,9 +530,20 @@ for (const r of RIVERS) {
   const pg = riverPage(r);
   fs.writeFileSync(path.join(dir, "index.html"), page({
     title: withBrand(pg.title), description: pg.description, canonical: `${SITE_URL}/rivers/${s}/`,
-    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT, photo: riverPhoto(r), ogImage: SITE_URL + riverPhoto(r).src,
+    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(r), ogImage: SITE_URL + riverPhoto(r).src,
   }));
   urls.push(`${SITE_URL}/rivers/${s}/`);
+}
+// One main page per river we cover in several sections (Credit, Grand, Beaver).
+for (const h of RIVER_HUBS) {
+  const dir = path.join(OUT, "rivers", h.slug);
+  fs.mkdirSync(dir, { recursive: true });
+  const pg = riverHubPage(h);
+  fs.writeFileSync(path.join(dir, "index.html"), page({
+    title: withBrand(pg.title), description: pg.description, canonical: `${SITE_URL}/rivers/${h.slug}/`,
+    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(h.sections[0]), ogImage: SITE_URL + riverPhoto(h.sections[0]).src,
+  }));
+  urls.push(`${SITE_URL}/rivers/${h.slug}/`);
 }
 
 // salmon run hub + viewing spots
@@ -601,6 +612,7 @@ const riversIndexBody = `
 <section class="section"><div class="wrap">
   <h1 style="text-align:left;font-size:30px;">Ontario trout and salmon rivers we cover</h1>
   <p style="color:var(--dim);max-width:700px;margin-top:8px;">${RIVERS.length}+ trout, steelhead and salmon rivers across Southern Ontario. Tap any river for its guide, then open the app for today's live conditions.</p>
+  <div class="rivers-grid">${RIVER_HUBS.map((h) => `<a class="river-link" href="/rivers/${h.slug}/"><b>${esc(h.name)}</b><span>All ${h.sections.length} sections: spots, water level and conditions</span></a>`).join("")}<a class="river-link" href="/fly-fishing/"><b>Fly fishing in Ontario</b><span>Tailwaters, cold creeks and steelhead rivers</span></a><a class="river-link" href="/fishing-spots/near-me/"><b>Spots near me</b><span>The closest rivers to you, sorted by distance</span></a></div>
   ${Object.keys(byRegion).sort().map((reg) => `<h3 style="margin:28px 0 6px;font-size:18px;">${esc(reg)}</h3><div class="rivers-grid">${byRegion[reg].map((r) => `<a class="river-link" href="/rivers/${slug(r.river + " " + r.section)}/"><b>${esc(r.river)}</b><span>${esc(r.section)}</span></a>`).join("")}</div>`).join("")}
   <h3 style="margin:30px 0 6px;font-size:18px;">Fishing regions</h3>
   <div class="rivers-grid">${REGIONS.map((g) => `<a class="river-link" href="/regions/${g.slug}/"><b>${esc(g.h1)}</b><span>${esc(g.desc).slice(0, 60)}…</span></a>`).join("")}</div>
@@ -798,6 +810,9 @@ ${g.body}
   put("guides/winter-fishing-near-toronto", winterFishingPage(), { photo: PHOTOS.credit, ogImage: SITE_URL + PHOTOS.credit.src });
   put("gifts", giftsPage(), { photo: PHOTOS.rainbow, tail: GIFT_SCRIPT, stickyCta: "" });
   put("gifts/thanks", giftThanksPage(), { noindex: true, extraHead: '<meta name="robots" content="noindex"/>', stickyCta: "" });
+  put("fly-fishing", flyFishingHub(), { photo: PHOTOS.flyFishers, tail: LIVE_STATUS_SCRIPT, ogImage: SITE_URL + PHOTOS.flyFishers.src });
+  put("fly-fishing-app", flyAppPage(), { photo: PHOTOS.wading });
+  put("fishing-spots/near-me", nearMePage(), { photo: PHOTOS.wading, tail: LIVE_STATUS_SCRIPT + NEAR_ME_SCRIPT });
   put("ice-fishing", iceHubPage(), { photo: PHOTOS.credit, tail: FREEZE_SCRIPT });
   for (const l of ICE_LAKES) put(`ice-fishing/${l.id}`, iceLakePage(l), { photo: PHOTOS.credit, tail: FREEZE_SCRIPT });
 }

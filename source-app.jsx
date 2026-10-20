@@ -1032,7 +1032,7 @@ function RiverReportBody({ev,m,premium,onUpgrade,signedIn,activity={},distOf=()=
       </div>
       <ActionBar ev={ev} signedIn={signedIn}/>
       <ConditionsStrip cond={ev.cond} opp={ev.opportunity} warm={ev.warmStress}/>
-      <MeasuredGauge lat={ev.sec.lat} lon={ev.sec.lon}/>
+      <MeasuredGauge id={ev.sec.id} lat={ev.sec.lat} lon={ev.sec.lon}/>
       <DepthFish sec={ev.sec} logged={activity[ev.sec.id]}/>
       <RiverIntel sec={ev.sec} cond={ev.cond}/>
       <div style={{marginTop:12,paddingTop:10,borderTop:`2px dotted ${C.line}`}}>
@@ -3720,21 +3720,32 @@ function ConditionsStrip({cond,opp,warm}){
     {warm && <div style={{marginTop:7,fontFamily:sans,fontSize:12,fontWeight:800,color:C.brick}}>Heads-up: warm water. Rest the trout.</div>}
   </div>);
 }
-function MeasuredGauge({lat,lon}){
+// Water Survey of Canada gauge on each curated stretch's own river. The nearest
+// gauge is often on a neighbouring creek (Mimico for the Humber), so named
+// stretches use these; scouted water falls back to the nearest one.
+// The website's river pages read this same list.
+const GAUGE_STATIONS = { "grand-tw": "02GA016", "grand-lower": "02GB001", "credit-lower": "02HB029", "credit-mid": "02HB025", "credit-upper": "02HB001",
+  "ganaraska": "02HD012", "notty-main": "02ED003", "notty-tribs": "02ED015", "beaver-lower": "02FB009", "beaver-upper": "02FB013", "twelve-mile": "02HA031",
+  "bronte": "02HB011", "sixteen": "02HB005", "duffins": "02HC049", "wilmot": "02HD009", "saugeen-denny": "02FC001", "maitland-lower": "02FE015",
+  "boyne": "02ED102", "humber-lower": "02HC003", "conestogo-tw": "02GA028", "bighead": "02FB010", "sydenham-os": "02FB007", "rouge-lower": "02HC022",
+  "bowmanville": "02HD006", "sauble": "02FA001"
+};
+function MeasuredGauge({id,lat,lon}){
   const [g,setG]=useState(undefined); // undefined=loading | null=none | object
+  const station=GAUGE_STATIONS[id];
   useEffect(()=>{
     if(!API_BASE){ setG(null); return; }
     let live=true; setG(undefined);
-    proxyJSON(`/api/conditions?lat=${lat}&lon=${lon}`)
+    proxyJSON(station?`/api/gauge/${station}`:`/api/conditions?lat=${lat}&lon=${lon}`)
       .then(d=>{ if(live) setG(d.gauge||null); })
       .catch(()=>{ if(live) setG(null); });
     return ()=>{ live=false; };
-  },[lat,lon]);
+  },[station,lat,lon]);
   if(!g) return null;
   const ago=Math.max(0,Math.round((Date.now()-new Date(g.observedAt).getTime())/3600000));
   return (<div style={{marginTop:10,padding:"8px 11px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>
-    <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Measured · nearest gauge</span>
-    <div style={{marginTop:3}}><b>{g.name}</b> · {g.distanceKm} km</div>
+    <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Measured · {station?"river gauge":"nearest gauge"}</span>
+    <div style={{marginTop:3}}><b>{g.name}</b>{g.distanceKm!=null?` · ${g.distanceKm} km`:""}{g.trend?` · ${g.trend==="falling"?"dropping":g.trend} over 24 h`:""}</div>
     <div style={{marginTop:2}}>Flow <b>{g.discharge} m³/s</b>{g.level!=null?<> · level <b>{g.level} m</b></>:null} <span style={{color:C.textFaint}}>· {ago===0?"just now":`${ago} h ago`}</span></div>
     <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:3}}>Live reading from Water Survey of Canada. Water temperature remains modeled.</div>
   </div>);
