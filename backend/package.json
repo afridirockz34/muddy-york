@@ -25,5 +25,8 @@
   "devDependencies": {
     "prisma": "^5.20.0",
     "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": "22.23.4"
   }
 }
