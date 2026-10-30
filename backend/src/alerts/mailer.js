@@ -25,10 +25,13 @@ export async function sendMail({ to, subject, text, replyTo, plain = false, head
   }
 }
 
+// "the Credit River", but "Wilmot Creek" (no article for creeks).
+export const theRiver = (name) => (/\briver$/i.test(name || "") ? `the ${name}` : name || "your river");
+
 export async function sendAlertEmail(to, spot, opportunity, others = [], opts = {}) {
   if (!Array.isArray(others)) { opts = others || {}; others = []; }
-  const subject = others.length ? `Prime conditions on ${others.length + 1} of your rivers` : `Prime conditions on the ${spot.river}`;
-  const text = `The ${spot.river} (${spot.section}) is showing prime conditions right now, ${opportunity} out of 100.`
+  const subject = others.length ? `Prime conditions on ${others.length + 1} of your rivers` : `Prime conditions on ${theRiver(spot.river)}`;
+  const text = `${(t => t[0].toUpperCase() + t.slice(1))(theRiver(spot.river))} (${String(spot.section || "").replace(/\s*[—–]\s*/g, ": ")}) is showing prime conditions right now, ${opportunity} out of 100.`
     + (others.length ? `\n\nAlso in the zone:\n${others.map((o) => `- ${o.river}, ${o.section}`).join("\n")}` : "")
     + `\n\nWe only alert when a saved river first reaches your threshold, at most twice a week per river. You can change that any time under Saved rivers in the app.`;
   return sendMail({ to, subject, text, heading: subject, cta: { label: "See today's conditions", url: "https://muddyyorkfishing.ca/?app" } }, opts);

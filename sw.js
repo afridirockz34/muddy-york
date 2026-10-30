@@ -2,7 +2,7 @@
    Caches the app shell so it launches offline. Weather requests (cross-origin
    to Open-Meteo) always go to the network so data stays fresh; when offline the
    app falls back to its own on-device cache. Bump CACHE to force an update. */
-const CACHE = "river-intel-v12";
+const CACHE = "river-intel-v13";
 const SHELL = [
   "./",
   "./index.html",
@@ -81,7 +81,12 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = (e.notification.data && e.notification.data.url) || "./";
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
-    for (const c of cs) { if ("focus" in c) return c.focus(); }
+    // Already open: take that window to the alert's link (a river report, a
+    // trip to log), not just back to whatever it was showing.
+    for (const c of cs) {
+      if ("navigate" in c && url !== "./") return c.navigate(url).then((w) => (w || c).focus()).catch(() => c.focus());
+      if ("focus" in c) return c.focus();
+    }
     if (self.clients.openWindow) return self.clients.openWindow(url);
   }));
 });

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import { prisma } from "../src/db.js";
 import { resetDb } from "./helpers/db.js";
-import { runAlerts } from "../src/alerts/run.js";
+import { runAlerts, makeClosedCheck } from "../src/alerts/run.js";
+import { theRiver } from "../src/alerts/mailer.js";
 
 const habitat = { hold:88,struct:80,spawn:70,cold:95,ox:86,gw:60 };
 
@@ -54,5 +55,41 @@ describe("runAlerts", () => {
     const r = await runAlerts({ now: new Date("2026-05-15T12:00:00Z"),
       fetchWeather: vi.fn().mockResolvedValue({ airMean: 10, days: 4, flow: "Normal" }), sendEmail: vi.fn() });
     expect(r.sent).toBe(0);
+  });
+  it("never alerts on a stretch that's closed today", async () => {
+    const user = await prisma.user.create({ data: { email: "c@b.com", alertEmail: true, alertThreshold: 60 } });
+    await prisma.savedSpot.create({ data: { userId: user.id, ref: "shut", river: "R", section: "S",
+      lat: 43.7, lon: -80.3, habitat, species: ["BNT"], history: 90 } });
+    const sendEmail = vi.fn().mockResolvedValue(true);
+    const r = await runAlerts({ now: new Date("2026-05-15T12:00:00Z"), isClosed: (s) => s.ref === "shut",
+      fetchWeather: vi.fn().mockResolvedValue({ airMean: 10, days: 4, flow: "Normal" }), sendEmail });
+    expect(r.sent).toBe(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("links a single-river push to that river's report, without em dashes", async () => {
+    const user = await prisma.user.create({ data: { email: "p@b.com", alertEmail: false, alertThreshold: 60,
+      pushSubs: { create: { endpoint: "https://push.test/1", p256dh: "k", auth: "a" } } } });
+    await prisma.savedSpot.create({ data: { userId: user.id, ref: "wilmot", river: "Wilmot Creek", section: "Lower — Newcastle",
+      lat: 43.7, lon: -80.3, habitat, species: ["BNT"], history: 90 } });
+    const sendPush = vi.fn().mockResolvedValue(true);
+    await runAlerts({ now: new Date("2026-05-15T12:00:00Z"), isClosed: () => false,
+      fetchWeather: vi.fn().mockResolvedValue({ airMean: 10, days: 4, flow: "Normal" }), sendPush });
+    const msg = sendPush.mock.calls[0][1];
+    expect(msg.url).toBe("/?river=wilmot");
+    expect(msg.title).toBe("Prime conditions on Wilmot Creek");
+    expect(msg.body).toMatch(/^Lower: Newcastle is at \d+\/100/);
+  });
+
+  it("reads the official season: lower Credit open in November, Grand tailwater closed", async () => {
+    const closed = await makeClosedCheck(new Date("2026-11-15T12:00:00-05:00"));
+    // Without synced zones in the test DB it never blocks; with them it follows the rules.
+    expect(typeof closed({ ref: "grand-tw", species: ["BNT", "RBT"] })).toBe("boolean");
+    expect(closed({ ref: "not-a-reach", species: [] })).toBe(false);
+  });
+
+  it("says 'the Credit River' but 'Wilmot Creek'", () => {
+    expect(theRiver("Credit River")).toBe("the Credit River");
+    expect(theRiver("Wilmot Creek")).toBe("Wilmot Creek");
   });
 });

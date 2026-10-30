@@ -2209,6 +2209,19 @@ export default function App(){
     logEvent("view_reach",s.id,{via:"saved"});
     setReportFor(ev);
   },[ranked,month,condFor,regsAll]);
+  // A prime-conditions alert opens /?river=<id>: show that river's report.
+  const riverLinkDone=useRef(false);
+  useEffect(()=>{
+    if(riverLinkDone.current) return;
+    let want=null; try{ want=new URLSearchParams(location.search).get("river"); }catch{}
+    if(!want){ riverLinkDone.current=true; return; }
+    const s=saved.find(x=>x.id===want);
+    // Wait for live conditions, so the report shows the real score.
+    if(!s||!ranked.length||status!=="live") return;
+    riverLinkDone.current=true;
+    try{ history.replaceState({},"",location.pathname); }catch{}
+    setTab("rivers"); openSavedReport(s);
+  },[saved,ranked,status,openSavedReport]);
   // When a location is set, only show water within the chosen radius.
   const rankedNear=useMemo(()=> userLoc ? ranked.filter(e=>{ const d=distOf(e.sec); return d==null || d<=radiusM/1000; }) : ranked, [ranked,userLoc,radiusM,distOf]);
   const top3=rankedNear.slice(0,3), honourable=rankedNear.slice(3,6);
@@ -3212,7 +3225,7 @@ function AlertPrefs(){
     <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:C.text,cursor:push==="busy"||push==="unsupported"||push==="unconfigured"?"default":"pointer",marginTop:10,opacity:push==="unsupported"||push==="unconfigured"?0.6:1}}>
       <input type="checkbox" checked={push==="on"} disabled={push==="busy"||push==="unsupported"||push==="unconfigured"} onChange={togglePush}/> Push notifications on this device
     </label>
-    {push!=="unsupported"&&push!=="unconfigured" && <div style={note}>We check your saved rivers every hour and alert you at most once a day per river. Push also covers likes and comments on your posts.</div>}
+    {push!=="unsupported"&&push!=="unconfigured" && <div style={note}>We check your saved rivers every hour and alert you when one reaches your level: at most twice a week per river, and one message every 12 hours at most. Push also covers likes and comments on your posts.</div>}
     {push==="denied" && <div style={note}>Notifications are blocked. Turn them on for this site in your browser settings.</div>}
     {push==="unsupported" && <div style={note}>This browser can't do push. On iPhone, add the app to your Home Screen first, then enable it here.</div>}
     {push==="unconfigured" && <div style={note}>Push isn't switched on for the server yet.</div>}
@@ -3746,7 +3759,7 @@ function MeasuredGauge({id,lat,lon}){
   return (<div style={{marginTop:10,padding:"8px 11px",background:`${C.cyanDeep}12`,border:`1px solid ${C.cyanDeep}33`,borderRadius:8,fontSize:12,color:C.text,lineHeight:1.45}}>
     <span style={{fontFamily:sans,fontSize:9,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.pine}}>Measured · {station?"river gauge":"nearest gauge"}</span>
     <div style={{marginTop:3}}><b>{g.name}</b>{g.distanceKm!=null?` · ${g.distanceKm} km`:""}{g.trend?` · ${g.trend==="falling"?"dropping":g.trend} over 24 h`:""}</div>
-    <div style={{marginTop:2}}>Flow <b>{g.discharge} m³/s</b>{g.level!=null?<> · level <b>{g.level} m</b></>:null} <span style={{color:C.textFaint}}>· {ago===0?"just now":`${ago} h ago`}</span></div>
+    <div style={{marginTop:2}}>{[g.discharge!=null?<>Flow <b>{g.discharge} m³/s</b></>:null, g.level!=null?<>Level <b>{g.level} m</b></>:null].filter(Boolean).map((x,i)=><React.Fragment key={i}>{i?" · ":""}{x}</React.Fragment>)} <span style={{color:C.textFaint}}>· {ago===0?"just now":`${ago} h ago`}</span></div>
     <div style={{fontFamily:sans,fontSize:9.5,color:C.textFaint,marginTop:3}}>Live reading from Water Survey of Canada. Water temperature remains modeled.</div>
   </div>);
 }
