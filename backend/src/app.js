@@ -14,6 +14,7 @@ import adminRoutes from "./routes/admin.js";
 import analyticsRoutes from "./routes/analytics.js";
 import adminReconcileRoutes from "./routes/admin-reconcile.js";
 import adminUserRoutes from "./routes/admin-user.js";
+import adminCustomerRoutes from "./routes/admin-customers.js";
 import noteRoutes from "./routes/notes.js";
 import postRoutes from "./routes/posts.js";
 import pushRoutes from "./routes/push.js";
@@ -56,6 +57,7 @@ export function buildApp(opts = {}) {
   app.register(analyticsRoutes);
   app.register(adminReconcileRoutes);
   app.register(adminUserRoutes);
+  app.register(adminCustomerRoutes);
   app.register(noteRoutes);
   app.register(postRoutes);
   app.register(pushRoutes);

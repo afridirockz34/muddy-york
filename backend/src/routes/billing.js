@@ -92,7 +92,7 @@ export default async function billingRoutes(app) {
         // box next to the Start trial button. Needs a Terms of service URL in
         // Stripe Settings > Public details.
         consent_collection: { terms_of_service: "required" },
-        custom_text: { terms_of_service_acceptance: { message: `I agree to the [Terms and refund policy](${TERMS_URL}).` } },
+        custom_text: { terms_of_service_acceptance: { message: `I agree to the [Terms and refund policy](${TERMS_URL}), including emails and the newsletter from Muddy York Fishing (unsubscribe anytime).` } },
       };
       let session;
       try {
@@ -103,7 +103,7 @@ export default async function billingRoutes(app) {
         if (!/terms of service/i.test(e?.raw?.message || e?.message || "")) throw e;
         req.log?.warn?.("stripe terms URL not set; using submit text for terms acceptance");
         delete params.consent_collection;
-        params.custom_text = { submit: { message: `By starting your trial you agree to the [Terms and refund policy](${TERMS_URL}).` } };
+        params.custom_text = { submit: { message: `By starting your trial you agree to the [Terms and refund policy](${TERMS_URL}), including emails and the newsletter from Muddy York Fishing (unsubscribe anytime).` } };
         session = await getStripe().checkout.sessions.create(params);
       }
       return { clientSecret: session.client_secret };

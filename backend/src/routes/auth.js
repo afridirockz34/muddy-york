@@ -1,3 +1,4 @@
+import { syncUser } from "../mailerlite/sync.js";
 import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
@@ -51,11 +52,12 @@ export default async function authRoutes(app) {
     // No no-card trial: the free trial starts only after checkout with a card.
     let user;
     try {
-      user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), displayName } });
+      user = await prisma.user.create({ data: { email, passwordHash: await hashPassword(password), displayName, emailConsentAt: new Date() } });
     } catch (e) {
       // Unique race on email or (if a DB constraint exists) username.
       return reply.code(409).send({ error: "email or username already taken" });
     }
+    syncUser(user.id).catch(() => {});
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
     return { user: publicUser(user) };

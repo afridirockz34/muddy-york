@@ -1,3 +1,4 @@
+import { unsubscribeEmail } from "../mailerlite/sync.js";
 import { prisma } from "../db.js";
 import { verifyUnsub } from "../billing/email-tokens.js";
 
@@ -20,7 +21,8 @@ export default async function unsubscribeRoutes(app) {
     const { u, t } = req.query || {};
     const ok = u && verifyUnsub(u, t);
     if (ok) {
-      await prisma.user.update({ where: { id: u }, data: { emailOptOut: true } }).catch(() => {});
+      const user = await prisma.user.update({ where: { id: u }, data: { emailOptOut: true } }).catch(() => null);
+      if (user) unsubscribeEmail(user.email).catch(() => {});
     }
     reply
       .type("text/html")

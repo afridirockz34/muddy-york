@@ -1,3 +1,4 @@
+import { syncUser } from "../mailerlite/sync.js";
 import { Apple, generateState } from "arctic";
 import { prisma } from "../db.js";
 import { placeholderUsername } from "../auth/username.js";
@@ -51,7 +52,10 @@ export default async function appleRoutes(app) {
     if (!sub) return reply.code(400).send({ error: "no apple identity" });
     const appleId = "apple:" + sub;
     let user = await prisma.user.findFirst({ where: { OR: [{ googleId: appleId }, ...(email ? [{ email }] : [])] } });
-    if (!user) user = await prisma.user.create({ data: { email: email || `${sub}@appleid.local`, googleId: appleId, emailVerified: true, displayName: await placeholderUsername(), usernameChosen: false } });
+    if (!user) {
+      user = await prisma.user.create({ data: { email: email || `${sub}@appleid.local`, googleId: appleId, emailVerified: true, displayName: await placeholderUsername(), usernameChosen: false, emailConsentAt: new Date() } });
+      syncUser(user.id).catch(() => {});
+    }
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
     return reply.redirect(config.frontendOrigin + "/?signedin=1");

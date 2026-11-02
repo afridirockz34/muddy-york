@@ -2721,6 +2721,7 @@ function AdminSheet({onClose}){
   useScrollLock();
   const [d,setD]=useState(null);
   const [profileEmail,setProfileEmail]=useState(null);
+  const [allCustomers,setAllCustomers]=useState(false);
   const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
   useEffect(()=>{ let live=true; proxyJSON("/api/admin/overview").then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); }); return ()=>{live=false;}; },[]);
   const reconcile=async(all)=>{ setRecBusy(true); setRecOut(null);
@@ -2782,6 +2783,10 @@ function AdminSheet({onClose}){
               {(d.topReaches||[]).length ? bars(d.topReaches) : <div style={{fontSize:12.5,color:C.textFaint}}>No views yet.</div>}
             </>); })()}
           {head("Recent signups")}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+            <button onClick={()=>setAllCustomers(true)} style={{...btnBig,padding:"8px 12px"}}><Icon name="list" size={14}/>See all customers</button>
+            <ExportCustomersButton/>
+          </div>
           <div style={{fontSize:11,color:C.textFaint,marginBottom:6}}>Tap a user to see their full profile.</div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {(d.recentSignups||[]).map((u,i)=>(<button key={i} onClick={()=>setProfileEmail(u.email)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,fontSize:12.5,color:C.text,background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"7px 2px",cursor:"pointer",textAlign:"left",width:"100%"}}>
@@ -2798,6 +2803,8 @@ function AdminSheet({onClose}){
             </div></>}
         </div>)}
 
+      {head("Newsletter list (MailerLite)")}
+      <MailerLiteAdmin/>
       {head("Blog")}
       <BlogAdmin/>
       {head("Seasons")}
@@ -2825,7 +2832,91 @@ function AdminSheet({onClose}){
           </div>)}
       <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
     </div>
+    {allCustomers && <CustomersSheet onClose={()=>setAllCustomers(false)}/>}
     {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); proxyJSON("/api/admin/overview").then(setD).catch(()=>{}); }}/>}
+  </div>);
+}
+
+// Excel file of every customer: email, username, plan, sign-up date, device,
+// how they found us and the rivers they care about.
+function ExportCustomersButton({q,plan}){
+  const [busy,setBusy]=useState(false),[err,setErr]=useState("");
+  const run=async()=>{ setBusy(true); setErr("");
+    try{ const qs=new URLSearchParams(); if(q) qs.set("q",q); if(plan) qs.set("plan",plan);
+      const r=await fetch(`${API_BASE}/api/admin/customers/export.xlsx${qs.toString()?`?${qs}`:""}`,{credentials:"include"});
+      if(!r.ok) throw new Error(String(r.status));
+      const name=((r.headers.get("Content-Disposition")||"").match(/filename="([^"]+)"/)||[])[1]||"muddy-york-customers.xlsx";
+      const url=URL.createObjectURL(await r.blob()); const a=document.createElement("a"); a.href=url; a.download=name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+      logEvent("admin_export","customers"); }
+    catch{ setErr("Couldn't export. Try again."); }
+    finally{ setBusy(false); } };
+  return (<span style={{display:"inline-flex",alignItems:"center",gap:8}}>
+    <button disabled={busy} onClick={run} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}><Icon name="download" size={14}/>{busy?"Preparing…":"Export to Excel"}</button>
+    {err && <span style={{fontSize:12,color:C.brick}}>{err}</span>}
+  </span>);
+}
+
+function CustomersSheet({onClose}){
+  useScrollLock();
+  const [q,setQ]=useState(""),[plan,setPlan]=useState(""),[rows,setRows]=useState(null),[total,setTotal]=useState(0),[busy,setBusy]=useState(false);
+  const [profileEmail,setProfileEmail]=useState(null);
+  const load=async(offset=0)=>{ setBusy(true);
+    try{ const d=await proxyJSON(`/api/admin/customers?limit=50&offset=${offset}${q.trim()?`&q=${encodeURIComponent(q.trim())}`:""}${plan?`&plan=${plan}`:""}`);
+      setTotal(d.total); setRows(r=>offset?[...(r||[]),...d.rows]:d.rows); }
+    catch{ if(!offset) setRows("error"); }
+    finally{ setBusy(false); } };
+  useEffect(()=>{ const t=setTimeout(()=>load(0),q?300:0); return ()=>clearTimeout(t); },[q,plan]);
+  const dt=(iso)=>iso?new Date(iso).toLocaleDateString([], {year:"numeric",month:"short",day:"numeric"}):"";
+  const tone={free:C.textFaint,trial:C.brass,monthly:C.pine,yearly:C.pine,gift:C.pine};
+  const filters=[["","All"],["free","Free"],["trial","Trial"],["monthly","Monthly"],["yearly","Yearly"],["gift","Gift"]];
+  return (<div onClick={onClose} style={{...sheetOverlay,zIndex:9100}}>
+    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:640,maxHeight:"90vh"}}>
+      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
+        <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>All customers</div>
+        <div style={{fontSize:12,color:C.textDim}}>{rows&&rows!=="error"?`${total} ${total===1?"person":"people"}`:""}</div>
+      </div>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search email or username" style={{width:"100%",boxSizing:"border-box",margin:"10px 0 8px",padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+        {filters.map(([k,l])=>(<button key={k} onClick={()=>setPlan(k)} style={{...notePill,cursor:"pointer",background:plan===k?C.pine:C.bone,color:plan===k?"#fff":C.textDim,borderColor:plan===k?C.pine:C.line}}>{l}</button>))}
+      </div>
+      <div style={{marginBottom:10}}><ExportCustomersButton q={q.trim()} plan={plan}/></div>
+      {rows==null ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>Loading…</div>
+        : rows==="error" ? <div style={{fontSize:13,color:C.brick,padding:"12px 0"}}>Couldn't load customers.</div>
+        : !rows.length ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>No one matches.</div>
+        : (<div style={{display:"flex",flexDirection:"column"}}>
+          {rows.map(u=>(<button key={u.id} onClick={()=>setProfileEmail(u.email)} style={{display:"block",textAlign:"left",width:"100%",background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"9px 2px",cursor:"pointer",color:C.text}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
+              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:13,fontWeight:600}}>{u.email}{u.username?<span style={{fontWeight:400,color:C.textDim}}> · {u.username}</span>:null}</span>
+              <span style={{flexShrink:0,fontSize:11.5,fontWeight:700,color:tone[u.plan]||C.textDim}}>{u.planLabel}</span>
+            </div>
+            <div style={{fontSize:11.5,color:C.textDim,marginTop:3,lineHeight:1.45}}>
+              {[`Joined ${dt(u.registered)}`, u.source&&`from ${u.source}`, u.device||u.lastDevice, u.topRiver&&`likes ${u.topRiver}`, u.emailOptOut&&"unsubscribed"].filter(Boolean).join(" · ")}
+            </div>
+          </button>))}
+          {rows.length<total && <button disabled={busy} onClick={()=>load(rows.length)} style={{...btnBig,justifyContent:"center",marginTop:10}}>{busy?"Loading…":`Show more (${total-rows.length} left)`}</button>}
+        </div>)}
+      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button>
+    </div>
+    {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); load(0); }}/>}
+  </div>);
+}
+
+function MailerLiteAdmin(){
+  const [st,setSt]=useState(null),[busy,setBusy]=useState(false),[out,setOut]=useState(null);
+  useEffect(()=>{ proxyJSON("/api/admin/mailerlite").then(setSt).catch(()=>setSt({error:true})); },[]);
+  const sync=async()=>{ setBusy(true); setOut(null);
+    try{ setOut(await proxyJSON("/api/admin/mailerlite/sync",{method:"POST"})); }
+    catch(e){ setOut({error:(e&&e.info&&e.info.error)||"Sync failed. Try again."}); }
+    finally{ setBusy(false); } };
+  if(!st) return <div style={{fontSize:12.5,color:C.textFaint}}>Checking…</div>;
+  if(!st.connected) return <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Not connected. Add <b>MAILERLITE_API_KEY</b> in Render's environment settings and every user who hasn't unsubscribed is copied to the "{st.group||"Muddy York app users"}" group, and kept up to date every 6 hours.</div>;
+  return (<div>
+    <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Connected. Users are copied to the "{st.group}" group as they sign up, and the whole list is refreshed every 6 hours. Unsubscribes are kept in step both ways.</div>
+    <button disabled={busy} onClick={sync} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}>{busy?"Syncing…":"Sync now"}</button>
+    {out && (out.error ? <div style={{fontSize:12.5,color:C.brick,marginTop:8}}>{out.error}</div>
+      : <div style={{fontSize:12.5,color:C.pine,marginTop:8}}>Synced {out.synced} subscribed, {out.unsubscribed} marked unsubscribed{out.optedOutFromMailerLite?`, ${out.optedOutFromMailerLite} unsubscribed in MailerLite`:""}{out.failed?`, ${out.failed} failed`:""}.</div>)}
   </div>);
 }
 // Blog posts for muddyyorkfishing.ca/blog: list, write, edit, publish, delete.
@@ -3438,7 +3529,7 @@ function SignInGate({onAuth,providers={}}){
             <input style={inp} type="password" placeholder="password (8+ characters)" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") submit(); }}/>
             <button disabled={busy||(touched&&!!emailErr)} onClick={submit} style={{...gateBtn,background:C.brick,color:"#fff",marginTop:12,opacity:(busy||(touched&&emailErr))?0.6:1}}>{busy?"…":mode==="signup"?"Create account":"Sign in"}</button>
             {mode==="signin" && <div style={{textAlign:"center",marginTop:10}}><button onClick={()=>{setMode("forgot");setErr("");}} style={link}>Forgot password?</button></div>}
-            {mode==="signup" && <div style={{textAlign:"center",marginTop:10,fontSize:11.5,color:"#B7C7B7",lineHeight:1.5}}>By creating an account you agree to the <a href="/terms/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Terms</a> and <a href="/privacy/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Privacy policy</a>.</div>}
+            {mode==="signup" && <div style={{textAlign:"center",marginTop:10,fontSize:11.5,color:"#B7C7B7",lineHeight:1.5}}>By creating an account you agree to the <a href="/terms/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Terms</a> and <a href="/privacy/" target="_blank" rel="noopener noreferrer" style={{color:"#EFE9DB"}}>Privacy policy</a>, including our emails and newsletter. Unsubscribe anytime.</div>}
             <div style={{textAlign:"center",marginTop:12,fontSize:12.5,color:"#B7C7B7"}}>{mode==="signup"?"Already have an account? ":"New here? "}<button onClick={()=>{setMode(mode==="signup"?"signin":"signup");setErr("");}} style={link}>{mode==="signup"?"Sign in":"Create one"}</button></div>
           </div>)}
       <div style={{textAlign:"center",fontSize:11.5,color:"#B7C7B7",marginTop:18,lineHeight:1.55}}>{PITCH} Free to start.</div>

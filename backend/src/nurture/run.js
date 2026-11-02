@@ -4,6 +4,7 @@ import { resolveEntitlement } from "../billing/entitlement.js";
 import { scoreSpot } from "../alerts/score.js";
 import { sendMail } from "../alerts/mailer.js";
 import { unsubUrl } from "../billing/email-tokens.js";
+import { runWelcome } from "./welcome.js";
 
 // Free-member nudges. The idea is "show, then offer": tell a free member
 // something true and useful about a river THEY looked at (the app or the
@@ -121,7 +122,11 @@ export function scheduleNurture({ fetchWeather, sendPush, log = console } = {}) 
   let busy = false;
   const run = async () => {
     if (busy) return; busy = true;
-    try { const r = await runNurture({ fetchWeather, sendPush }); if (r.pushes || r.emails) log.info?.({ nurture: r }, "free-member nudges"); }
+    try {
+      // Welcome emails first, so a new member never gets both on one day.
+      const w = await runWelcome({ fetchWeather }); if (w.sent) log.info?.({ welcome: w }, "welcome emails");
+      const r = await runNurture({ fetchWeather, sendPush }); if (r.pushes || r.emails) log.info?.({ nurture: r }, "free-member nudges");
+    }
     catch (e) { log.error?.({ err: e }, "free-member nudges failed"); }
     finally { busy = false; }
   };

@@ -1,3 +1,4 @@
+import { forgetEmail } from "../mailerlite/sync.js";
 import { prisma } from "../db.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { isAdmin } from "../social/moderation.js";
@@ -85,6 +86,7 @@ export default async function adminUserRoutes(app) {
     await prisma.notification.deleteMany({ where: { actorId: u.id } });
     // Everything else cascades from the User row.
     await prisma.user.delete({ where: { id: u.id } });
+    forgetEmail(u.email).catch(() => {});
     return { ok: true, deleted: u.email };
   });
 }

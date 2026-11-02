@@ -676,7 +676,7 @@ fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
 urls.push(SITE_URL + "/regions/");
 
 // ---- trust pages: privacy, terms, contact ----
-const UPDATED = "October 14, 2026";
+const UPDATED = "November 2, 2026";
 const CONTACT = "info@muddyyorkfishing.ca";
 const LEGAL = [
   { slug: "privacy", title: "Privacy policy", desc: "How Muddy York Fishing collects, uses and protects your information, which services we rely on, and your privacy rights under PIPEDA.", body: `
@@ -694,12 +694,14 @@ const LEGAL = [
 <h2>How we use it</h2>
 <ul>
 <li>To run the app: rank rivers, show conditions and regulations, save your rivers and notes, and sync them across your devices.</li>
-<li>To send what you ask for: condition alerts for your saved rivers, password resets, membership receipts and replies to support requests. Every non-essential email has an unsubscribe link.</li>
+<li>To send what you ask for: condition alerts for your saved rivers, password resets, membership receipts and replies to support requests.</li>
+<li>To send our newsletter and emails about the app: tips, updates on the rivers you look at, new features and membership offers. You agree to these when you create an account, and every one of them has an unsubscribe link.</li>
+<li>To suggest the right rivers and features to you, using the rivers you look at, save and fish.</li>
 <li>To keep the community safe: moderate reported posts and enforce our <a href="/terms/">terms</a>.</li>
 <li>To improve the app, using usage information in aggregate.</li>
 </ul>
 <h2>Services we rely on</h2>
-<p>We share only what each service needs to do its job: Stripe (payments), Resend (email), Cloudinary (photo hosting), Render and Neon (our servers and database), Netlify (the website), Google and Apple (if you choose them to sign in), Open-Meteo (weather for the rivers you view), and OpenStreetMap, Esri and Water Survey of Canada (maps, river and gauge data). Some of these providers store data outside Canada, including in the United States.</p>
+<p>We share only what each service needs to do its job: Stripe (payments), Resend (email), MailerLite (our newsletter: your email, username, plan, sign-up date, how you found us, device type and the river you look at most), Cloudinary (photo hosting), Render and Neon (our servers and database), Netlify (the website), Google and Apple (if you choose them to sign in), Open-Meteo (weather for the rivers you view), and OpenStreetMap, Esri and Water Survey of Canada (maps, river and gauge data). Some of these providers store data outside Canada, including in the United States.</p>
 <h2>Cookies and storage</h2>
 <p>We use one essential cookie to keep you signed in. The app also stores your saved rivers, notes and settings on your device so it works quickly and offline.</p>
 <h2>How long we keep it</h2>
@@ -708,7 +710,7 @@ const LEGAL = [
 <ul>
 <li>See, correct or download the information we hold about you.</li>
 <li>Delete your account and its content.</li>
-<li>Turn off email or push alerts at any time in your Profile.</li>
+<li>Unsubscribe from our newsletter and marketing emails at any time with the link in any email. Turn off email or push alerts in your Profile.</li>
 <li>Withdraw consent, or make a complaint to the Office of the Privacy Commissioner of Canada.</li>
 </ul>
 <p>To make a request, email <a href="mailto:${CONTACT}">${CONTACT}</a>.</p>
@@ -717,10 +719,16 @@ const LEGAL = [
 <h2>Changes</h2>
 <p>If we change this policy in a meaningful way, we will update the date above and tell members in the app or by email.</p>` },
   { slug: "terms", title: "Terms of service", desc: "The terms for using the Muddy York Fishing app and website: membership, the 7-day free trial, billing, cancelling, refunds, gifts and fishing safely.", body: `
-<p class="meta">Last updated October 14, 2026</p>
+<p class="meta">Last updated November 2, 2026</p>
 <p>These terms apply to the Muddy York Fishing app and the website at muddyyorkfishing.ca. By creating an account or using the app, you agree to them.</p>
 <h2>Your account</h2>
 <p>You need to be at least 13 to use the app, and the age of majority in your province to buy a membership. Keep your login private; you are responsible for activity on your account. Give us a real email address so we can reach you about your account.</p>
+<h2 id="emails">Emails and newsletter</h2>
+<ul>
+<li>By creating an account, or by starting a membership and agreeing at checkout, you agree to receive emails from Muddy York Fishing at the address on your account. These include our newsletter, tips and updates about the rivers you look at, new features, and membership offers.</li>
+<li>You can unsubscribe at any time with the link at the bottom of every email, or by emailing <a href="mailto:${CONTACT}">${CONTACT}</a>. Unsubscribing doesn't affect your account or membership. We'll still send emails you need, such as receipts, password resets and notices about your membership.</li>
+<li>Condition alerts for your saved rivers are separate, and you control them in your Profile.</li>
+</ul>
 <h2>Membership, trial and billing</h2>
 <ul>
 <li>A membership is billed monthly or yearly, at the price shown when you sign up, plus any applicable taxes.</li>
