@@ -1,9 +1,19 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { isAdmin } from "../social/moderation.js";
+import { riverFor } from "../customers/profile.js";
 
 const TZ = "America/Toronto";
 const num = (v) => Number(v || 0);
+
+// Things people do in the app, in plain words. Tracking plumbing is left out.
+const ACTIONS = {
+  view_reach: "Opened a river report", save: "Saved a river", discover: "Scouted for water", directions: "Got directions",
+  trip_report: "Reported a trip", run_checkin: "Run tracker check-in", ice_scout: "Scouted ice lakes", push_on: "Turned on alerts",
+  install: "Installed the app", checkout_open: "Opened checkout", checkout_plan: "Picked a plan", gift_redeem: "Redeemed a gift",
+  form_submit: "Sent a form on the website", tour_done: "Finished the app tour", mode: "Switched mode", js_error: "Hit an app error",
+};
 
 // Admin-only analytics for the website and the app, from our own event log.
 // Visitors are counted by the anonymous visitorId both share; sessions end
@@ -19,6 +29,7 @@ export default async function analyticsRoutes(app) {
 
     const [
       totals, daily, pages, leave, clicks, screens, sources, devices, funnelRows, liveNow, sessions,
+      landings, rivers, actions, made, recentCatches,
     ] = await Promise.all([
       prisma.$queryRaw`SELECT COUNT(DISTINCT "visitorId") AS visitors, COUNT(DISTINCT "sessionId") AS sessions,
           COUNT(*) FILTER (WHERE type = 'pageview') AS pageviews, COUNT(*) FILTER (WHERE type = 'screen') AS screens,
@@ -55,6 +66,18 @@ export default async function analyticsRoutes(app) {
           (ARRAY_AGG(ref ORDER BY "createdAt") FILTER (WHERE type IN ('pageview','screen')))[1] AS entry
         FROM "Event" WHERE "sessionId" IS NOT NULL AND "createdAt" >= ${since}
         GROUP BY "sessionId" ORDER BY MAX("createdAt") DESC LIMIT 40`,
+      prisma.$queryRaw`SELECT ref AS label, COUNT(*) AS count FROM "Event"
+        WHERE type = 'landing' AND "createdAt" >= ${since} GROUP BY ref ORDER BY count DESC LIMIT 12`,
+      prisma.$queryRaw`SELECT ref AS label, COUNT(*) AS count, COUNT(DISTINCT COALESCE("userId", "visitorId")) AS visitors FROM "Event"
+        WHERE type = 'view_reach' AND ref IS NOT NULL AND "createdAt" >= ${since} GROUP BY ref ORDER BY count DESC LIMIT 40`,
+      prisma.$queryRaw`SELECT type AS label, COUNT(*) AS count, COUNT(DISTINCT COALESCE("userId", "visitorId")) AS visitors FROM "Event"
+        WHERE type IN (${Prisma.join(Object.keys(ACTIONS))}) AND "createdAt" >= ${since} GROUP BY type ORDER BY count DESC`,
+      Promise.all([
+        prisma.catch.count({ where: { createdAt: { gte: since } } }), prisma.note.count({ where: { createdAt: { gte: since }, deletedAt: null } }),
+        prisma.post.count({ where: { createdAt: { gte: since }, deletedAt: null } }), prisma.comment.count({ where: { createdAt: { gte: since }, deletedAt: null } }),
+        prisma.tripReport.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+      ]),
+      prisma.catch.findMany({ where: { caughtAt: { gte: since } }, orderBy: { caughtAt: "desc" }, take: 8, select: { species: true, sizeInches: true, river: true, caughtAt: true } }),
     ]);
 
     const t = totals[0] || {};
@@ -87,6 +110,17 @@ export default async function analyticsRoutes(app) {
         { step: "Started a trial", count: num(f.started_trial) },
         { step: "Paying members (all time)", count: paid },
       ],
+      landings: top(landings, 12),
+      // River sections, merged by river name, so the Credit's three sections read as one line.
+      rivers: (() => {
+        const by = new Map();
+        for (const r of rivers) { const x = riverFor(r.label); const k = x ? x.river : r.label;
+          const cur = by.get(k) || { label: k, count: 0, visitors: 0 }; cur.count += num(r.count); cur.visitors += num(r.visitors); by.set(k, cur); }
+        return [...by.values()].sort((a, b) => b.count - a.count).slice(0, 12);
+      })(),
+      actions: actions.map((a) => ({ label: ACTIONS[a.label] || a.label, count: num(a.count), visitors: num(a.visitors) })),
+      made: { catches: made[0], notes: made[1], posts: made[2], comments: made[3], trips: made[4] },
+      recentCatches: recentCatches.map((c) => ({ species: c.species, sizeInches: c.sizeInches, river: c.river, caughtAt: c.caughtAt.toISOString() })),
       sessions: sessions.map((s) => ({
         id: s.id, started: new Date(s.started).toISOString(), ended: new Date(s.ended).toISOString(),
         events: num(s.events), views: num(s.views), entry: s.entry || null, source: s.source || null,

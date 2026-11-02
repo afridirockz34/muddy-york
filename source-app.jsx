@@ -2648,25 +2648,38 @@ function SeasonAdmin(){
 }
 // Website + app analytics from our own event log: who visits, from where,
 // what they read and tap, where they drop off, and each visit's full journey.
-function AnalyticsAdmin(){
-  const [days,setDays]=useState(7),[d,setD]=useState(null),[open,setOpen]=useState(null),[journey,setJourney]=useState(null);
+// Admin dashboard, in four tabs: Members (opens first), Traffic, Integrations, Blog.
+const adminHead=(t,sub)=>(<div style={{margin:"20px 0 9px"}}>
+  <div style={{fontFamily:sans,fontSize:10.5,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass}}>{t}</div>
+  {sub && <div style={{fontSize:11.5,color:C.textFaint,marginTop:3,lineHeight:1.45}}>{sub}</div>}</div>);
+const adminCard={background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:12,padding:"12px 13px"};
+const adminStat=(label,val,sub)=>(<div key={label} style={{flex:"1 1 22%",minWidth:72,...adminCard,padding:"10px 11px"}}>
+  <div style={{fontFamily:serif,fontSize:21,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
+  <div style={{fontFamily:sans,fontSize:9.5,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:5}}>{label}</div>
+  {sub!=null && <div style={{fontSize:11,color:C.textDim,marginTop:3}}>{sub}</div>}</div>);
+// Horizontal bars: label, bar, count, and an optional note after the count.
+function AdminBars({rows,note,empty="Nothing yet.",limit}){
+  const list=(rows||[]).slice(0,limit||rows?.length||0);
+  if(!list.length) return <div style={{fontSize:12,color:C.textFaint}}>{empty}</div>;
+  const max=Math.max(1,...list.map(r=>r.count));
+  return (<div style={{display:"flex",flexDirection:"column",gap:6}}>{list.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+    <span title={r.label} style={{flex:"0 0 44%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:C.text}}>{r.label}</span>
+    <span style={{flex:1,height:8,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.round(r.count/max*100)}%`,background:C.brass}}/></span>
+    <span style={{flex:"0 0 auto",fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums",textAlign:"right"}}>{r.count}{note?note(r):""}</span>
+  </div>))}</div>);
+}
+const adminSub=(t)=>(<div style={{fontFamily:sans,fontSize:12,fontWeight:700,color:C.pine,margin:"14px 0 7px"}}>{t}</div>);
+
+function TrafficAdmin(){
+  const [days,setDays]=useState(7),[d,setD]=useState(null),[open,setOpen]=useState(null),[journey,setJourney]=useState(null),[allTaps,setAllTaps]=useState(false);
   useEffect(()=>{ let live=true; setD(null);
     proxyJSON(`/api/admin/analytics?days=${days}`).then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); });
     return ()=>{live=false;}; },[days]);
   const showSession=async(id)=>{ if(open===id){ setOpen(null); return; } setOpen(id); setJourney(null);
     try{ setJourney((await proxyJSON(`/api/admin/analytics/session/${id}`)).events||[]); }catch{ setJourney([]); } };
-  const sub=(t)=>(<div style={{fontFamily:sans,fontSize:11.5,fontWeight:700,color:C.pine,margin:"14px 0 6px"}}>{t}</div>);
-  const stat=(label,val)=>(<div style={{flex:"1 1 22%",minWidth:72,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:10,padding:"9px 10px"}}>
-    <div style={{fontFamily:serif,fontSize:20,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
-    <div style={{fontSize:10,letterSpacing:0.5,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:4}}>{label}</div></div>);
-  const rows=(list,extra)=>{ const max=Math.max(1,...(list||[]).map(r=>r.count)); return (list||[]).length ? (
-    <div style={{display:"flex",flexDirection:"column",gap:5}}>{list.map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
-      <span title={r.label} style={{flex:"0 0 46%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:C.text}}>{r.label}</span>
-      <span style={{flex:1,height:8,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.round(r.count/max*100)}%`,background:C.brass}}/></span>
-      <span style={{flex:"0 0 auto",fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums",textAlign:"right"}}>{r.count}{extra?extra(r):""}</span>
-    </div>))}</div>) : <div style={{fontSize:12,color:C.textFaint}}>Nothing yet.</div>; };
   const tm=(iso)=>new Date(iso).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
   const clock=(iso)=>new Date(iso).toLocaleTimeString([], {hour:"numeric",minute:"2-digit",second:"2-digit"});
+  const dt=(iso)=>new Date(iso).toLocaleDateString([], {month:"short",day:"numeric"});
   const evText=(e)=>{ const m=e.meta||{};
     if(e.type==="pageview") return `Viewed page ${e.ref}`;
     if(e.type==="screen") return `Opened app screen: ${e.ref}`;
@@ -2675,33 +2688,76 @@ function AnalyticsAdmin(){
     if(e.type==="session_start") return `Arrived from ${m.source||"direct"} on ${m.type||""} ${m.os||""}${m.referrer?` (${m.referrer})`:""}`;
     if(e.type==="view_reach") return `Opened river report ${e.ref}`;
     return `${e.type}${e.ref?`: ${e.ref}`:""}`; };
+  const period=days===1?"the last 24 hours":`the last ${days} days`;
   return (<div>
-    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",margin:"4px 0 2px"}}>
       {[1,7,30,90].map(n=>(<button key={n} onClick={()=>setDays(n)} style={{...btn,padding:"6px 11px",borderColor:days===n?C.pine:C.line,color:days===n?C.pine:C.textDim,fontWeight:days===n?700:500}}>{n===1?"24 hours":`${n} days`}</button>))}
       {d&&!d.error && <span style={{marginLeft:"auto",fontSize:12,color:C.pine,fontWeight:700,display:"inline-flex",alignItems:"center",gap:6}}><span style={{width:8,height:8,borderRadius:8,background:d.liveNow?"#3a9a5b":C.textFaint}}/>{d.liveNow} on now</span>}
     </div>
-    {!d ? <div style={{fontSize:13,color:C.textFaint}}>Loading…</div> : d.error ? <div style={{fontSize:13,color:C.brick}}>Couldn't load analytics.</div> : (<div>
+    <div style={{fontSize:11.5,color:C.textFaint,marginTop:4}}>Everything on this page covers {period}.</div>
+    {!d ? <div style={{fontSize:13,color:C.textFaint,padding:"14px 0"}}>Loading…</div> : d.error ? <div style={{fontSize:13,color:C.brick,padding:"14px 0"}}>Couldn't load traffic.</div> : (<div>
+
+      {adminHead("At a glance","People on the website and in the app together. A visit ends after 30 quiet minutes.")}
       <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-        {stat("Visitors",d.totals.visitors)}{stat("Visits",d.totals.sessions)}{stat("Page views",d.totals.pageviews)}{stat("App screens",d.totals.screens)}
+        {adminStat("Visitors",d.totals.visitors)}{adminStat("Visits",d.totals.sessions)}{adminStat("Page views",d.totals.pageviews)}{adminStat("App screens",d.totals.screens)}
       </div>
-      <div style={{fontSize:11.5,color:C.textDim,marginTop:6}}>{d.totals.viewsPerSession} pages or screens per visit · {d.totals.members} signed-in people</div>
-      {d.daily.length>1 && (()=>{ const max=Math.max(1,...d.daily.map(x=>x.visitors)); return (<>{sub("Visitors per day")}
+      <div style={{fontSize:11.5,color:C.textDim,marginTop:7}}>{d.totals.viewsPerSession} pages or screens per visit · {d.totals.members} signed-in people</div>
+      {d.daily.length>1 && (()=>{ const max=Math.max(1,...d.daily.map(x=>x.visitors)); return (<div style={{...adminCard,marginTop:10}}>
+        <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:8}}>Visitors per day</div>
         <div style={{display:"flex",alignItems:"flex-end",gap:2,height:70,borderBottom:`1px solid ${C.lineSoft}`}}>
           {d.daily.map(x=>(<div key={x.day} title={`${x.day}: ${x.visitors} visitors, ${x.pageviews} page views`} style={{flex:1,background:C.brass,borderRadius:"3px 3px 0 0",height:`${Math.max(4,Math.round(x.visitors/max*100))}%`}}/>))}
         </div>
-        <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.textFaint,marginTop:3}}><span>{d.daily[0].day}</span><span>{d.daily[d.daily.length-1].day}</span></div></>); })()}
-      {sub("Funnel")}
-      {(()=>{ const top=Math.max(1,d.funnel[0].count); return d.funnel.map((f,i)=>(<div key={f.step} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-        <span style={{flex:"0 0 46%",fontSize:12,color:C.text}}>{f.step}</span>
-        <span style={{flex:1,height:10,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.min(100,Math.round(f.count/top*100))}%`,background:i>=4?C.pine:C.brass}}/></span>
-        <span style={{fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{f.count}</span></div>)); })()}
-      {sub("Where they came from")}{rows(d.sources)}
-      {sub("Website pages")}<div style={{fontSize:11,color:C.textFaint,marginBottom:5}}>Views · average time on page · how far they scrolled</div>
-      {rows(d.pages,(r)=>r.secs!=null?` · ${r.secs}s · ${r.scroll}%`:"")}
-      {sub("App screens")}{rows(d.screens,(r)=>` · ${r.visitors} ppl`)}
-      {sub("What they tap")}{rows(d.clicks)}
-      {sub("Devices")}{rows(d.devices)}
-      {sub("Recent visits")}<div style={{fontSize:11,color:C.textFaint,marginBottom:5}}>Tap a visit to see everything they did, in order.</div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:10.5,color:C.textFaint,marginTop:3}}><span>{d.daily[0].day}</span><span>{d.daily[d.daily.length-1].day}</span></div>
+      </div>); })()}
+
+      {adminHead("From visitor to member","How many people reached each step.")}
+      <div style={adminCard}>
+        {(()=>{ const top=Math.max(1,d.funnel[0].count); return d.funnel.map((f,i)=>(<div key={f.step} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<d.funnel.length-1?6:0}}>
+          <span style={{flex:"0 0 44%",fontSize:12,color:C.text}}>{f.step}</span>
+          <span style={{flex:1,height:10,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.min(100,Math.round(f.count/top*100))}%`,background:i>=4?C.pine:C.brass}}/></span>
+          <span style={{fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{f.count}</span></div>)); })()}
+      </div>
+
+      {adminHead("How they find us","Where visits come from, the first page they see, and what they use.")}
+      <div style={adminCard}>
+        <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:7}}>Where they came from</div>
+        <AdminBars rows={d.sources}/>
+        {adminSub("First page they land on")}
+        <AdminBars rows={d.landings}/>
+        {adminSub("Devices")}
+        <AdminBars rows={d.devices}/>
+      </div>
+
+      {adminHead("What they look at","Rivers combine every section of a river.")}
+      <div style={adminCard}>
+        <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:7}}>Rivers <span style={{fontWeight:500,color:C.textFaint}}>· report opens · people</span></div>
+        <AdminBars rows={d.rivers} note={r=>` · ${r.visitors} ppl`}/>
+        {adminSub(<>Website pages <span style={{fontWeight:500,color:C.textFaint}}>· views · time on page · scrolled</span></>)}
+        <AdminBars rows={d.pages} limit={12} note={r=>r.secs!=null?` · ${r.secs}s · ${r.scroll}%`:""}/>
+        {adminSub(<>App screens <span style={{fontWeight:500,color:C.textFaint}}>· opens · people</span></>)}
+        <AdminBars rows={d.screens} note={r=>` · ${r.visitors} ppl`}/>
+      </div>
+
+      {adminHead("What they do","Actions in the app and on the site, then the buttons and links they tap.")}
+      <div style={adminCard}>
+        <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:7}}>Actions <span style={{fontWeight:500,color:C.textFaint}}>· times · people</span></div>
+        <AdminBars rows={d.actions} note={r=>` · ${r.visitors} ppl`}/>
+        {adminSub("Most-tapped buttons and links")}
+        <AdminBars rows={d.clicks} limit={allTaps?25:8}/>
+        {(d.clicks||[]).length>8 && <button onClick={()=>setAllTaps(v=>!v)} style={{...btn,marginTop:8}}>{allTaps?"Show fewer":"Show all taps"}</button>}
+      </div>
+
+      {adminHead("What members log","Created in this period.")}
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+        {adminStat("Catches",d.made.catches)}{adminStat("Trip reports",d.made.trips)}{adminStat("Notes",d.made.notes)}{adminStat("Posts",d.made.posts)}{adminStat("Comments",d.made.comments)}
+      </div>
+      {(d.recentCatches||[]).length>0 && <div style={{...adminCard,marginTop:10}}>
+        <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:7}}>Recent catches</div>
+        {d.recentCatches.map((c,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text,padding:"2px 0"}}>
+          <span>{c.species}{c.sizeInches?` · ${c.sizeInches}"`:""} · {c.river}</span><span style={{color:C.textFaint,flexShrink:0}}>{dt(c.caughtAt)}</span></div>))}
+      </div>}
+
+      {adminHead("Recent visits","Tap a visit to see everything they did, in order.")}
       <div style={{display:"flex",flexDirection:"column"}}>{d.sessions.map(v=>(<div key={v.id} style={{borderBottom:`1px solid ${C.lineSoft}`}}>
         <button onClick={()=>showSession(v.id)} style={{display:"flex",justifyContent:"space-between",gap:8,width:"100%",background:"none",border:"none",padding:"8px 2px",cursor:"pointer",textAlign:"left",fontSize:12.5,color:C.text}}>
           <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><b style={{color:C.pine}}>{v.email||"Visitor"}</b> · {v.source||"direct"} · {v.entry||"?"}</span>
@@ -2717,123 +2773,125 @@ function AnalyticsAdmin(){
     </div>)}
   </div>);
 }
-function AdminSheet({onClose}){
-  useScrollLock();
-  const [d,setD]=useState(null);
-  const [profileEmail,setProfileEmail]=useState(null);
-  const [allCustomers,setAllCustomers]=useState(false);
+
+// Every customer, 25 at a time, with search, plan filters and the Excel export.
+function CustomerList({onOpen,reloadKey}){
+  const [q,setQ]=useState(""),[plan,setPlan]=useState(""),[rows,setRows]=useState(null),[total,setTotal]=useState(0),[busy,setBusy]=useState(false);
+  const load=async(offset=0)=>{ setBusy(true);
+    try{ const d=await proxyJSON(`/api/admin/customers?limit=25&offset=${offset}${q.trim()?`&q=${encodeURIComponent(q.trim())}`:""}${plan?`&plan=${plan}`:""}`);
+      setTotal(d.total); setRows(r=>offset?[...(r||[]),...d.rows]:d.rows); }
+    catch{ if(!offset) setRows("error"); }
+    finally{ setBusy(false); } };
+  useEffect(()=>{ const t=setTimeout(()=>load(0),q?300:0); return ()=>clearTimeout(t); },[q,plan,reloadKey]);
+  const dt=(iso)=>iso?new Date(iso).toLocaleDateString([], {year:"numeric",month:"short",day:"numeric"}):"";
+  const tone={free:C.textFaint,trial:C.brass,monthly:C.pine,yearly:C.pine,gift:C.pine};
+  const filters=[["","All"],["free","Free"],["trial","Trial"],["monthly","Monthly"],["yearly","Yearly"],["gift","Gift"]];
+  return (<div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search email or username" style={{flex:"1 1 200px",minWidth:0,padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
+      <ExportCustomersButton q={q.trim()} plan={plan}/>
+    </div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+      {filters.map(([k,l])=>(<button key={k} onClick={()=>setPlan(k)} style={{...notePill,cursor:"pointer",background:plan===k?C.pine:C.bone,color:plan===k?"#fff":C.textDim,borderColor:plan===k?C.pine:C.line}}>{l}</button>))}
+      {rows&&rows!=="error" && <span style={{marginLeft:"auto",fontSize:12,color:C.textDim}}>{total} {total===1?"person":"people"}</span>}
+    </div>
+    {rows==null ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>Loading…</div>
+      : rows==="error" ? <div style={{fontSize:13,color:C.brick,padding:"12px 0"}}>Couldn't load customers.</div>
+      : !rows.length ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>No one matches.</div>
+      : (<div style={{display:"flex",flexDirection:"column"}}>
+        {rows.map(u=>(<button key={u.id} onClick={()=>onOpen(u.email)} style={{display:"block",textAlign:"left",width:"100%",background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"9px 2px",cursor:"pointer",color:C.text}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
+            <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:13,fontWeight:600}}>{u.email}{u.username?<span style={{fontWeight:400,color:C.textDim}}> · {u.username}</span>:null}</span>
+            <span style={{flexShrink:0,fontSize:11.5,fontWeight:700,color:tone[u.plan]||C.textDim}}>{u.planLabel}</span>
+          </div>
+          <div style={{fontSize:11.5,color:C.textDim,marginTop:3,lineHeight:1.45}}>
+            {[`Joined ${dt(u.registered)}`, u.source&&`from ${u.source}`, u.device||u.lastDevice, u.topRiver&&`likes ${u.topRiver}`, u.emailOptOut&&"unsubscribed"].filter(Boolean).join(" · ")}
+          </div>
+        </button>))}
+        {rows.length<total && <button disabled={busy} onClick={()=>load(rows.length)} style={{...btnBig,justifyContent:"center",marginTop:10}}>{busy?"Loading…":`See more (${total-rows.length} more)`}</button>}
+      </div>)}
+  </div>);
+}
+
+function BillingToolsAdmin(){
   const [recEmail,setRecEmail]=useState(""),[recBusy,setRecBusy]=useState(false),[recOut,setRecOut]=useState(null);
-  useEffect(()=>{ let live=true; proxyJSON("/api/admin/overview").then(x=>{ if(live) setD(x); }).catch(()=>{ if(live) setD({error:true}); }); return ()=>{live=false;}; },[]);
   const reconcile=async(all)=>{ setRecBusy(true); setRecOut(null);
     try{ const body = all ? {} : { email: recEmail.trim() };
-      const r=await proxyJSON("/api/admin/reconcile",{method:"POST",body});
-      setRecOut(r); }
-    catch(e){ setRecOut({error: (e&&e.info&&e.info.error)||"Failed — are you the admin?"}); }
+      setRecOut(await proxyJSON("/api/admin/reconcile",{method:"POST",body})); }
+    catch(e){ setRecOut({error: (e&&e.info&&e.info.error)||"Failed. Are you signed in as the admin?"}); }
     finally{ setRecBusy(false); } };
-  const card=(label,val,sub)=>(<div style={{flex:"1 1 30%",minWidth:96,background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:11,padding:"11px 12px"}}>
-    <div style={{fontFamily:serif,fontSize:22,fontWeight:700,color:C.pine,lineHeight:1}}>{val}</div>
-    <div style={{fontFamily:sans,fontSize:10,letterSpacing:0.6,textTransform:"uppercase",color:C.textFaint,fontWeight:700,marginTop:4}}>{label}</div>
-    {sub!=null && <div style={{fontSize:11,color:C.textDim,marginTop:3}}>{sub}</div>}
-  </div>);
-  const head=(t)=>(<div style={{fontFamily:sans,fontSize:10,letterSpacing:1,textTransform:"uppercase",fontWeight:700,color:C.brass,margin:"18px 0 8px"}}>{t}</div>);
-  const dt=(iso)=>new Date(iso).toLocaleDateString([], {month:"short",day:"numeric"});
-  return (<div onClick={onClose} style={sheetOverlay}>
-    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:600}}>
-      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 14px"}}/>
-      <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine,marginBottom:2}}>Admin dashboard</div>
-      <div style={{fontSize:12,color:C.textDim,marginBottom:6}}>Live business overview. Visible only to you.</div>
-      {!d ? <div style={{fontSize:13,color:C.textFaint,padding:"14px 0"}}>Loading…</div>
-        : d.error ? <div style={{fontSize:13,color:C.brick,padding:"14px 0"}}>Couldn't load — are you signed in as the admin?</div>
-        : (<div>
-          {head("Website & app traffic")}
-          <AnalyticsAdmin/>
-          {head("Members & signups")}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {card("Users",d.users.total,`+${d.users.new7d} this week`)}
-            {card("Active members",d.members.active)}
-            {card("On trial",d.members.trialing)}
-            {card("New (30d)",d.users.new30d)}
-          </div>
-          {head("Content logged")}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {card("Catches",d.content.catches)}
-            {card("Notes",d.content.notes)}
-            {card("Posts",d.content.posts)}
-            {card("Comments",d.content.comments)}
-          </div>
-          {head("Usage (last 7 days)")}
-          <div style={{fontSize:13,color:C.text,marginBottom:6}}>{d.events7d} interactions tracked.</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {(d.topEvents||[]).slice(0,8).map(e=><span key={e.type} style={{...notePill}}>{e.type} · {e.count}</span>)}
-          </div>
-          {(()=>{ const bars=(rows)=>{ const max=Math.max(1,...(rows||[]).map(r=>r.count)); return (
-            <div style={{display:"flex",flexDirection:"column",gap:5}}>
-              {(rows||[]).map((r,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
-                <span style={{flex:"0 0 42%",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:C.text}}>{r.label}</span>
-                <span style={{flex:1,height:8,borderRadius:6,background:C.panelHi,overflow:"hidden"}}><span style={{display:"block",height:"100%",width:`${Math.round(r.count/max*100)}%`,background:C.brass}}/></span>
-                <span style={{flex:"0 0 auto",fontSize:11.5,color:C.textDim,fontVariantNumeric:"tabular-nums"}}>{r.count}</span>
-              </div>))}
-            </div>); };
-            return (<>
-              {head("How they found us (30 days)")}
-              {(d.acquisition||[]).length ? bars(d.acquisition) : <div style={{fontSize:12.5,color:C.textFaint}}>No traffic data yet.</div>}
-              {head("First page visited")}
-              {(d.landingPages||[]).length ? bars(d.landingPages) : <div style={{fontSize:12.5,color:C.textFaint}}>No landing data yet.</div>}
-              {head("Most-checked rivers")}
-              {(d.topReaches||[]).length ? bars(d.topReaches) : <div style={{fontSize:12.5,color:C.textFaint}}>No views yet.</div>}
-            </>); })()}
-          {head("Recent signups")}
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-            <button onClick={()=>setAllCustomers(true)} style={{...btnBig,padding:"8px 12px"}}><Icon name="list" size={14}/>See all customers</button>
-            <ExportCustomersButton/>
-          </div>
-          <div style={{fontSize:11,color:C.textFaint,marginBottom:6}}>Tap a user to see their full profile.</div>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {(d.recentSignups||[]).map((u,i)=>(<button key={i} onClick={()=>setProfileEmail(u.email)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,fontSize:12.5,color:C.text,background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"7px 2px",cursor:"pointer",textAlign:"left",width:"100%"}}>
-              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}{u.displayName?` · ${u.displayName}`:""}</span>
-              <span style={{color:C.textFaint,flexShrink:0,display:"inline-flex",alignItems:"center",gap:4}}>{dt(u.createdAt)}<Icon name="chevron" size={13} style={{transform:"rotate(-90deg)"}}/></span>
-            </button>))}
-          </div>
-          {(d.recentCatches||[]).length>0 && <>{head("Recent catches")}
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {d.recentCatches.map((c,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,color:C.text}}>
-                <span>{c.species}{c.sizeInches?` · ${c.sizeInches}"`:""} — {c.river}</span>
-                <span style={{color:C.textFaint,flexShrink:0}}>{dt(c.caughtAt)}</span>
-              </div>))}
-            </div></>}
-        </div>)}
-
-      {head("Newsletter list (MailerLite)")}
-      <MailerLiteAdmin/>
-      {head("Blog")}
-      <BlogAdmin/>
-      {head("Seasons")}
-      <SeasonAdmin/>
-      {head("Run tracker notes")}
-      <RunNotesAdmin/>
-      {head("Ontario regulations sync")}
-      <RegsAdmin/>
-      {head("Billing tools")}
-      <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Re-sync members from live Stripe — repairs anyone whose access drifted. Enter an email to fix one, or sweep everyone.</div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <input value={recEmail} onChange={e=>setRecEmail(e.target.value)} placeholder="member@email.com" style={{flex:"1 1 160px",minWidth:0,padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
-        <button disabled={recBusy||!recEmail.trim()} onClick={()=>reconcile(false)} style={{...btn,borderColor:C.pine,color:C.pine,padding:"9px 13px",opacity:(recBusy||!recEmail.trim())?0.5:1}}>Fix member</button>
-        <button disabled={recBusy} onClick={()=>{ if(window.confirm("Re-sync ALL members from Stripe?")) reconcile(true); }} style={{...btn,borderColor:C.brass,color:C.brickDeep,padding:"9px 13px",opacity:recBusy?0.5:1}}>Sweep all</button>
-      </div>
-      {recBusy && <div style={{fontSize:12.5,color:C.textDim,marginTop:8}}>Syncing with Stripe…</div>}
-      {recOut && (recOut.error
-        ? <div style={{fontSize:12.5,color:C.brick,marginTop:8}}>{recOut.error}</div>
-        : <div style={{marginTop:8,padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.pine,marginBottom:4}}>Reconciled {recOut.reconciled}</div>
-            {(recOut.results||[]).map((r,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,color:C.text}}>
-              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.email}</span>
-              <span style={{flexShrink:0,color:r.action==="error"?C.brick:r.entitlement==="free"?C.textFaint:C.pine,fontWeight:700}}>{r.action==="error"?r.error:`${r.action} · ${r.entitlement||r.status||"—"}`}</span>
-            </div>))}
-          </div>)}
-      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:18}}>Close</button>
+  return (<div>
+    <div style={{fontSize:12,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Re-sync members from live Stripe. This repairs anyone whose access drifted. Enter an email to fix one, or sweep everyone.</div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      <input value={recEmail} onChange={e=>setRecEmail(e.target.value)} placeholder="member@email.com" style={{flex:"1 1 160px",minWidth:0,padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
+      <button disabled={recBusy||!recEmail.trim()} onClick={()=>reconcile(false)} style={{...btn,borderColor:C.pine,color:C.pine,padding:"9px 13px",opacity:(recBusy||!recEmail.trim())?0.5:1}}>Fix member</button>
+      <button disabled={recBusy} onClick={()=>{ if(window.confirm("Re-sync ALL members from Stripe?")) reconcile(true); }} style={{...btn,borderColor:C.brass,color:C.brickDeep,padding:"9px 13px",opacity:recBusy?0.5:1}}>Sweep all</button>
     </div>
-    {allCustomers && <CustomersSheet onClose={()=>setAllCustomers(false)}/>}
-    {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); proxyJSON("/api/admin/overview").then(setD).catch(()=>{}); }}/>}
+    {recBusy && <div style={{fontSize:12.5,color:C.textDim,marginTop:8}}>Syncing with Stripe…</div>}
+    {recOut && (recOut.error
+      ? <div style={{fontSize:12.5,color:C.brick,marginTop:8}}>{recOut.error}</div>
+      : <div style={{marginTop:8,padding:"9px 11px",background:C.panel,border:`1px solid ${C.lineSoft}`,borderRadius:9}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.pine,marginBottom:4}}>Reconciled {recOut.reconciled}</div>
+          {(recOut.results||[]).map((r,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,color:C.text}}>
+            <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.email}</span>
+            <span style={{flexShrink:0,color:r.action==="error"?C.brick:r.entitlement==="free"?C.textFaint:C.pine,fontWeight:700}}>{r.action==="error"?r.error:`${r.action} · ${r.entitlement||r.status||"none"}`}</span>
+          </div>))}
+        </div>)}
+  </div>);
+}
+
+const ADMIN_TABS=[["members","Members"],["traffic","Traffic"],["integrations","Integrations"],["blog","Blog"]];
+function AdminSheet({onClose}){
+  useScrollLock();
+  const [tab,setTab]=useState("members");
+  const [d,setD]=useState(null);
+  const [profileEmail,setProfileEmail]=useState(null),[reloadKey,setReloadKey]=useState(0);
+  const loadOverview=()=>proxyJSON("/api/admin/overview").then(setD).catch(()=>setD({error:true}));
+  useEffect(()=>{ loadOverview(); },[]);
+  const panelRef=useRef(null);
+  const pick=(k)=>{ setTab(k); if(panelRef.current) panelRef.current.scrollTop=0; };
+  return (<div onClick={onClose} style={sheetOverlay}>
+    <div ref={panelRef} onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:640,maxHeight:"90vh",paddingTop:0}}>
+      <div style={{position:"sticky",top:0,zIndex:2,background:C.panel,margin:"0 -18px",padding:"12px 18px 0",borderBottom:`1px solid ${C.lineSoft}`}}>
+        <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 10px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
+          <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>Admin dashboard</div>
+          <button onClick={onClose} aria-label="Close" style={{background:"none",border:"none",cursor:"pointer",color:C.textDim,padding:4}}><Icon name="close" size={18}/></button>
+        </div>
+        <div role="tablist" style={{display:"flex",gap:4,overflowX:"auto",marginTop:8,scrollbarWidth:"none"}}>
+          {ADMIN_TABS.map(([k,l])=>(<button key={k} role="tab" aria-selected={tab===k} onClick={()=>pick(k)} style={{flex:"0 0 auto",background:"none",border:"none",borderBottom:`3px solid ${tab===k?C.brass:"transparent"}`,padding:"8px 10px 9px",cursor:"pointer",fontFamily:sans,fontSize:13.5,fontWeight:tab===k?700:500,color:tab===k?C.pine:C.textDim}}>{l}</button>))}
+        </div>
+      </div>
+
+      {tab==="members" && <div>
+        {adminHead("Members and sign-ups")}
+        {!d ? <div style={{fontSize:13,color:C.textFaint}}>Loading…</div>
+          : d.error ? <div style={{fontSize:13,color:C.brick}}>Couldn't load. Are you signed in as the admin?</div>
+          : <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+              {adminStat("Users",d.users.total,`+${d.users.new7d} this week`)}
+              {adminStat("Members",d.members.active)}
+              {adminStat("On trial",d.members.trialing)}
+              {adminStat("New (30 days)",d.users.new30d)}
+            </div>}
+        <div style={{...adminCard,marginTop:12}}><MailerLiteAdmin/></div>
+        {adminHead("All customers","Newest first. Tap someone to see their full profile.")}
+        <CustomerList onOpen={setProfileEmail} reloadKey={reloadKey}/>
+      </div>}
+
+      {tab==="traffic" && <div style={{paddingTop:12}}><TrafficAdmin/></div>}
+
+      {tab==="integrations" && <div>
+        {adminHead("Seasons")}<SeasonAdmin/>
+        {adminHead("Run tracker notes")}<RunNotesAdmin/>
+        {adminHead("Ontario regulations sync")}<RegsAdmin/>
+        {adminHead("Billing tools (Stripe)")}<BillingToolsAdmin/>
+      </div>}
+
+      {tab==="blog" && <div>{adminHead("Blog")}<BlogAdmin/></div>}
+
+      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:20}}>Close</button>
+    </div>
+    {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); loadOverview(); setReloadKey(k=>k+1); }}/>}
   </div>);
 }
 
@@ -2852,55 +2910,9 @@ function ExportCustomersButton({q,plan}){
     catch{ setErr("Couldn't export. Try again."); }
     finally{ setBusy(false); } };
   return (<span style={{display:"inline-flex",alignItems:"center",gap:8}}>
-    <button disabled={busy} onClick={run} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}><Icon name="download" size={14}/>{busy?"Preparing…":"Export to Excel"}</button>
+    <button disabled={busy} onClick={run} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}><Icon name="download" size={14}/>{busy?"Preparing…":(q||plan)?"Export these to Excel":"Export all to Excel"}</button>
     {err && <span style={{fontSize:12,color:C.brick}}>{err}</span>}
   </span>);
-}
-
-function CustomersSheet({onClose}){
-  useScrollLock();
-  const [q,setQ]=useState(""),[plan,setPlan]=useState(""),[rows,setRows]=useState(null),[total,setTotal]=useState(0),[busy,setBusy]=useState(false);
-  const [profileEmail,setProfileEmail]=useState(null);
-  const load=async(offset=0)=>{ setBusy(true);
-    try{ const d=await proxyJSON(`/api/admin/customers?limit=50&offset=${offset}${q.trim()?`&q=${encodeURIComponent(q.trim())}`:""}${plan?`&plan=${plan}`:""}`);
-      setTotal(d.total); setRows(r=>offset?[...(r||[]),...d.rows]:d.rows); }
-    catch{ if(!offset) setRows("error"); }
-    finally{ setBusy(false); } };
-  useEffect(()=>{ const t=setTimeout(()=>load(0),q?300:0); return ()=>clearTimeout(t); },[q,plan]);
-  const dt=(iso)=>iso?new Date(iso).toLocaleDateString([], {year:"numeric",month:"short",day:"numeric"}):"";
-  const tone={free:C.textFaint,trial:C.brass,monthly:C.pine,yearly:C.pine,gift:C.pine};
-  const filters=[["","All"],["free","Free"],["trial","Trial"],["monthly","Monthly"],["yearly","Yearly"],["gift","Gift"]];
-  return (<div onClick={onClose} style={{...sheetOverlay,zIndex:9100}}>
-    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxWidth:640,maxHeight:"90vh"}}>
-      <div style={{width:38,height:4,borderRadius:4,background:"#D5CCB8",margin:"0 auto 12px"}}/>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
-        <div style={{fontFamily:serif,fontSize:19,fontWeight:700,color:C.pine}}>All customers</div>
-        <div style={{fontSize:12,color:C.textDim}}>{rows&&rows!=="error"?`${total} ${total===1?"person":"people"}`:""}</div>
-      </div>
-      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search email or username" style={{width:"100%",boxSizing:"border-box",margin:"10px 0 8px",padding:"9px 11px",borderRadius:8,border:`1px solid ${C.line}`,background:C.bone,color:C.text,fontFamily:sans,fontSize:14}}/>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-        {filters.map(([k,l])=>(<button key={k} onClick={()=>setPlan(k)} style={{...notePill,cursor:"pointer",background:plan===k?C.pine:C.bone,color:plan===k?"#fff":C.textDim,borderColor:plan===k?C.pine:C.line}}>{l}</button>))}
-      </div>
-      <div style={{marginBottom:10}}><ExportCustomersButton q={q.trim()} plan={plan}/></div>
-      {rows==null ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>Loading…</div>
-        : rows==="error" ? <div style={{fontSize:13,color:C.brick,padding:"12px 0"}}>Couldn't load customers.</div>
-        : !rows.length ? <div style={{fontSize:13,color:C.textFaint,padding:"12px 0"}}>No one matches.</div>
-        : (<div style={{display:"flex",flexDirection:"column"}}>
-          {rows.map(u=>(<button key={u.id} onClick={()=>setProfileEmail(u.email)} style={{display:"block",textAlign:"left",width:"100%",background:"none",border:"none",borderBottom:`1px solid ${C.lineSoft}`,padding:"9px 2px",cursor:"pointer",color:C.text}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
-              <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:13,fontWeight:600}}>{u.email}{u.username?<span style={{fontWeight:400,color:C.textDim}}> · {u.username}</span>:null}</span>
-              <span style={{flexShrink:0,fontSize:11.5,fontWeight:700,color:tone[u.plan]||C.textDim}}>{u.planLabel}</span>
-            </div>
-            <div style={{fontSize:11.5,color:C.textDim,marginTop:3,lineHeight:1.45}}>
-              {[`Joined ${dt(u.registered)}`, u.source&&`from ${u.source}`, u.device||u.lastDevice, u.topRiver&&`likes ${u.topRiver}`, u.emailOptOut&&"unsubscribed"].filter(Boolean).join(" · ")}
-            </div>
-          </button>))}
-          {rows.length<total && <button disabled={busy} onClick={()=>load(rows.length)} style={{...btnBig,justifyContent:"center",marginTop:10}}>{busy?"Loading…":`Show more (${total-rows.length} left)`}</button>}
-        </div>)}
-      <button onClick={onClose} style={{...btnBig,width:"100%",justifyContent:"center",marginTop:14}}>Close</button>
-    </div>
-    {profileEmail && <UserProfileSheet email={profileEmail} onClose={()=>setProfileEmail(null)} onDeleted={()=>{ setProfileEmail(null); load(0); }}/>}
-  </div>);
 }
 
 function MailerLiteAdmin(){
@@ -2911,10 +2923,12 @@ function MailerLiteAdmin(){
     catch(e){ setOut({error:(e&&e.info&&e.info.error)||"Sync failed. Try again."}); }
     finally{ setBusy(false); } };
   if(!st) return <div style={{fontSize:12.5,color:C.textFaint}}>Checking…</div>;
-  if(!st.connected) return <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5}}>Not connected. Add <b>MAILERLITE_API_KEY</b> in Render's environment settings and every user who hasn't unsubscribed is copied to the "{st.group||"Muddy York app users"}" group, and kept up to date every 6 hours.</div>;
+  if(!st.connected) return <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5}}><b style={{color:C.pine}}>MailerLite not connected.</b> Add <b>MAILERLITE_API_KEY</b> in Render's environment settings and every user who hasn't unsubscribed is copied to the "{st.group||"Muddy York app users"}" group, and kept up to date every 6 hours.</div>;
   return (<div>
-    <div style={{fontSize:12.5,color:C.textDim,lineHeight:1.5,marginBottom:8}}>Connected. Users are copied to the "{st.group}" group as they sign up, and the whole list is refreshed every 6 hours. Unsubscribes are kept in step both ways.</div>
-    <button disabled={busy} onClick={sync} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}>{busy?"Syncing…":"Sync now"}</button>
+    <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{flex:"1 1 220px",fontSize:12.5,color:C.textDim,lineHeight:1.5}}><b style={{color:C.pine}}>MailerLite connected.</b> New sign-ups go to the "{st.group}" group straight away, and the whole list refreshes every 6 hours. Unsubscribes stay in step both ways.</span>
+      <button disabled={busy} onClick={sync} style={{...btnBig,padding:"8px 12px",opacity:busy?0.6:1}}>{busy?"Syncing…":"Sync now"}</button>
+    </div>
     {out && (out.error ? <div style={{fontSize:12.5,color:C.brick,marginTop:8}}>{out.error}</div>
       : <div style={{fontSize:12.5,color:C.pine,marginTop:8}}>Synced {out.synced} subscribed, {out.unsubscribed} marked unsubscribed{out.optedOutFromMailerLite?`, ${out.optedOutFromMailerLite} unsubscribed in MailerLite`:""}{out.failed?`, ${out.failed} failed`:""}.</div>)}
   </div>);

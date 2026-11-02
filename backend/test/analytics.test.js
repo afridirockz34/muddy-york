@@ -63,6 +63,9 @@ describe("site and app analytics", () => {
     ] });
     await post({ ...s2, events: [
       { type: "session_start", ref: "direct", meta: { source: "direct", type: "Desktop", os: "macOS" } },
+      { type: "landing", ref: "/rivers/credit-river/" },
+      { type: "view_reach", ref: "credit-lower" },
+      { type: "view_reach", ref: "credit-mid" },
       { type: "pageview", ref: "/rivers/credit-river/" },
       { type: "page_leave", ref: "/rivers/credit-river/", meta: { secs: 20, scroll: 40 } },
     ] });
@@ -75,6 +78,10 @@ describe("site and app analytics", () => {
     expect(d.clicks[0]).toMatchObject({ label: "Start your 7 free days", count: 1 });
     expect(d.funnel.map((f) => f.count).slice(0, 4)).toEqual([2, 1, 1, 1]); // the admin's own signup counts as an account
     expect(d.sessions).toHaveLength(2);
+    expect(d.landings[0]).toMatchObject({ label: "/rivers/credit-river/", count: 1 });
+    expect(d.rivers[0]).toMatchObject({ label: "Credit River", count: 2 }); // two sections, one river
+    expect(d.actions.map((a) => a.label)).toContain("Opened checkout");
+    expect(d.made).toMatchObject({ catches: 0, trips: 0 });
     const sess = d.sessions.find((x) => x.id === "ses_11111111");
     expect(sess).toMatchObject({ source: "google", entry: "/rivers/credit-river/", views: 2 });
 
