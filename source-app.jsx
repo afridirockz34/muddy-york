@@ -82,8 +82,20 @@ if(typeof window!=="undefined"){
     logEvent("click",label,{app:1,href:href?href.slice(0,160):undefined});
   }catch{} },true);
   // Errors people hit, so broken screens show up in the admin.
-  window.addEventListener("error",(e)=>{ try{ logEvent("js_error",String(e.message||"error").slice(0,120),{src:String(e.filename||"").split("/").pop().slice(0,40),line:e.lineno}); }catch{} });
+  // A bare "Script error." with no file is code the browser won't let us read:
+  // a browser add-on or an in-app browser (Instagram, Facebook, Chrome on
+  // iPhone) injecting its own scripts. Our own files always report a file/line.
+  window.addEventListener("error",(e)=>{ try{
+    const stack=e.error&&e.error.stack?String(e.error.stack).split("\n").slice(0,3).join(" | ").slice(0,200):undefined;
+    logEvent("js_error",String(e.message||"error").slice(0,120),{src:String(e.filename||"").split("/").pop().slice(0,40),line:e.lineno,col:e.colno,stack,external:!e.filename||undefined});
+  }catch{} });
 }
+
+// How the admin describes an error event: where it came from, so real app
+// bugs stand out from browser noise.
+function errorLabel(ref,m){ m=m||{};
+  if(!m.src) return `${ref||"Error"} (outside the app's code: a browser add-on or in-app browser, no details given)`;
+  return `${ref} (${m.src}${m.line?`:${m.line}`:""})`; }
 
 /* ---- Acquisition: record where a visitor came from and the first page they hit,
    once per session (a matching beacon on the marketing pages shares this flag, so
@@ -2687,6 +2699,7 @@ function TrafficAdmin(){
     if(e.type==="page_leave") return `Left ${e.ref} after ${m.secs}s, scrolled ${m.scroll}%`;
     if(e.type==="session_start") return `Arrived from ${m.source||"direct"} on ${m.type||""} ${m.os||""}${m.referrer?` (${m.referrer})`:""}`;
     if(e.type==="view_reach") return `Opened river report ${e.ref}`;
+    if(e.type==="js_error") return `Error: ${errorLabel(e.ref,m)}`;
     return `${e.type}${e.ref?`: ${e.ref}`:""}`; };
   const period=days===1?"the last 24 hours":`the last ${days} days`;
   return (<div>
@@ -3111,7 +3124,7 @@ function UserProfileSheet({email,onClose,onDeleted}){
         <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:220,overflowY:"auto"}}>
           {p.recentActivity.length===0 ? <div style={{fontSize:12.5,color:C.textFaint}}>No activity yet.</div>
             : p.recentActivity.map((e,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,color:C.text,padding:"2px 0"}}>
-                <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.type}{e.ref?` · ${e.ref}`:""}</span>
+                <span title={e.type==="js_error"&&e.meta&&e.meta.stack?e.meta.stack:undefined} style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:e.type==="js_error"?"normal":"nowrap"}}>{e.type}{e.type==="js_error"?` · ${errorLabel(e.ref,e.meta)}`:e.ref?` · ${e.ref}`:""}</span>
                 <span style={{color:C.textFaint,flexShrink:0}}>{when(e.createdAt)}</span>
               </div>))}
         </div>

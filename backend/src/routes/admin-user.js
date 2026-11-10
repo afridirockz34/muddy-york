@@ -63,7 +63,7 @@ export default async function adminUserRoutes(app) {
       content: { catches, notes, posts, comments, saved },
       recentActivity: events.slice(0, 60).map((e) => ({
         type: e.type, ref: e.ref, createdAt: e.createdAt.toISOString(),
-        meta: ["visit", "acquisition", "landing"].includes(e.type) ? e.meta : undefined,
+        meta: ["visit", "acquisition", "landing", "js_error"].includes(e.type) ? e.meta : undefined,
       })),
     };
   });
