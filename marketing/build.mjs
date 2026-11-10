@@ -676,7 +676,7 @@ fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
 urls.push(SITE_URL + "/regions/");
 
 // ---- trust pages: privacy, terms, contact ----
-const UPDATED = "November 2, 2026";
+const UPDATED = "November 10, 2026";
 const CONTACT = "info@muddyyorkfishing.ca";
 const LEGAL = [
   { slug: "privacy", title: "Privacy policy", desc: "How Muddy York Fishing collects, uses and protects your information, which services we rely on, and your privacy rights under PIPEDA.", body: `
@@ -689,7 +689,7 @@ const LEGAL = [
 <li><b>Location:</b> when you tap Scout or Use my location, your phone's location is used to find water near you. It is kept on your device and sent to our servers only to look up nearby rivers, parking and weather. If you drop a pin on a private note, that pin is saved with the note.</li>
 <li><b>Membership and payments:</b> Stripe processes all payments. We never see or store your card number; we keep your Stripe customer ID and subscription status.</li>
 <li><b>Notifications:</b> if you turn on push notifications, we store your device's push subscription so we can send alerts.</li>
-<li><b>Usage:</b> our own analytics on this website and in the app: the pages and screens you open, the links and buttons you tap, how far you scroll and how long you stay, your device type and browser, and how you found us (for example a search engine or a link). We use a random ID stored in your browser to connect one visit's pages together, and once you sign in, your earlier visits on that browser are linked to your account. We never record what you type into forms, and we don't store your IP address with this data. We use it to improve the site and the app. We do not use third-party advertising trackers and we do not sell your information.</li>
+<li><b>Usage:</b> our own analytics on this website and in the app: the pages and screens you open, the links and buttons you tap, how far you scroll and how long you stay, your device type and browser, and how you found us (for example a search engine or a link). We use a random ID stored in your browser to connect one visit's pages together, and once you sign in, your earlier visits on that browser are linked to your account. We never record what you type into forms, and we don't store your IP address with this data. We use it to improve the site and the app. We also use Google Analytics, loaded through Google Tag Manager, to count visits and see which pages people use; Google receives your device and browser details, the pages you view and an approximate location from your IP address. We do not use advertising trackers and we do not sell your information.</li>
 </ul>
 <h2>How we use it</h2>
 <ul>
@@ -701,9 +701,9 @@ const LEGAL = [
 <li>To improve the app, using usage information in aggregate.</li>
 </ul>
 <h2>Services we rely on</h2>
-<p>We share only what each service needs to do its job: Stripe (payments), Resend (email), MailerLite (our newsletter: your email, username, plan, sign-up date, how you found us, device type and the river you look at most), Cloudinary (photo hosting), Render and Neon (our servers and database), Netlify (the website), Google and Apple (if you choose them to sign in), Open-Meteo (weather for the rivers you view), and OpenStreetMap, Esri and Water Survey of Canada (maps, river and gauge data). Some of these providers store data outside Canada, including in the United States.</p>
+<p>We share only what each service needs to do its job: Stripe (payments), Resend (email), MailerLite (our newsletter: your email, username, plan, sign-up date, how you found us, device type and the river you look at most), Cloudinary (photo hosting), Render and Neon (our servers and database), Netlify (the website), Google (Google Analytics and Tag Manager, to measure traffic, and sign-in if you choose it), Apple (if you choose it to sign in), Open-Meteo (weather for the rivers you view), and OpenStreetMap, Esri and Water Survey of Canada (maps, river and gauge data). Some of these providers store data outside Canada, including in the United States.</p>
 <h2>Cookies and storage</h2>
-<p>We use one essential cookie to keep you signed in. The app also stores your saved rivers, notes and settings on your device so it works quickly and offline.</p>
+<p>We use one essential cookie to keep you signed in. Google Analytics sets its own cookies to tell one visit from the next; you can block them in your browser settings or with Google's opt-out add-on, and the site still works. The app also stores your saved rivers, notes and settings on your device so it works quickly and offline.</p>
 <h2>How long we keep it</h2>
 <p>We keep your information while your account is open. When you ask us to delete your account, we delete your profile and content. Payment records are kept as long as tax law requires.</p>
 <h2>Your choices and rights</h2>
