@@ -1,7 +1,7 @@
 import { prisma } from "../db.js";
 import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS } from "../proxy/hosts.js";
-import { buildTileQuery, tileCandidates, tilesFor, selectSpots, TILE } from "../../../lib/discovery.js";
+import { buildTileQuery, tileCandidates, tilesFor, selectSpots, searchSpots, TILE } from "../../../lib/discovery.js";
 
 // Scouting from shared tiles (see lib/discovery.js). Each 0.25° tile's candidate
 // spots are stored in MapDataCache as `tile1:i:j`. Rivers barely change, so a
@@ -76,6 +76,19 @@ export async function discoverSpots(loc, radiusM, { fetchImpl, budgetMs = 22000,
   });
   return { spots: selectSpots(cands, loc, radiusM), tiles: tiles.length, missing: stillMissing, partial: stillMissing > 0 };
 }
+
+// ── search ──
+// Every stored tile's candidates in one list, refreshed hourly, so a search for
+// a river finds all of its spots across Southern Ontario.
+let index = { at: 0, list: [], loading: null };
+export async function searchIndex({ maxAgeMs = 3600e3 } = {}) {
+  if (index.list.length && Date.now() - index.at < maxAgeMs) return index.list;
+  if (!index.loading) index.loading = prisma.mapDataCache.findMany({ where: { key: { startsWith: "tile1:" } }, select: { data: true } })
+    .then((rows) => { index = { at: Date.now(), list: rows.flatMap((r) => (r.data && r.data.spots) || []), loading: null }; return index.list; })
+    .catch((e) => { index.loading = null; throw e; });
+  return index.loading;
+}
+export async function searchRivers(q, opts) { return searchSpots(await searchIndex(), q, opts); }
 
 // ── background warmer ──
 // Southern Ontario's trout and salmon country, plus anything anglers asked for.

@@ -19,6 +19,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
+.river-cta{margin:22px 0;padding:20px 20px 18px;border:2px solid var(--gold);border-radius:14px;background:var(--panel);}
+.river-cta h3{margin:0 0 6px;font-size:21px;}.river-cta p{margin:0 0 14px;color:var(--dim);}
+.river-cta span{display:block;margin-top:9px;font-size:13px;color:var(--dim);}
 :root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{background:var(--ink);}
@@ -240,9 +243,9 @@ body.has-sticky{padding-bottom:70px;}}
 
   /* Where they came from: utm_source, else the referring site. */
   var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
-  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www./,"");
-    if(h===location.hostname)src="direct";else if(/google./.test(h))src="google";else if(/(bing.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
-    else if(/(facebook|fb.|instagram|t.co|twitter|x.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
+  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\./,"");
+    if(h===location.hostname)src="direct";else if(/google\./.test(h))src="google";else if(/(bing\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
+    else if(/(facebook|fb\.|instagram|t\.co|twitter|x\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
   var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:path,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
   try{if(!localStorage.getItem("mkAttr"))localStorage.setItem("mkAttr",JSON.stringify(meta));}catch(e){}
   if(fresh){var ua=navigator.userAgent||"";
@@ -260,9 +263,10 @@ body.has-sticky{padding-bottom:70px;}}
   /* Clicks on links and buttons: what they tapped and where it goes. */
   document.addEventListener("click",function(e){try{
     var a=e.target.closest&&e.target.closest("a,button,summary");if(!a)return;
-    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/s+/g," ").trim().slice(0,60)||"(icon)";
+    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/\s+/g," ").trim().slice(0,60)||"(icon)";
     var href=a.getAttribute("href")||"";
     ev("click",label,{path:path,href:href.slice(0,160),out:/^https?:/.test(href)&&href.indexOf(location.host)<0||undefined});
+    var tr=a.getAttribute("data-track");if(tr)ev(tr,a.getAttribute("data-track-ref"),{path:path});
     send();
   }catch(x){}},true);
   document.addEventListener("submit",function(e){try{ev("form_submit",(e.target.id||e.target.getAttribute("name")||"form").slice(0,40),{path:path});send();}catch(x){}},true);

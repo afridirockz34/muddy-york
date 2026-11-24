@@ -19,6 +19,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
+.river-cta{margin:22px 0;padding:20px 20px 18px;border:2px solid var(--gold);border-radius:14px;background:var(--panel);}
+.river-cta h3{margin:0 0 6px;font-size:21px;}.river-cta p{margin:0 0 14px;color:var(--dim);}
+.river-cta span{display:block;margin-top:9px;font-size:13px;color:var(--dim);}
 :root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{background:var(--ink);}
@@ -164,14 +167,14 @@ body.has-sticky{padding-bottom:70px;}}
   <a class="brand" href="/fishing/"><img src="/crest.png" alt="Muddy York Fishing crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links" aria-label="Main">
     <a href="/rivers/">Rivers</a><a href="/fly-fishing/">Fly fishing</a><a href="/steelhead/">Steelhead</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-    <a class="signin" href="/?signin">Sign in</a><a class="cta" href="/?join">Start free</a>
+    <a class="signin" href="/?signin&find=Bronte%20Creek">Sign in</a><a class="cta" href="/?join&find=Bronte%20Creek">Start free</a>
   </nav>
   <details class="mnav">
     <summary aria-label="Menu"><span></span><span></span><span></span></summary>
     <nav class="mnav-panel" aria-label="Menu">
       <a href="/fishing/">Home</a><a href="/rivers/">Rivers</a><a href="/fly-fishing/">Fly fishing</a><a href="/fishing-spots/near-me/">Spots near me</a><a href="/salmon-run/">Salmon run</a><a href="/steelhead/">Steelhead</a>
       <a href="/fishing-spots/">Fishing spots by town</a><a href="/ice-fishing/">Ice fishing</a><a href="/regulations/">Regulations</a><a href="/guides/ontario-fishing-licence/">Fishing licence</a><a href="/gifts/">Gifts</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-      <div class="mnav-cta"><a class="btn primary" href="/?join">Start your 7 free days</a><a class="btn ghost-light" href="/?signin">Sign in</a></div>
+      <div class="mnav-cta"><a class="btn primary" href="/?join&find=Bronte%20Creek">Start your 7 free days</a><a class="btn ghost-light" href="/?signin&find=Bronte%20Creek">Sign in</a></div>
     </nav>
   </details>
 </div></header>
@@ -186,13 +189,19 @@ body.has-sticky{padding-bottom:70px;}}
   
   <p><b>Oakville's salmon and steelhead creek. Open all year below Lakeshore Road, to December 31 up to Highway 407.</b></p>
   <p>Reliable fall chinook and brown run plus spring steelhead. Low summer flows; cold-season fishery.</p>
-  <div class="cta-row"><a class="btn primary" href="/?join">See today's Bronte Creek conditions</a><span>7 days free, then $5.00/mo yearly</span></div>
+  <div class="cta-row"><a class="btn primary" href="/?join&find=Bronte%20Creek">See today's Bronte Creek conditions</a><span>7 days free, then $5.00/mo yearly</span></div>
   
 
   <h2>Bronte Creek water level and flow today</h2>
   <div class="gauge" data-station="02HB011">
   <div class="g-row"><div><b class="g-val" data-k="flow">…</b><span>Flow (m³/s)</span></div><div><b class="g-val" data-k="trend">…</b><span>Last 24 hours</span></div><div><b class="g-val" data-k="level">…</b><span>Water level (m)</span></div></div>
   <p class="g-note">Loading the latest reading from the Water Survey of Canada…</p></div>
+  <div class="river-cta" data-river-cta>
+  <h3>Get alerts when the Bronte Creek turns prime</h3>
+  <p>Subscribe and we'll tell you when the Bronte Creek's conditions turn prime, and which other rivers near you are fishing well, with today's fly and where to park.</p>
+  <a class="btn primary" href="/?join&subscribe&find=Bronte%20Creek" data-track="river_cta" data-track-ref="Bronte Creek">Subscribe for river alerts</a>
+  <span>7 days free, then $5.00/mo yearly. Cancel anytime.</span>
+</div>
 
   <h2>What fish are in the Bronte Creek?</h2>
   <p>This section holds Steelhead, Chinook salmon and Brown trout (lake-run). The table shows when each is most active through the year, from Muddy York Fishing's species model. It shows the fish, not the law, so check the open season below too.</p>
@@ -210,7 +219,7 @@ body.has-sticky{padding-bottom:70px;}}
 <p class="src">Official wording: <a href="https://www.ontario.ca/document/ontario-fishing-regulations-summary/fisheries-management-zone-16#:~:text=Bronte%20Creek%20%2D%20Town%20of%20Oakville%20from%20Highway,the%20south%20side%20of%20Highway%20407" rel="nofollow">Bronte Creek - Town of Oakville from Highway 2 (Lakeshore Road West) upstream to the sou…</a></p>
   <p><a href="/regulations/zone-16/">All Zone 16 fishing regulations →</a></p>
 
-  <div class="callout"><h3>Know before you drive to the Bronte Creek</h3><p style="color:var(--dim);margin-bottom:14px;">Every morning Muddy York Fishing scores the Bronte Creek from live water temperature, flow and weather, shows whether your stretch is open, and tells you the fly and technique to use.</p><a class="btn primary" href="/?join">Try it free for 7 days</a></div>
+  <div class="callout"><h3>Know before you drive to the Bronte Creek</h3><p style="color:var(--dim);margin-bottom:14px;">Every morning Muddy York Fishing scores the Bronte Creek from live water temperature, flow and weather, shows whether your stretch is open, and tells you the fly and technique to use.</p><a class="btn primary" href="/?join&find=Bronte%20Creek">Try it free for 7 days</a></div>
 
   <h2>How the Bronte Creek fishes</h2>
   <p>This is migratory water. Steelhead and salmon move up from the lake on fresh rain, so the best fishing usually comes as the river drops and clears a day or two after a rise. Fish hold in deep pools, tailouts and current seams. Drift eggs and nymphs, or swing and strip streamers, depending on clarity.</p>
@@ -261,12 +270,12 @@ body.has-sticky{padding-bottom:70px;}}
   <div class="rivers-grid"><a class="river-link" href="/rivers/bronte-creek-lower-oakville-to-the-lake/"><b>Bronte Creek</b><span>Lower: Oakville to the lake · 0 km</span></a><a class="river-link" href="/rivers/sixteen-mile-creek-lower-oakville-to-the-lake/"><b>Sixteen Mile Creek</b><span>Lower: Oakville to the lake · 7 km</span></a><a class="river-link" href="/rivers/credit-river-lower-mouth-to-streetsville/"><b>Credit River</b><span>Lower: mouth to Streetsville · 21 km</span></a><a class="river-link" href="/rivers/credit-river-middle-norval-to-glen-williams/"><b>Credit River</b><span>Middle: Norval to Glen Williams · 34 km</span></a></div>
   <p style="margin-top:14px;"><a href="/fishing-spots/oakville/">Fishing spots in Oakville →</a> · <a href="/fishing-spots/hamilton/">Fishing spots in Hamilton →</a> · <a href="/rivers/">All 26 river guides →</a></p>
 
-  <div class="callout"><h3>Fish the Bronte Creek on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.</p><a class="btn primary" href="/?join">Start your free 7-day trial</a></div>
+  <div class="callout"><h3>Fish the Bronte Creek on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.</p><a class="btn primary" href="/?join&find=Bronte%20Creek">Start your free 7-day trial</a></div>
 </article></div></section>
 <section class="join" aria-label="Join Muddy York Fishing"><div class="wrap join-inner">
   <div><h2>Fish the right river tomorrow morning.</h2>
   <p>Live conditions, today's official season status and the fly to tie on, for 30+ Southern Ontario rivers. Try every feature free for 7 days.</p></div>
-  <div class="join-cta"><a class="btn primary" href="/?join">Start your 7 free days</a><a class="join-signin" href="/?signin">Already a member? Sign in</a></div>
+  <div class="join-cta"><a class="btn primary" href="/?join&find=Bronte%20Creek">Start your 7 free days</a><a class="join-signin" href="/?signin&find=Bronte%20Creek">Already a member? Sign in</a></div>
 </div></section>
 <footer><div class="wrap">
   <div class="foot-grid">
@@ -287,7 +296,7 @@ body.has-sticky{padding-bottom:70px;}}
   </div>
   <div class="foot-legal"><span>© 2026 Muddy York Fishing</span><span style="display:flex;gap:18px;flex-wrap:wrap"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></span></div>
 </div></footer>
-<div class="sticky-cta"><span>7 days free</span><a href="/?join">See today's conditions</a></div>
+<div class="sticky-cta"><span>7 days free</span><a href="/?join&find=Bronte%20Creek">See today's conditions</a></div>
 <script>
 (function(){document.querySelectorAll(".live-status").forEach(function(el){
   var u="/bk/api/regs/status?id="+encodeURIComponent(el.dataset.reach)+"&sp="+encodeURIComponent(el.dataset.sp||"");
@@ -333,9 +342,9 @@ body.has-sticky{padding-bottom:70px;}}
 
   /* Where they came from: utm_source, else the referring site. */
   var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
-  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www./,"");
-    if(h===location.hostname)src="direct";else if(/google./.test(h))src="google";else if(/(bing.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
-    else if(/(facebook|fb.|instagram|t.co|twitter|x.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
+  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\./,"");
+    if(h===location.hostname)src="direct";else if(/google\./.test(h))src="google";else if(/(bing\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
+    else if(/(facebook|fb\.|instagram|t\.co|twitter|x\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
   var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:path,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
   try{if(!localStorage.getItem("mkAttr"))localStorage.setItem("mkAttr",JSON.stringify(meta));}catch(e){}
   if(fresh){var ua=navigator.userAgent||"";
@@ -353,9 +362,10 @@ body.has-sticky{padding-bottom:70px;}}
   /* Clicks on links and buttons: what they tapped and where it goes. */
   document.addEventListener("click",function(e){try{
     var a=e.target.closest&&e.target.closest("a,button,summary");if(!a)return;
-    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/s+/g," ").trim().slice(0,60)||"(icon)";
+    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/\s+/g," ").trim().slice(0,60)||"(icon)";
     var href=a.getAttribute("href")||"";
     ev("click",label,{path:path,href:href.slice(0,160),out:/^https?:/.test(href)&&href.indexOf(location.host)<0||undefined});
+    var tr=a.getAttribute("data-track");if(tr)ev(tr,a.getAttribute("data-track-ref"),{path:path});
     send();
   }catch(x){}},true);
   document.addEventListener("submit",function(e){try{ev("form_submit",(e.target.id||e.target.getAttribute("name")||"form").slice(0,40),{path:path});send();}catch(x){}},true);
@@ -370,4 +380,6 @@ body.has-sticky{padding-bottom:70px;}}
   window.addEventListener("pagehide",leave);
 }catch(e){}})();
 </script>
+<script>(function(){var el=document.querySelectorAll("[data-river-cta]");if(!el.length)return;try{if(localStorage.getItem("mkMember")!=="1")return;}catch(e){return;}
+fetch("/bk/auth/me",{credentials:"include"}).then(function(r){return r.ok?r.json():null}).then(function(m){if(m&&(m.entitlement==="active"||m.entitlement==="trialing"))el.forEach(function(x){x.style.display="none";});}).catch(function(){});})();</script>
 </body></html>

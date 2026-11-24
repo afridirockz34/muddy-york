@@ -3,7 +3,7 @@ import { prisma } from "../db.js";
 import { resilientFetch } from "../proxy/resilient-fetch.js";
 import { OVERPASS_HOSTS, OSRM_BASE } from "../proxy/hosts.js";
 import { buildDiscoverQuery, buildParkingQuery } from "../proxy/overpass.js";
-import { discoverSpots } from "../discovery/tiles.js";
+import { discoverSpots, searchRivers } from "../discovery/tiles.js";
 import { buildHydroUrl, nearestGauge, STATION, buildStationUrl, stationReading } from "../proxy/hydrometric.js";
 import { buildBathyUrl, parseBathy } from "../../../lib/bathymetry.js";
 import { parseStocking } from "../../../lib/stocking.js";
@@ -110,6 +110,17 @@ export default function proxyRoutes(proxyFetch = resilientFetch) {
       if (!r.spots.length && r.partial) return reply.code(502).send({ error: "upstream unavailable" });
       reply.header("Cache-Control", r.partial ? "no-store" : "public, max-age=3600");
       return r;
+    });
+
+    // River search in the app: every spot on the waters whose name matches.
+    app.get("/api/search-spots", async (req, reply) => {
+      const q = String(req.query.q || "").trim().slice(0, 60);
+      if (q.length < 2) return { waters: [] };
+      try {
+        const waters = await searchRivers(q);
+        reply.header("Cache-Control", "public, max-age=600");
+        return { waters };
+      } catch { return reply.code(503).send({ error: "search unavailable" }); }
     });
 
     app.get("/api/parking", async (req, reply) => {

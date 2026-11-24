@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
-import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm, isRiverSpot } from "./lib/discovery.js";
+import { buildOverpassQuery, parseOverpassSpots, nearGreatLakeKm, isRiverSpot, searchWords, nameMatches } from "./lib/discovery.js";
 import { coldWaterIndex, surveyedTroutSalmon } from "./lib/cold-water.js";
 import { RUN_SPOTS, RUN_STATES, RUN_LABEL } from "./lib/run-spots.js";
 import { scoreAccuracy } from "./lib/score-accuracy.js";
@@ -606,6 +606,22 @@ async function enrichStream(list){
     return by;
   }catch(e){ return null; }
 }
+// A scouted or searched spot, shaped like a curated stretch.
+function spotToSec(s, elevationM){
+  const traits={waterType:s.waterType, elevationM, nearGreatLakeKm:nearGreatLakeKm(s.lat,s.lon), isTailwater:s.isTailwater};
+  return { id:"auto-"+s.id, river:s.river||s.name, section:sectionLabel(s), region:"Discovered",
+    zone:"Check regs", water:waterLabel(s), species:inferSpecies(traits), lat:s.lat, lon:s.lon, h:deriveHabitat(traits),
+    history:55, report:0, reportAge:24, conf:60, note:discoveredNote(s,traits), source:"auto" };
+}
+// A search result tapped: elevation (for species and habitat) and its
+// fisheries zone (for the season tag), the same as a scout gets.
+async function searchedSec(s){
+  let elev=[null]; try{ elev=await elevations([{lat:s.lat,lon:s.lon}]); }catch(e){}
+  const sec=spotToSec(s,elev[0]);
+  if(API_BASE){ try{ const z=await proxyJSON("/api/regs/zones-at",{method:"POST",body:{points:[{lat:sec.lat,lon:sec.lon,name:sec.river}]}});
+    const pt=z.points&&z.points[0]; if(pt&&pt.zone!=null){ sec.fmz=pt.zone; sec.zone=`FMZ ${pt.zone}`; sec.regNamed=pt.named||0; } }catch(e){} }
+  return sec;
+}
 async function discoverSecs(loc, radiusM){
   const key=`disco4:${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}:${radiusM}`; // v4: + official thermal class and survey species
   try{ const c=await dbGet(key); if(c&&Date.now()-c.ts<(c.partial?3600e3:7*864e5)) return {list:c.list,zoneB:c.zoneB||{}}; }catch(e){}
@@ -623,15 +639,7 @@ async function discoverSecs(loc, radiusM){
     try{ spots=parseOverpassSpots(await directOverpass(),loc,radiusM); }catch(e){ return null; }
   }
   const elev=await elevations(spots.map(s=>({lat:s.lat,lon:s.lon})));
-  const list=spots.map((s,i)=>{
-    const traits={waterType:s.waterType, elevationM:elev[i],
-      nearGreatLakeKm:nearGreatLakeKm(s.lat,s.lon), isTailwater:s.isTailwater};
-    const species=inferSpecies(traits);
-    const h=deriveHabitat(traits);
-    return { id:"auto-"+s.id, river:s.river||s.name, section:sectionLabel(s), region:"Discovered",
-      zone:"Check regs", water:waterLabel(s), species, lat:s.lat, lon:s.lon, h,
-      history:55, report:0, reportAge:24, conf:60, note:discoveredNote(s,traits), source:"auto" };
-  });
+  const list=spots.map((s,i)=>spotToSec(s,elev[i]));
   // Which fisheries management zone each spot is in (official boundaries), and
   // whether any rule names the water. One request for the whole scout.
   let zoneB={};
@@ -1997,10 +2005,10 @@ export default function App(){
   const season= seasonOf(month);
 
   // per-section conditions resolver (uses cached weather when offline)
-  const condFor=useCallback((sec)=>{
+  const condFor=useCallback((sec,fresh)=>{
     if(manual) return {temp:mTemp,flow:mFlow,days:mDays,live:false,cached:false,air:null,code:null};
-    const w=wx[sec.id];
-    if(w) return {temp:modelStreamTemp(sec,w.airMean),flow:w.flow,days:w.days,live:status==="live",cached:status!=="live",air:w.airNow,code:w.code,p48:w.p48,forecast:w.forecast,
+    const w=fresh||wx[sec.id];
+    if(w) return {temp:modelStreamTemp(sec,w.airMean),flow:w.flow,days:w.days,live:!!fresh||status==="live",cached:!fresh&&status!=="live",air:w.airNow,code:w.code,p48:w.p48,forecast:w.forecast,
       wind:w.wind,gust:w.gust,windDir:w.windDir,pressure:w.pressure,pressureTrend:w.pressureTrend,cloud:w.cloud,sunrise:w.sunrise,sunset:w.sunset};
     return {temp:modelStreamTemp(sec,CLIMO[month]),flow:"Normal",days:4,live:false,cached:false,air:CLIMO[month],code:null};
   },[manual,mTemp,mFlow,mDays,wx,status,month]);
@@ -2211,16 +2219,46 @@ export default function App(){
   // Saved river tapped in Profile: open its full report, like a map tap. A
   // saved spot that isn't in today's list is scored on the spot.
   const [reportFor,setReportFor]=useState(null);
-  const openSavedReport=useCallback((s)=>{
-    let ev=ranked.find(e=>e.sec.id===s.id);
+  // Open any stretch's full report, like a map tap. One that isn't in today's
+  // list is scored on the spot, with its own live weather when we can get it.
+  const openSec=useCallback(async(sec,via)=>{
+    let ev=ranked.find(e=>e.sec.id===sec.id);
     if(!ev){
-      const sec={id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon,h:s.habitat||{},species:s.species||[],history:s.history??60,
-        region:"Saved",water:"",zone:"Check regs",report:0,reportAge:24,conf:60,note:"",source:s.source||"auto"};
-      try{ const now=new Date(); ev={...evaluate(sec,month,condFor(sec),now),source:sec.source,reg:regStatus(sec,regsAll,now)}; }catch(e){ return; }
+      let fresh=null;
+      if(!manual&&!wx[sec.id]){ try{ const add=await fetchWxFor([sec]); if(add&&add[sec.id]){ fresh=add[sec.id]; setWx(p=>({...p,...add})); } }catch(e){} }
+      try{ const now=new Date(); ev={...evaluate(sec,month,condFor(sec,fresh),now),source:sec.source,reg:regStatus(sec,regsAll,now)}; }catch(e){ return; }
     }
-    logEvent("view_reach",s.id,{via:"saved"});
+    logEvent("view_reach",sec.id,{via});
     setReportFor(ev);
-  },[ranked,month,condFor,regsAll]);
+  },[ranked,month,condFor,regsAll,manual,wx]);
+  const openSavedReport=useCallback((s)=>{
+    const sec=RIVERS.find(r=>r.id===s.id)||{id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon,h:s.habitat||{},species:s.species||[],history:s.history??60,
+      region:"Saved",water:"",zone:"Check regs",report:0,reportAge:24,conf:60,note:"",source:s.source||"auto"};
+    openSec(sec,"saved");
+  },[openSec]);
+  // River search (the magnifier by the bell). A river page on the website
+  // sends people in with ?find=<river>; that search opens once they're signed
+  // in and past checkout, so they land on that river's stretches.
+  const [searchQ,setSearchQ]=useState(null); // null = closed
+  useEffect(()=>{ try{ const sp=new URLSearchParams(location.search), f=(sp.get("find")||"").trim().slice(0,60);
+    if(f){ localStorage.setItem("mkFind",JSON.stringify({q:f,at:Date.now()})); sp.delete("find"); const q=sp.toString();
+      history.replaceState({},"",location.pathname+(q?"?"+q:"")); } }catch{} },[]);
+  // "Subscribe" on a river page (/?subscribe): a signed-in free member goes
+  // straight to checkout. Someone signed out signs up first, and checkout
+  // follows on its own (the sign-in gate above).
+  const subscribeDone=useRef(false);
+  useEffect(()=>{
+    if(subscribeDone.current||!(me&&me.user)) return;
+    subscribeDone.current=true;
+    let want=false; try{ const sp=new URLSearchParams(location.search); want=sp.has("subscribe"); if(want){ sp.delete("subscribe"); const q=sp.toString(); history.replaceState({},"",location.pathname+(q?"?"+q:"")); } }catch{}
+    if(want&&!isPremiumMe(me)) openCheckout("annual");
+  },[me&&me.user&&me.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const needName=!!(me&&me.user&&(!me.user.displayName||me.user.usernameChosen===false));
+  useEffect(()=>{
+    if(!(me&&me.user)||!bootReady||checkoutPlan||needName) return;
+    let f=null; try{ f=JSON.parse(localStorage.getItem("mkFind")||"null"); localStorage.removeItem("mkFind"); }catch{}
+    if(f&&f.q&&Date.now()-f.at<6*3600e3){ setTab("rivers"); setSearchQ(f.q); logEvent("search_from_page",f.q); }
+  },[me&&me.user&&me.user.id,bootReady,checkoutPlan,needName]); // eslint-disable-line react-hooks/exhaustive-deps
   // A prime-conditions alert opens /?river=<id>: show that river's report.
   const riverLinkDone=useRef(false);
   useEffect(()=>{
@@ -2289,6 +2327,9 @@ export default function App(){
             <div style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.headText,letterSpacing:0.3,lineHeight:1}}>Muddy York</div>
             <div style={{fontFamily:sans,fontSize:9,letterSpacing:2.6,textTransform:"uppercase",color:C.brass,marginTop:3}}>Fishing</div>
           </div>
+          {(!API_BASE || (me && me.user)) && <button aria-label="Search rivers" onClick={()=>{ setSearchQ(""); logEvent("search_open"); }} style={{background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}>
+            <Icon name="search" size={22}/>
+          </button>}
           {API_BASE && me && me.user && <button aria-label="Notifications" onClick={openNotifs} style={{position:"relative",background:"none",border:"none",cursor:"pointer",color:C.headText,padding:6,display:"flex"}}>
             <Icon name="alert" size={22}/>
             {notifs.unread>0 && <span style={{position:"absolute",top:1,right:1,minWidth:16,height:16,padding:"0 4px",borderRadius:9,background:C.brick,color:"#fff",fontFamily:sans,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>{notifs.unread>9?"9+":notifs.unread}</span>}
@@ -2401,6 +2442,8 @@ export default function App(){
       {adminOpen && <AdminSheet onClose={()=>setAdminOpen(false)}/>}
       {helpOpen && <HelpSheet me={me} onClose={()=>setHelpOpen(false)}/>}
       {radiusOpen && <RadiusSheet current={radiusM} onPick={(m)=>{setRadiusM(m); dbSet("radius:last",m); setRadiusOpen(false); if(isPremium) scout(m);}} onClose={()=>setRadiusOpen(false)}/>}
+      {searchQ!==null && <SearchSheet initial={searchQ} ranked={ranked} discovered={discovered} saved={saved} distOf={distOf}
+        onClose={()=>setSearchQ(null)} onOpen={(sec,q)=>{ logEvent("search_pick",sec.id,{q:q.slice(0,60)}); openSec(sec,"search"); }}/>}
       {reportFor && <ReportSheet ev={reportFor} onClose={()=>setReportFor(null)} m={month} premium={isPremium} onUpgrade={openUpgrade}
         signedIn={!!(me&&me.user)} activity={catchActivity} distOf={distOf} isSaved={isSaved} onToggleSave={toggleSave}/>}
       {regDetail && <RegSheet sec={regDetail} regs={regsAll} now={now} onClose={()=>setRegDetail(null)}/>}
@@ -2755,6 +2798,8 @@ function TrafficAdmin(){
       <div style={adminCard}>
         <div style={{fontSize:11.5,fontWeight:700,color:C.pine,marginBottom:7}}>Actions <span style={{fontWeight:500,color:C.textFaint}}>· times · people</span></div>
         <AdminBars rows={d.actions} note={r=>` · ${r.visitors} ppl`}/>
+        {(d.riverCta||[]).length>0 && <>{adminSub("Subscribe taps on river pages, by river")}<AdminBars rows={d.riverCta} note={r=>` · ${r.visitors} ppl`}/></>}
+        {(d.searches||[]).length>0 && <>{adminSub("What people search for in the app")}<AdminBars rows={d.searches} note={r=>` · ${r.visitors} ppl`}/></>}
         {adminSub("Most-tapped buttons and links")}
         <AdminBars rows={d.clicks} limit={allTaps?25:8}/>
         {(d.clicks||[]).length>8 && <button onClick={()=>setAllTaps(v=>!v)} style={{...btn,marginTop:8}}>{allTaps?"Show fewer":"Show all taps"}</button>}
@@ -3161,6 +3206,84 @@ function Drawer({tab,me,onNav,onClose,onAccount,onRadius,onMethod,onBoard,onHelp
     </div>
   </div>);
 }
+// Search every river and creek: the main stretches (with today's score), then
+// every other spot we've mapped on that water across Southern Ontario.
+function SearchSheet({initial="",ranked,discovered,saved,distOf,onClose,onOpen}){
+  useScrollLock();
+  const [q,setQ]=useState(initial);
+  const [remote,setRemote]=useState({q:"",waters:[],loading:false,error:false});
+  const [opening,setOpening]=useState(null);
+  const words=useMemo(()=>searchWords(q),[q]);
+  useEffect(()=>{
+    const t=q.trim();
+    if(!API_BASE||!words.length){ setRemote({q:t,waters:[],loading:false,error:false}); return; }
+    setRemote(r=>({...r,loading:true}));
+    let live=true;
+    const h=setTimeout(()=>{ proxyJSON(`/api/search-spots?q=${encodeURIComponent(t)}`)
+      .then(d=>{ if(live){ setRemote({q:t,waters:d.waters||[],loading:false,error:false}); logEvent("search",t.slice(0,60),{waters:(d.waters||[]).length}); } })
+      .catch(()=>{ if(live) setRemote({q:t,waters:[],loading:false,error:true}); }); },280);
+    return ()=>{ live=false; clearTimeout(h); };
+  },[q,words.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const scoreOf=useMemo(()=>{ const m={}; ranked.forEach(e=>{ m[e.sec.id]=e.opportunity; }); return m; },[ranked]);
+  // Main stretches and spots already on this phone, grouped by river.
+  const groups=useMemo(()=>{
+    if(!words.length) return [];
+    const out=new Map(), add=(name,row)=>{ const g=out.get(name)||{name,rows:[],ids:new Set()}; if(g.ids.has(row.id)) return; g.ids.add(row.id); g.rows.push(row); out.set(name,g); };
+    RIVERS.filter(r=>nameMatches(r.river,words)).forEach(r=>add(r.river,{id:r.id,title:r.section,main:true,sec:r}));
+    (discovered||[]).filter(r=>nameMatches(r.river,words)).forEach(r=>add(r.river,{id:r.id,title:r.section,sec:r}));
+    for(const w of remote.waters){
+      const name=out.has(w.name)||!remote.waters.some(x=>x!==w&&x.name===w.name)?w.name:`${w.name} (near ${w.near||"Ontario"})`;
+      for(const s of w.spots){ const id="auto-"+s.id; add(name,{id,title:sectionLabel(s),spot:s,sec:{id,river:s.river||s.name,lat:s.lat,lon:s.lon}}); }
+    }
+    return [...out.values()];
+  },[words,discovered,remote.waters]);
+  const savedIds=useMemo(()=>new Set((saved||[]).map(s=>s.id)),[saved]);
+  const pick=async(row)=>{
+    if(opening) return;
+    setOpening(row.id);
+    const sec=row.spot?await searchedSec(row.spot):row.sec;
+    setOpening(null); onClose(); onOpen(sec,q.trim());
+  };
+  const km=(sec)=>{ const d=distOf&&sec.lat!=null?distOf(sec):null; return d==null?null:`${d<10?d.toFixed(1):Math.round(d)} km`; };
+  return (<div onClick={onClose} style={{...sheetOverlay,alignItems:"flex-start"}}>
+    <div onClick={e=>e.stopPropagation()} style={{...sheetPanel,maxHeight:"92vh",borderRadius:"0 0 18px 18px",paddingTop:"calc(14px + env(safe-area-inset-top))"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        <div style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"0 12px",borderRadius:11,border:`1px solid ${C.line}`,background:C.bone,color:C.textDim}}>
+          <Icon name="search" size={18}/>
+          <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Search a river or creek" aria-label="Search a river or creek" enterKeyHint="search"
+            style={{flex:1,minWidth:0,padding:"12px 0",border:"none",outline:"none",background:"transparent",color:C.text,fontFamily:sans,fontSize:16}}/>
+          {q && <button aria-label="Clear search" onClick={()=>setQ("")} style={{background:"none",border:"none",cursor:"pointer",color:C.textFaint,padding:4,display:"flex"}}><Icon name="close" size={16}/></button>}
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.pine,fontFamily:sans,fontSize:14.5,fontWeight:700,padding:"8px 2px"}}>Cancel</button>
+      </div>
+      {!words.length && <div style={{fontSize:13.5,color:C.textDim,lineHeight:1.55,padding:"4px 2px 8px"}}>
+        Search any river or creek in Southern Ontario, like <b>Credit River</b> or <b>Bronte Creek</b>. You'll see every stretch on it.
+        {(saved||[]).length>0 && <><SectionTitle t="Your saved rivers"/>
+          {saved.slice(0,8).map(s=>(<button key={s.id} onClick={()=>{ onClose(); onOpen(RIVERS.find(r=>r.id===s.id)||{id:s.id,river:s.label,section:s.section,lat:s.lat,lon:s.lon,h:s.habitat||{},species:s.species||[],history:s.history??60,region:"Saved",water:"",zone:"Check regs",report:0,reportAge:24,conf:60,note:"",source:s.source||"auto"},"saved"); }} style={searchRow}>
+            <span style={{minWidth:0}}><span style={{display:"block",fontFamily:serif,fontSize:15,fontWeight:700,color:C.pine}}>{s.label}</span><span style={{display:"block",fontSize:12.5,color:C.textDim}}>{s.section}</span></span>
+            <span style={{display:"flex",transform:"rotate(-90deg)"}}><Icon name="chevron" size={16}/></span></button>))}</>}
+      </div>}
+      {groups.map(g=>(<div key={g.name} style={{marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8,margin:"4px 2px 6px"}}>
+          <span style={{fontFamily:serif,fontSize:18,fontWeight:700,color:C.pine}}>{g.name}</span>
+          <span style={{fontSize:12,color:C.textFaint,flexShrink:0}}>{g.rows.length} {g.rows.length===1?"stretch":"stretches"}</span>
+        </div>
+        {g.rows.map(r=>{ const sc=scoreOf[r.id], d=km(r.sec); return (<button key={r.id} onClick={()=>pick(r)} style={searchRow}>
+          <span style={{minWidth:0}}>
+            <span style={{display:"block",fontSize:14.5,fontWeight:600,color:C.text}}>{r.title}</span>
+            <span style={{display:"block",fontSize:12,color:C.textDim,marginTop:2}}>{[r.main?"Main stretch":null,savedIds.has(r.id)?"Saved":null,d?`${d} away`:null].filter(Boolean).join(" · ")||"Mapped spot"}</span>
+          </span>
+          {opening===r.id ? <span style={{fontSize:12,color:C.textFaint}}>Opening…</span>
+            : sc!=null ? <span style={{fontFamily:serif,fontSize:17,fontWeight:700,color:C.pine,flexShrink:0}}>{sc}</span> : <span style={{display:"flex",transform:"rotate(-90deg)"}}><Icon name="chevron" size={16}/></span>}
+        </button>); })}
+      </div>))}
+      {words.length>0 && remote.loading && <div style={{fontSize:13,color:C.textFaint,padding:"6px 2px"}}>Finding every stretch…</div>}
+      {words.length>0 && !remote.loading && !groups.length && <div style={{fontSize:13.5,color:C.textDim,padding:"6px 2px",lineHeight:1.5}}>
+        {remote.error?"Search isn't reachable right now. Check your connection and try again.":`No river or creek matches "${q.trim()}". Try part of the name, like "credit".`}</div>}
+    </div>
+  </div>);
+}
+const searchRow={width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,padding:"11px 12px",marginBottom:6,borderRadius:11,border:`1px solid ${C.lineSoft}`,background:C.bone,cursor:"pointer",textAlign:"left",fontFamily:sans,color:C.textDim};
 function RadiusSheet({current,onPick,onClose}){
   useScrollLock();
   return (<div onClick={onClose} style={sheetOverlay}>

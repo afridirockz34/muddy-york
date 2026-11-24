@@ -530,7 +530,7 @@ for (const r of RIVERS) {
   const pg = riverPage(r);
   fs.writeFileSync(path.join(dir, "index.html"), page({
     title: withBrand(pg.title), description: pg.description, canonical: `${SITE_URL}/rivers/${s}/`,
-    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(r), ogImage: SITE_URL + riverPhoto(r).src,
+    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(r), ogImage: SITE_URL + riverPhoto(r).src, find: r.river,
   }));
   urls.push(`${SITE_URL}/rivers/${s}/`);
 }
@@ -541,7 +541,7 @@ for (const h of RIVER_HUBS) {
   const pg = riverHubPage(h);
   fs.writeFileSync(path.join(dir, "index.html"), page({
     title: withBrand(pg.title), description: pg.description, canonical: `${SITE_URL}/rivers/${h.slug}/`,
-    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(h.sections[0]), ogImage: SITE_URL + riverPhoto(h.sections[0]).src,
+    body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT + GAUGE_SCRIPT, photo: riverPhoto(h.sections[0]), ogImage: SITE_URL + riverPhoto(h.sections[0]).src, find: h.name,
   }));
   urls.push(`${SITE_URL}/rivers/${h.slug}/`);
 }
@@ -575,7 +575,7 @@ fs.mkdirSync(path.join(OUT, "steelhead"), { recursive: true });
     const pg = steelheadPage(g);
     const ph = [PHOTOS.wading, PHOTOS.steelhead, PHOTOS.flyFishers][gi % 3];
     fs.writeFileSync(path.join(dir, "index.html"), page({ title: withBrand(pg.title), description: pg.description,
-      canonical: `${SITE_URL}/steelhead/${g.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT, photo: ph, ogImage: SITE_URL + ph.src }));
+      canonical: `${SITE_URL}/steelhead/${g.slug}/`, body: pg.body, schema: pg.schema, stickyCta: pg.stickyCta, tail: LIVE_STATUS_SCRIPT, photo: ph, ogImage: SITE_URL + ph.src, find: g.river }));
     urls.push(`${SITE_URL}/steelhead/${g.slug}/`);
   });
 }

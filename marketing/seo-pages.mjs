@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveReach, statusFor } from "../lib/regs-status.js";
 import { REACH_REGS, OFFICIAL_SPECIES } from "../lib/regs-reaches.js";
-import { SITE_URL, APP_URL, HOME, BRAND, esc } from "../lib/site-shell.js";
+import { SITE_URL, APP_URL, HOME, BRAND, esc, RIVER_CTA_SLOT } from "../lib/site-shell.js";
 import { RIVER_SEO, TOWNS, SALMON_SPOTS } from "./seo-content.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -136,6 +136,7 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
 
   <h2>${esc(r.river)} water level and flow today</h2>
   ${gaugeBox(r)}
+  ${RIVER_CTA_SLOT}
 
   <h2>What fish are in the ${esc(r.river)}?</h2>
   <p>This section holds ${esc(listJoin(spNames))}. The table shows when each is most active through the year, from ${BRAND}'s species model. It shows the fish, not the law, so check the open season below too.</p>
@@ -532,6 +533,7 @@ export function steelheadPage(g) {
   <p><b>The ${esc(g.river)} gets ${lake} steelhead in fall and again in spring.</b> ${esc(seo.hook || first.note || "")}</p>
   <p>Below: when the fish are in, exactly which stretches are open in fall, winter and spring, and how to fish them.</p>
   <div class="cta-row"><a class="btn primary" href="${APP_URL}">See today's ${esc(g.river)} conditions</a><span>7 days free</span></div>
+  ${RIVER_CTA_SLOT}
 
   <h2>When steelhead are in the ${esc(g.river)}</h2>
   <ul>
@@ -679,6 +681,7 @@ export function riverHubPage(h) {
 
   <h2>${esc(h.name)} water level and flow today</h2>
   ${secs.map((r) => gaugeBox(r, r.section)).join("\n")}
+  ${RIVER_CTA_SLOT}
 
   <h2>${esc(h.name)} fishing spots</h2>
   <p>The ${esc(h.name)} changes character along its length, and so do the rules. Here are the public places on each section we cover:</p>

@@ -19,6 +19,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet"/>
 <style>
+.river-cta{margin:22px 0;padding:20px 20px 18px;border:2px solid var(--gold);border-radius:14px;background:var(--panel);}
+.river-cta h3{margin:0 0 6px;font-size:21px;}.river-cta p{margin:0 0 14px;color:var(--dim);}
+.river-cta span{display:block;margin-top:9px;font-size:13px;color:var(--dim);}
 :root{--pine:#2C4C3B;--ink:#1B2A20;--gold:#D4AF37;--brass:#A8862A;--brick:#8C3B2E;--cream:#F4EFE6;--panel:#FBF7EF;--line:#DED6C4;--text:#2A2A2A;--dim:#5C5A4E;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html{background:var(--ink);}
@@ -164,14 +167,14 @@ body.has-sticky{padding-bottom:70px;}}
   <a class="brand" href="/fishing/"><img src="/crest.png" alt="Muddy York Fishing crest"/><b>Muddy York <span style="color:var(--gold)">Fishing</span></b></a>
   <nav class="links" aria-label="Main">
     <a href="/rivers/">Rivers</a><a href="/fly-fishing/">Fly fishing</a><a href="/steelhead/">Steelhead</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-    <a class="signin" href="/?signin">Sign in</a><a class="cta" href="/?join">Start free</a>
+    <a class="signin" href="/?signin&find=Ganaraska%20River">Sign in</a><a class="cta" href="/?join&find=Ganaraska%20River">Start free</a>
   </nav>
   <details class="mnav">
     <summary aria-label="Menu"><span></span><span></span><span></span></summary>
     <nav class="mnav-panel" aria-label="Menu">
       <a href="/fishing/">Home</a><a href="/rivers/">Rivers</a><a href="/fly-fishing/">Fly fishing</a><a href="/fishing-spots/near-me/">Spots near me</a><a href="/salmon-run/">Salmon run</a><a href="/steelhead/">Steelhead</a>
       <a href="/fishing-spots/">Fishing spots by town</a><a href="/ice-fishing/">Ice fishing</a><a href="/regulations/">Regulations</a><a href="/guides/ontario-fishing-licence/">Fishing licence</a><a href="/gifts/">Gifts</a><a href="/guides/">Guides</a><a href="/blog/">Blog</a><a href="/fishing/#pricing">Pricing</a>
-      <div class="mnav-cta"><a class="btn primary" href="/?join">Start your 7 free days</a><a class="btn ghost-light" href="/?signin">Sign in</a></div>
+      <div class="mnav-cta"><a class="btn primary" href="/?join&find=Ganaraska%20River">Start your 7 free days</a><a class="btn ghost-light" href="/?signin&find=Ganaraska%20River">Sign in</a></div>
     </nav>
   </details>
 </div></header>
@@ -184,7 +187,13 @@ body.has-sticky{padding-bottom:70px;}}
   <div class="live-status" data-reach="ganaraska" data-sp="STL"><span class="st check">Checking today's steelhead season…</span> <span class="ls-note">Lower: Port Hope below the fishway</span></div>
   <p><b>The Ganaraska River gets Lake Ontario steelhead in fall and again in spring.</b> Port Hope's famous salmon run. Official seasons differ by stretch: one is closed all year, one closes September 1 to October 14.</p>
   <p>Below: when the fish are in, exactly which stretches are open in fall, winter and spring, and how to fish them.</p>
-  <div class="cta-row"><a class="btn primary" href="/?join">See today's Ganaraska River conditions</a><span>7 days free</span></div>
+  <div class="cta-row"><a class="btn primary" href="/?join&find=Ganaraska%20River">See today's Ganaraska River conditions</a><span>7 days free</span></div>
+  <div class="river-cta" data-river-cta>
+  <h3>Get alerts when the Ganaraska River turns prime</h3>
+  <p>Subscribe and we'll tell you when the Ganaraska River's conditions turn prime, and which other rivers near you are fishing well, with today's fly and where to park.</p>
+  <a class="btn primary" href="/?join&subscribe&find=Ganaraska%20River" data-track="river_cta" data-track-ref="Ganaraska River">Subscribe for river alerts</a>
+  <span>7 days free, then $5.00/mo yearly. Cancel anytime.</span>
+</div>
 
   <h2>When steelhead are in the Ganaraska River</h2>
   <ul>
@@ -199,7 +208,7 @@ body.has-sticky{padding-bottom:70px;}}
   <p class="src">Rainbow trout (steelhead) status on November 15, January 15 and April 1, from the official Ontario Fishing Regulations Summary. Rules can change, so check today's status above before you go.</p>
   <p>In winter, stick to: CNR tracks to Lake Ontario. Most other water opens with the trout opener on the fourth Saturday in April (April 24, 2027).</p>
 
-  <div class="callout"><h3>Know when the Ganaraska River is right</h3><p style="color:var(--dim);margin-bottom:14px;">Steelhead move on rising water and bite as it drops and clears. Muddy York Fishing watches the Ganaraska River's flow, temperature and weather every morning and tells you when it's prime.</p><a class="btn primary" href="/?join">Try it free for 7 days</a></div>
+  <div class="callout"><h3>Know when the Ganaraska River is right</h3><p style="color:var(--dim);margin-bottom:14px;">Steelhead move on rising water and bite as it drops and clears. Muddy York Fishing watches the Ganaraska River's flow, temperature and weather every morning and tells you when it's prime.</p><a class="btn primary" href="/?join&find=Ganaraska%20River">Try it free for 7 days</a></div>
 
   <h2>Reading the Ganaraska River for steelhead</h2>
   <p>Steelhead hold where the current slows to about walking pace in water a metre or two deep: tailouts above riffles, the inside seam of a bend, slots beside boulders and the soft water below log jams. In cold water they sit deeper and slower; as it warms toward 8 to 10°C they move up into faster runs.</p>
@@ -219,12 +228,12 @@ body.has-sticky{padding-bottom:70px;}}
   <details><summary>When do steelhead run in the Ganaraska River?</summary><p>Fresh steelhead push in from Lake Ontario with the cold rains of October and November, a few hold in deep pools through winter, and a second run comes in March and April to spawn. Drop-back fish head back to the lake through April and early May.</p></details><details><summary>Can you fish the Ganaraska River for steelhead in winter?</summary><p>Yes, on part of it. In mid-winter these stretches are open for rainbow trout under the official rules: CNR tracks to Lake Ontario. Everything else waits for the fourth Saturday in April.</p></details><details><summary>What is the best bait for steelhead on the Ganaraska River?</summary><p>Roe bags, single beads and small jigs under a float are the most common Ontario approach. On the fly, egg patterns, stoneflies and swung streamers all work. Match the size and colour to the clarity: bigger and brighter in stained water, smaller in clear water.</p></details><details><summary>How many steelhead can I keep?</summary><p>Steelhead are rainbow trout under Ontario's rules. In Zones 16, 17 and 20 the limit is two on a sport licence and one on a conservation licence, within the combined trout and salmon limit. Some stretches have their own rules, so check the stretch you fish.</p></details>
 
   <p style="margin-top:18px;"><a href="/rivers/ganaraska-river-lower-port-hope-below-the-fishway/">Ganaraska River: Lower: Port Hope below the fishway guide</a> · <a href="/salmon-run/port-hope-ganaraska-river/">Port Hope salmon run</a> · <a href="/guides/steelhead-fishing-ontario/">Steelhead fishing in Ontario</a> · <a href="/steelhead/">All steelhead rivers</a></p>
-  <div class="callout"><h3>Fish the Ganaraska River on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.</p><a class="btn primary" href="/?join">Start your free 7-day trial</a></div>
+  <div class="callout"><h3>Fish the Ganaraska River on the right day</h3><p style="color:var(--dim);margin-bottom:14px;">Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.</p><a class="btn primary" href="/?join&find=Ganaraska%20River">Start your free 7-day trial</a></div>
 </article></div></section>
 <section class="join" aria-label="Join Muddy York Fishing"><div class="wrap join-inner">
   <div><h2>Fish the right river tomorrow morning.</h2>
   <p>Live conditions, today's official season status and the fly to tie on, for 30+ Southern Ontario rivers. Try every feature free for 7 days.</p></div>
-  <div class="join-cta"><a class="btn primary" href="/?join">Start your 7 free days</a><a class="join-signin" href="/?signin">Already a member? Sign in</a></div>
+  <div class="join-cta"><a class="btn primary" href="/?join&find=Ganaraska%20River">Start your 7 free days</a><a class="join-signin" href="/?signin&find=Ganaraska%20River">Already a member? Sign in</a></div>
 </div></section>
 <footer><div class="wrap">
   <div class="foot-grid">
@@ -245,7 +254,7 @@ body.has-sticky{padding-bottom:70px;}}
   </div>
   <div class="foot-legal"><span>© 2026 Muddy York Fishing</span><span style="display:flex;gap:18px;flex-wrap:wrap"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/photo-credits/">Photo credits</a></span></div>
 </div></footer>
-<div class="sticky-cta"><span>7 days free</span><a href="/?join">See today's conditions</a></div>
+<div class="sticky-cta"><span>7 days free</span><a href="/?join&find=Ganaraska%20River">See today's conditions</a></div>
 <script>
 (function(){document.querySelectorAll(".live-status").forEach(function(el){
   var u="/bk/api/regs/status?id="+encodeURIComponent(el.dataset.reach)+"&sp="+encodeURIComponent(el.dataset.sp||"");
@@ -278,9 +287,9 @@ body.has-sticky{padding-bottom:70px;}}
 
   /* Where they came from: utm_source, else the referring site. */
   var p=new URLSearchParams(location.search),u=(p.get("utm_source")||"").trim().toLowerCase(),src;
-  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www./,"");
-    if(h===location.hostname)src="direct";else if(/google./.test(h))src="google";else if(/(bing.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
-    else if(/(facebook|fb.|instagram|t.co|twitter|x.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
+  if(u){src=u.slice(0,60);}else{var r=document.referrer;if(!r){src="direct";}else{try{var h=new URL(r).hostname.replace(/^www\./,"");
+    if(h===location.hostname)src="direct";else if(/google\./.test(h))src="google";else if(/(bing\.|duckduckgo|yahoo)/.test(h))src="search:"+h.split(".")[0];
+    else if(/(facebook|fb\.|instagram|t\.co|twitter|x\.com|reddit|youtube|tiktok|linkedin|pinterest)/.test(h))src=h.split(".")[0];else src=h.slice(0,60);}catch(e){src="direct";}}}
   var meta={source:src,referrer:(document.referrer||"").slice(0,200),landing:path,utmSource:p.get("utm_source")||null,utmMedium:p.get("utm_medium")||null,utmCampaign:p.get("utm_campaign")||null};
   try{if(!localStorage.getItem("mkAttr"))localStorage.setItem("mkAttr",JSON.stringify(meta));}catch(e){}
   if(fresh){var ua=navigator.userAgent||"";
@@ -298,9 +307,10 @@ body.has-sticky{padding-bottom:70px;}}
   /* Clicks on links and buttons: what they tapped and where it goes. */
   document.addEventListener("click",function(e){try{
     var a=e.target.closest&&e.target.closest("a,button,summary");if(!a)return;
-    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/s+/g," ").trim().slice(0,60)||"(icon)";
+    var label=(a.getAttribute("aria-label")||a.textContent||"").replace(/\s+/g," ").trim().slice(0,60)||"(icon)";
     var href=a.getAttribute("href")||"";
     ev("click",label,{path:path,href:href.slice(0,160),out:/^https?:/.test(href)&&href.indexOf(location.host)<0||undefined});
+    var tr=a.getAttribute("data-track");if(tr)ev(tr,a.getAttribute("data-track-ref"),{path:path});
     send();
   }catch(x){}},true);
   document.addEventListener("submit",function(e){try{ev("form_submit",(e.target.id||e.target.getAttribute("name")||"form").slice(0,40),{path:path});send();}catch(x){}},true);
@@ -315,4 +325,6 @@ body.has-sticky{padding-bottom:70px;}}
   window.addEventListener("pagehide",leave);
 }catch(e){}})();
 </script>
+<script>(function(){var el=document.querySelectorAll("[data-river-cta]");if(!el.length)return;try{if(localStorage.getItem("mkMember")!=="1")return;}catch(e){return;}
+fetch("/bk/auth/me",{credentials:"include"}).then(function(r){return r.ok?r.json():null}).then(function(m){if(m&&(m.entitlement==="active"||m.entitlement==="trialing"))el.forEach(function(x){x.style.display="none";});}).catch(function(){});})();</script>
 </body></html>

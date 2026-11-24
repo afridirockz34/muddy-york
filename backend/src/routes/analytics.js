@@ -13,6 +13,8 @@ const ACTIONS = {
   trip_report: "Reported a trip", run_checkin: "Run tracker check-in", ice_scout: "Scouted ice lakes", push_on: "Turned on alerts",
   install: "Installed the app", checkout_open: "Opened checkout", checkout_plan: "Picked a plan", gift_redeem: "Redeemed a gift",
   form_submit: "Sent a form on the website", tour_done: "Finished the app tour", mode: "Switched mode", js_error: "Hit an app error",
+  river_cta: "Tapped Subscribe on a river page", search_open: "Opened river search", search: "Searched for a river",
+  search_pick: "Opened a river from search", search_from_page: "Landed on search from a river page",
 };
 
 // Admin-only analytics for the website and the app, from our own event log.
@@ -29,7 +31,7 @@ export default async function analyticsRoutes(app) {
 
     const [
       totals, daily, pages, leave, clicks, screens, sources, devices, funnelRows, liveNow, sessions,
-      landings, rivers, actions, made, recentCatches,
+      landings, rivers, actions, made, recentCatches, riverCta, searches,
     ] = await Promise.all([
       prisma.$queryRaw`SELECT COUNT(DISTINCT "visitorId") AS visitors, COUNT(DISTINCT "sessionId") AS sessions,
           COUNT(*) FILTER (WHERE type = 'pageview') AS pageviews, COUNT(*) FILTER (WHERE type = 'screen') AS screens,
@@ -78,6 +80,10 @@ export default async function analyticsRoutes(app) {
         prisma.tripReport.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
       ]),
       prisma.catch.findMany({ where: { caughtAt: { gte: since } }, orderBy: { caughtAt: "desc" }, take: 8, select: { species: true, sizeInches: true, river: true, caughtAt: true } }),
+      prisma.$queryRaw`SELECT ref AS label, COUNT(*) AS count, COUNT(DISTINCT COALESCE("userId", "visitorId")) AS visitors FROM "Event"
+        WHERE type = 'river_cta' AND "createdAt" >= ${since} GROUP BY ref ORDER BY count DESC LIMIT 12`,
+      prisma.$queryRaw`SELECT LOWER(ref) AS label, COUNT(*) AS count, COUNT(DISTINCT COALESCE("userId", "visitorId")) AS visitors FROM "Event"
+        WHERE type = 'search' AND ref IS NOT NULL AND "createdAt" >= ${since} GROUP BY LOWER(ref) ORDER BY count DESC LIMIT 12`
     ]);
 
     const t = totals[0] || {};
@@ -119,6 +125,8 @@ export default async function analyticsRoutes(app) {
         return [...by.values()].sort((a, b) => b.count - a.count).slice(0, 12);
       })(),
       actions: actions.map((a) => ({ label: ACTIONS[a.label] || a.label, count: num(a.count), visitors: num(a.visitors) })),
+      riverCta: riverCta.map((r) => ({ label: r.label || "(river page)", count: num(r.count), visitors: num(r.visitors) })),
+      searches: searches.map((r) => ({ label: r.label, count: num(r.count), visitors: num(r.visitors) })),
       made: { catches: made[0], notes: made[1], posts: made[2], comments: made[3], trips: made[4] },
       recentCatches: recentCatches.map((c) => ({ species: c.species, sizeInches: c.sizeInches, river: c.river, caughtAt: c.caughtAt.toISOString() })),
       sessions: sessions.map((s) => ({
