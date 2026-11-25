@@ -52,12 +52,13 @@ export default async function appleRoutes(app) {
     if (!sub) return reply.code(400).send({ error: "no apple identity" });
     const appleId = "apple:" + sub;
     let user = await prisma.user.findFirst({ where: { OR: [{ googleId: appleId }, ...(email ? [{ email }] : [])] } });
+    const created = !user;
     if (!user) {
       user = await prisma.user.create({ data: { email: email || `${sub}@appleid.local`, googleId: appleId, emailVerified: true, displayName: await placeholderUsername(), usernameChosen: false, emailConsentAt: new Date() } });
       syncUser(user.id).catch(() => {});
     }
     const { token, expiresAt } = await createSession(user.id);
     setSessionCookie(reply, token, expiresAt);
-    return reply.redirect(config.frontendOrigin + "/?signedin=1");
+    return reply.redirect(config.frontendOrigin + "/?signedin=1" + (created ? "&joined=apple" : ""));
   });
 }

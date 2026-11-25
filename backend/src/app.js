@@ -9,6 +9,8 @@ import appleRoutes from "./routes/apple.js";
 import billingRoutes from "./routes/billing.js";
 import savedRoutes from "./routes/saved.js";
 import catchRoutes from "./routes/catches.js";
+import cspReportRoutes from "./routes/csp-report.js";
+import reachStatusRoutes from "./routes/reach-status.js";
 import eventRoutes from "./routes/events.js";
 import adminRoutes from "./routes/admin.js";
 import analyticsRoutes from "./routes/analytics.js";
@@ -53,6 +55,8 @@ export function buildApp(opts = {}) {
   app.register(giftRoutes);
   app.register(iceRoutes, { fetchImpl: opts.streamFetch, overpassFetch: opts.proxyFetch });
   app.register(eventRoutes);
+  app.register(cspReportRoutes);
+  app.register(reachStatusRoutes, { fetchWeather: opts.fetchWeather });
   app.register(adminRoutes);
   app.register(analyticsRoutes);
   app.register(adminReconcileRoutes);

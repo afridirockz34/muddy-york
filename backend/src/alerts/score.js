@@ -46,7 +46,9 @@ function freshnessFactor(days, mode) { if (mode !== "run") return 1; if (days <=
 function windFactor(w) { if (w == null) return 1; return w < 12 ? 1.0 : w < 25 ? 0.92 : w < 40 ? 0.70 : 0.45; }
 function pressureFactor(tr) { if (tr == null) return 1; const a = Math.abs(tr); if (a < 1.5) return 1.0; if (tr < 0) return tr > -4 ? 1.08 : 0.95; return tr < 4 ? 0.90 : 0.80; }
 function cloudFactor(c, flow) { if (c == null) return 1; if (c > 70) return 1.08; if (c < 30) return flow === "Low / clear" ? 0.85 : 0.95; return 1.0; }
-function feedingWindow(now) { const h = now.getHours(); if ((h>=5&&h<8)||(h>=19&&h<22)) return 1.10; if (h>=11&&h<16) return 0.85; return 0.95; }
+// Toronto time: the server's own clock may be UTC.
+const torontoHour = (d) => +new Date(d).toLocaleString("en-CA", { timeZone: "America/Toronto", hour: "numeric", hour12: false }) % 24;
+function feedingWindow(now) { const h = torontoHour(now); if ((h>=5&&h<8)||(h>=19&&h<22)) return 1.10; if (h>=11&&h<16) return 0.85; return 0.95; }
 
 export function scoreSpot({ habitat, species, history }, weather, now = new Date()) {
   const m = now.getMonth();

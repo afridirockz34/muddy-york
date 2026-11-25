@@ -123,11 +123,21 @@ describe("zone regulation pages", () => {
     expect(idx.body).toContain('href="/regulations/zone-16/"');
     const z = await app.inject({ method: "GET", url: "/regulations/zone-16/" });
     expect(z.statusCode).toBe(200);
-    expect(z.body).toMatch(/<title>Zone 16 Fishing Regulations \d{4} Ontario \(FMZ 16\)<\/title>/);
+    expect(z.body).toContain("<title>Zone 16 Fishing Regulations, Ontario (FMZ 16)");
+    // No year: the rules in force are stated by the date they last changed.
+    expect(z.body).toMatch(/They last changed on [A-Z][a-z]+ \d{1,2}, \d{4}/);
+    expect(z.body).toContain('"dateModified"');
     expect(z.body).toContain("Rainbow trout");
     expect(z.body).toContain("fourth Saturday in April to September 30");
     expect(z.body).toContain('href="/rivers/credit-river-lower-mouth-to-streetsville/"');
     expect((await app.inject({ method: "GET", url: "/regulations/zone-99/" })).statusCode).toBe(302);
+  });
+  it("lists every zone in its own sitemap, dated by when the official content changed", async () => {
+    await prisma.regsZone.update({ where: { zone: 16 }, data: { fetchedAt: new Date("2026-03-01T12:00:00Z"), checkedAt: new Date() } });
+    const r = await app.inject({ method: "GET", url: "/regs-sitemap.xml" });
+    expect(r.statusCode).toBe(200);
+    expect(r.body).toContain("<loc>https://muddyyorkfishing.ca/regulations/zone-16/</loc><lastmod>2026-03-01</lastmod>");
+    expect(r.body).toContain("<loc>https://muddyyorkfishing.ca/regulations/</loc><lastmod>");
   });
 });
 

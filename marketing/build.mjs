@@ -18,6 +18,7 @@ import { riverPage, riverHubPage, RIVER_HUBS, GAUGE_SCRIPT, flyFishingHub, flyAp
 import { PHOTOS, creditRows, riverPhoto } from "./photos.mjs";
 import { licencePage, freeFishingPage, sportsmenShowPage, winterFishingPage, giftsPage, giftThanksPage, iceHubPage, iceLakePage, GIFT_SCRIPT, FREEZE_SCRIPT } from "./seasonal-pages.mjs";
 import { ICE_LAKES } from "../lib/ice-lakes.js";
+import { lastmodFor, readStore } from "./lastmod.mjs";
 
 // ---- pull the RIVERS array out of the app source (plain data, safe to eval) ----
 const src = fs.readFileSync(path.join(ROOT, "source-app.jsx"), "utf8");
@@ -63,7 +64,10 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g
 // morning's official season status on three well-known rivers, live. The rest
 // stays quiet: real fish, real app screens, plain prices.
 const HOME_CSS = `<style>
-.mh{position:relative;color:#EFE9DB;background:var(--ink) url('${PHOTOS.elora.src}') center 55%/cover;}
+.mh{position:relative;color:#EFE9DB;background:var(--ink) url('${PHOTOS.elora.src}') center 55%/cover;
+  background-image:image-set(url('/img/site/elora-gorge-1600.avif') type('image/avif'),url('/img/site/elora-gorge-1600.webp') type('image/webp'),url('${PHOTOS.elora.src}') type('image/jpeg'));}
+@media(max-width:820px){.mh{background-image:url('/img/site/elora-gorge-sm.jpg');
+  background-image:image-set(url('/img/site/elora-gorge-720.avif') type('image/avif'),url('/img/site/elora-gorge-720.webp') type('image/webp'),url('/img/site/elora-gorge-sm.jpg') type('image/jpeg'));}}
 .mh::before{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(22,36,27,.92) 0%,rgba(22,36,27,.72) 48%,rgba(22,36,27,.25) 100%);}
 .mh .wrap{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center;padding-top:72px;padding-bottom:84px;}
 .mh h1{color:#fff;font-size:clamp(36px,5.2vw,58px);font-weight:800;line-height:1.05;letter-spacing:-.5px;max-width:13ch;}
@@ -109,7 +113,9 @@ const HOME_CSS = `<style>
 .ticks li::before{content:"";position:absolute;left:4px;top:18px;width:14px;height:8px;border-left:3px solid var(--pine);border-bottom:3px solid var(--pine);transform:rotate(-45deg);}
 .ticks b{color:var(--pine);}
 .ticks span{display:block;color:var(--dim);font-size:14.5px;margin-top:2px;}
-.run{position:relative;color:#EFE9DB;background:var(--ink) url('${PHOTOS.ganaraska.src}') center/cover;}
+.run{position:relative;color:#EFE9DB;background:var(--ink) center/cover;}
+.run.bg-on{background-image:url('${PHOTOS.ganaraska.src}');}
+@media(max-width:820px){.run.bg-on{background-image:url('/img/site/ganaraska-sm.jpg');}}
 .run::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,36,27,.9),rgba(22,36,27,.55));}
 .run .wrap{position:relative;padding-top:64px;padding-bottom:64px;}
 .run h2{color:#fff;font-size:34px;max-width:18ch;}
@@ -161,7 +167,7 @@ function homeBody() {
     <p class="fine">No charge for 7 days. Then $5.00 a month on the yearly plan. Cancel any time.</p>
   </div>
   <aside class="club" aria-label="This morning's season status">
-    <div class="club-head"><img src="/crest.png" alt=""/><div><b>This morning on the water</b><span>Official Ontario season status, checked twice a day</span></div></div>
+    <div class="club-head"><img src="/crest-96.png" width="40" height="40" alt=""/><div><b>This morning on the water</b><span>Official Ontario season status, checked twice a day</span></div></div>
     <ul>${club.map(clubRow).join("")}</ul>
     <div class="club-foot"><p>Members also see each river's score, water temperature, flow and today's fly.</p><a class="btn primary" href="${APP_URL}">See today's scores</a></div>
   </aside>
@@ -218,7 +224,7 @@ function homeBody() {
 }).catch(function(){}); })();
 </script>
 
-<section class="run"><div class="wrap">
+<section class="run" data-lazy-bg><div class="wrap">
   <h2>Salmon run season, late August to November</h2>
   <p>Chinook push up Lake Ontario rivers on every fall rain. Our guides show where to watch, when it peaks, and which stretches are open to fish.</p>
   <div class="spots">${SALMON_SPOTS.map((x) => `<a href="/salmon-run/${x.slug}/">${esc(x.place)}</a>`).join("")}<a href="/salmon-run/">All salmon run spots</a></div>
@@ -512,7 +518,11 @@ fs.copyFileSync(path.join(ROOT, "icons", "crest.png"), path.join(OUT, "crest.png
 fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   title: withBrand("Ontario Fishing App: River Conditions & Regulations"),
   description: "Daily river intelligence for Southern Ontario anglers: live conditions, opportunity scores, fly picks and access for 30+ trout & salmon rivers. Start free.",
-  canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: HOME_CSS, tail: LIVE_STATUS_SCRIPT + RETURNING_MEMBER_SCRIPT, stickyCta: "Start 7 free days",
+  // The hero photo is the page's largest paint: fetch it first, sized for the
+  // screen (it's a CSS background, which the browser would otherwise find late).
+  canonical: SITE_URL + "/fishing/", body: homeBody(), extraHead: `<link rel="preload" as="image" type="image/avif" href="/img/site/elora-gorge-720.avif" media="(max-width: 820px)" fetchpriority="high"/>
+<link rel="preload" as="image" type="image/avif" href="/img/site/elora-gorge-1600.avif" media="(min-width: 821px)" fetchpriority="high"/>
+` + HOME_CSS, tail: LIVE_STATUS_SCRIPT + RETURNING_MEMBER_SCRIPT, stickyCta: "Start 7 free days",
   ogImage: SITE_URL + PHOTOS.elora.src,
   schema: [
     { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND, applicationCategory: "LifestyleApplication",
@@ -522,7 +532,8 @@ fs.writeFileSync(path.join(OUT, "fishing", "index.html"), page({
   ],
 }));
 
-const urls = [SITE_URL + "/", SITE_URL + "/fishing/", SITE_URL + "/rivers/"];
+// "/" is left out: it canonicals to /fishing/ (the app shell lives at the root).
+const urls = [SITE_URL + "/fishing/", SITE_URL + "/rivers/"];
 for (const r of RIVERS) {
   const s = slug(r.river + " " + r.section);
   const dir = path.join(OUT, "rivers", s);
@@ -602,8 +613,8 @@ fs.writeFileSync(path.join(OUT, "fishing-spots", "index.html"), page({
 urls.push(`${SITE_URL}/fishing-spots/`);
 
 // zone regulation pages are rendered by the backend; list them for search engines
-urls.push(`${SITE_URL}/regulations/`);
-for (let z = 1; z <= 20; z++) urls.push(`${SITE_URL}/regulations/zone-${z}/`);
+// The regulations pages are listed in /regs-sitemap.xml by the backend, dated
+// from the official content itself.
 
 // rivers index (grouped by region)
 const byRegion = {};
@@ -676,7 +687,7 @@ fs.writeFileSync(path.join(OUT, "regions", "index.html"), page({
 urls.push(SITE_URL + "/regions/");
 
 // ---- trust pages: privacy, terms, contact ----
-const UPDATED = "November 10, 2026";
+const UPDATED = "November 25, 2026";
 const CONTACT = "info@muddyyorkfishing.ca";
 const LEGAL = [
   { slug: "privacy", title: "Privacy policy", desc: "How Muddy York Fishing collects, uses and protects your information, which services we rely on, and your privacy rights under PIPEDA.", body: `
@@ -689,7 +700,7 @@ const LEGAL = [
 <li><b>Location:</b> when you tap Scout or Use my location, your phone's location is used to find water near you. It is kept on your device and sent to our servers only to look up nearby rivers, parking and weather. If you drop a pin on a private note, that pin is saved with the note.</li>
 <li><b>Membership and payments:</b> Stripe processes all payments. We never see or store your card number; we keep your Stripe customer ID and subscription status.</li>
 <li><b>Notifications:</b> if you turn on push notifications, we store your device's push subscription so we can send alerts.</li>
-<li><b>Usage:</b> our own analytics on this website and in the app: the pages and screens you open, the links and buttons you tap, how far you scroll and how long you stay, your device type and browser, and how you found us (for example a search engine or a link). We use a random ID stored in your browser to connect one visit's pages together, and once you sign in, your earlier visits on that browser are linked to your account. We never record what you type into forms, and we don't store your IP address with this data. We use it to improve the site and the app. We also use Google Analytics, loaded through Google Tag Manager, to count visits and see which pages people use; Google receives your device and browser details, the pages you view and an approximate location from your IP address. We do not use advertising trackers and we do not sell your information.</li>
+<li><b>Usage:</b> our own analytics on this website and in the app: the pages and screens you open, the links and buttons you tap, how far you scroll and how long you stay, your device type and browser, and how you found us (for example a search engine or a link). We use a random ID stored in your browser to connect one visit's pages together, and once you sign in, your earlier visits on that browser are linked to your account. We never record what you type into forms, and we don't store your IP address with this data. We use it to improve the site and the app. We also use Google Analytics, loaded through Google Tag Manager, to count visits and see which pages people use; Google receives your device and browser details, the pages you view and an approximate location from your IP address. When you create an account, start a trial or pay for a membership, we also tell Google Analytics that it happened, with the amount and the page that first brought you to us, so we can see which pages are useful. We never send your name or email. We do not use advertising trackers and we do not sell your information.</li>
 </ul>
 <h2>How we use it</h2>
 <ul>
@@ -847,14 +858,19 @@ fs.writeFileSync(path.join(ROOT, "backend", "src", "data", "rivers.json"), JSON.
 })), null, 1));
 
 // sitemap + robots
+const LASTMOD_FILE = path.join(ROOT, "marketing", "seo-data", "lastmod.json");
+const lastmods = readStore(LASTMOD_FILE);
+const lastmodOf = (u) => { const f = path.join(OUT, new URL(u).pathname, "index.html");
+  return fs.existsSync(f) ? lastmodFor(lastmods, u, fs.readFileSync(f, "utf8")) : null; };
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-  urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") + `\n</urlset>\n`);
+  urls.map((u) => { const d = lastmodOf(u); return `  <url><loc>${u}</loc>${d ? `<lastmod>${d}</lastmod>` : ""}</url>`; }).join("\n") + `\n</urlset>\n`);
+fs.writeFileSync(LASTMOD_FILE, JSON.stringify(lastmods, null, 1) + "\n");
 // publish="." serves the whole repo, so keep crawlers out of source/dev paths.
 fs.writeFileSync(path.join(OUT, "robots.txt"),
   `User-agent: *\nAllow: /\n` +
   ["/marketing/", "/backend/", "/lib/", "/server/", "/docs/", "/.github/", "/source-app.jsx", "/build.mjs", "/package.json"]
     .map((p) => `Disallow: ${p}`).join("\n") +
-  `\nSitemap: ${SITE_URL}/sitemap.xml\nSitemap: ${SITE_URL}/blog-sitemap.xml\n`);
+  `\nSitemap: ${SITE_URL}/sitemap.xml\nSitemap: ${SITE_URL}/blog-sitemap.xml\nSitemap: ${SITE_URL}/regs-sitemap.xml\n`);
 
 console.log(`Built ${RIVERS.length} river pages + ${GUIDES.length} guides + ${REGIONS.length} region pages + /fishing landing + indexes + sitemap (${urls.length} URLs) into repo root.`);

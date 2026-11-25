@@ -48,6 +48,28 @@ const riverCard = (x, note) => `<a class="river-link" href="${riverHref(x)}"><b>
 // official sync, so the static page never shows a stale season.
 export const liveStatus = (r) => `<div class="live-status" data-reach="${esc(r.id)}" data-sp="${esc((r.species || []).join(","))}">
   <span class="st check">Checking today's season…</span> <span class="ls-note">Official Ontario regulations, checked twice a day</span></div>`;
+// "Right now" on a river or salmon-run page, under the H1: today's score for
+// this river (members see every river and spot in the app), the estimated
+// water and flow, and when it was worked out. Filled in the browser from
+// /api/reach-status, and the page's Article schema gets the same date as
+// dateModified. A closed stretch shows conditions without a score.
+export const nowBlock = (ids, find) => `<div class="now-block" data-now="${esc(ids.join(","))}" data-find="${esc(find)}"><p class="now-line">Checking today's conditions…</p></div>
+<script>(function(){var el=document.currentScript.previousElementSibling,ids=el.getAttribute("data-now"),find=el.getAttribute("data-find");
+var esc=function(x){return String(x).replace(/[<>&"]/g,function(c){return{"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c];});};
+var flowTxt={"Low / clear":"low and clear","Normal":"normal","High / stained":"high and stained","Blown out":"blown out"};
+var when=function(iso){var d=new Date(iso);return d.toLocaleDateString("en-CA",{month:"long",day:"numeric",timeZone:"America/Toronto"})+", "+d.toLocaleTimeString("en-CA",{hour:"numeric",minute:"2-digit",timeZone:"America/Toronto"});};
+fetch("/bk/api/reach-status?ids="+encodeURIComponent(ids)).then(function(r){return r.ok?r.json():null}).then(function(d){
+  if(!d||!d.reaches||!d.reaches.length)throw 0;var many=d.reaches.length>1,latest=d.reaches[0].updatedAt;
+  var lines=d.reaches.map(function(x){if(x.updatedAt>latest)latest=x.updatedAt;
+    var head=many?"<b>"+esc(x.section)+"</b>: ":"<b>Today:</b> ";
+    var cond="water about "+x.waterC+"°C, flow "+(flowTxt[x.flow]||esc(x.flow).toLowerCase())+(x.rain48mm!=null?", "+x.rain48mm+" mm of rain in 48 hours":"");
+    if(x.score==null)return '<p class="now-line">'+head+(x.season==="closed"?"closed to fishing today under the Ontario regulations. ":"")+cond.charAt(0).toUpperCase()+cond.slice(1)+".</p>";
+    return '<p class="now-line">'+head+'<span class="now-score">'+x.score+'/100</span>, '+esc(x.label.toLowerCase())+". "+cond.charAt(0).toUpperCase()+cond.slice(1)+".</p>";});
+  el.innerHTML=lines.join("")+'<p class="now-foot">Updated '+esc(when(latest)).replace(/\\.$/,"")+'. Water and flow are estimated from live weather. <a href="/?join&find='+encodeURIComponent(find)+'">Scores for every river near you in the app →</a></p>';
+  try{document.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){var j=JSON.parse(s.textContent),list=Array.isArray(j)?j:[j],hit=false;
+    list.forEach(function(o){if(o&&o["@type"]==="Article"){o.dateModified=latest;hit=true;}});if(hit)s.textContent=JSON.stringify(j);});}catch(e){}
+}).catch(function(){el.innerHTML='<p class="now-line">Today’s conditions aren’t available right now. <a href="/?join&find='+encodeURIComponent(find)+'">See them in the app →</a></p>';});})();</script>`;
+
 export const LIVE_STATUS_SCRIPT = `<script>
 (function(){document.querySelectorAll(".live-status").forEach(function(el){
   var u="/bk/api/regs/status?id="+encodeURIComponent(el.dataset.reach)+"&sp="+encodeURIComponent(el.dataset.sp||"");
@@ -126,6 +148,7 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
 <div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${hubFor(r) ? `<a href="${mainHref(r)}">${esc(r.river)}</a> › ${esc(r.section.split(":")[0])}` : esc(r.river)}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(r.river)} fishing${esc(where)}</h1>
+  ${nowBlock([r.id], r.river)}
   <div class="meta">${esc(r.section)} · ${esc(region)}${zone ? ` · <a href="/regulations/zone-${zone}/">FMZ ${zone}</a>` : ""}</div>
   ${liveStatus(r)}
   ${salmon ? `<p class="run-link">Coming for the salmon run? <a href="/salmon-run/${salmon.slug}/">${esc(salmon.title.replace("{Y}", seasonYear()))}</a>, with this week's run status.</p>` : ""}
@@ -191,7 +214,7 @@ ${st.entries.length ? `<p class="src">Official wording: ${st.entries.map((e) => 
 
   ${cta(`Fish the ${esc(r.river)} on the right day`, `Live conditions, the official season for your stretch and today's fly, for 30+ rivers and hundreds of spots Ontario-wide.`)}
 </article></div></section>`;
-  const desc = clampDesc(`${seo.hook} See today's conditions free for 7 days.`, `${seo.hook}`);
+  const desc = seo.desc || clampDesc(`${seo.hook} See today's conditions free for 7 days.`, `${seo.hook}`);
   return {
     title: seo.title, description: desc, body, stickyCta: "See today's conditions",
     schema: [
@@ -363,6 +386,7 @@ export function salmonSpotPage(s) {
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(s.h1)} ${Y}</h1>
   ${runStatus(s)}
+  ${r ? nowBlock([r.id], r.river) : ""}
   ${r ? liveStatus(r) : ""}
   <p><b>${esc(s.watch)}</b></p>
   <p>Chinook salmon start running in late August, peak through September and are mostly done by mid October. The day or two after a good rain is usually the best time to see fish moving.</p>
@@ -415,9 +439,10 @@ export function salmonSpotPage(s) {
   <p><a href="/salmon-run/">Ontario salmon run guide →</a>${town ? ` · <a href="/fishing-spots/${town.slug}/">Fishing spots in ${esc(town.name)} →</a>` : ""}${r ? ` · <a href="/regulations/zone-${REACH_REGS[r.id].zone}/">Zone ${REACH_REGS[r.id].zone} regulations →</a>` : ""}</p>
 </article></div></section>`;
   return {
-    title: s.title.replace("{Y}", Y),
-    description: clampDesc(`Is the ${s.place.split(",")[0]} salmon run on? This week's run status, when it peaks in ${Y}, where to watch and where it's legal to fish.`, `${s.place} salmon run ${Y}: this week's status, where to watch and where it's legal to fish.`),
-    body, stickyCta: "Check today's conditions", schema: [faqSchema(faqs)],
+    title: s.title.replace(" {Y}", "").replace("{Y}", ""),
+    description: s.desc || clampDesc(`Is the ${s.place.split(",")[0]} salmon run on? This week's run status, when it peaks in ${Y}, where to watch and where it's legal to fish.`, `${s.place} salmon run ${Y}: this week's status, where to watch and where it's legal to fish.`),
+    body, stickyCta: "Check today's conditions", schema: [faqSchema(faqs), { "@context": "https://schema.org", "@type": "Article", headline: `${s.h1} ${Y}`,
+      mainEntityOfPage: `${SITE_URL}/salmon-run/${s.slug}/`, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } }],
   };
 }
 
@@ -479,7 +504,7 @@ export function townPage(t) {
   <p style="margin-top:18px;"><a href="/rivers/">All river guides →</a> · <a href="/regulations/">Ontario fishing regulations by zone →</a> · <a href="/salmon-run/">Ontario salmon run →</a></p>
 </article></div></section>`;
   return {
-    title: t.title, description: clampDesc(`${t.local.split(". ")[0]}. River guides, official seasons and today's conditions near ${t.name}. Try it free.`, t.local.split(". ")[0] + "."),
+    title: t.title, description: t.desc || clampDesc(`${t.local.split(". ")[0]}. River guides, official seasons and today's conditions near ${t.name}. Try it free.`, t.local.split(". ")[0] + "."),
     body, stickyCta: "See today's best river", schema: [faqSchema(faqs)],
   };
 }
@@ -599,7 +624,7 @@ export function steelheadHub() {
   ${faqHtml(faqs)}
   <p style="margin-top:18px;"><a href="/guides/steelhead-fishing-ontario/">How to fish for steelhead in Ontario</a> · <a href="/guides/float-fishing-for-steelhead/">Float fishing for steelhead</a> · <a href="/regulations/">Fishing regulations by zone</a></p>
 </article></div></section>`;
-  return { title: `Ontario Steelhead Rivers ${Y}: Open in Winter & Spring`, description: `Ontario steelhead rivers with run timing and the official stretches open in fall, winter and spring, from the Credit and Humber to the Nottawasaga. Try it free.`, body, schema: [faqSchema(faqs)] };
+  return { title: "Best Steelhead Rivers in Ontario: Where to Fish Now", description: `${steelheadRivers().length} Ontario steelhead rivers, from the Credit and Humber to the Nottawasaga, with run timing and the official stretches open in fall, winter and spring.`, body, schema: [faqSchema(faqs)] };
 }
 
 // ── Buyer-intent pages (Oct 2026 research: marketing/seo-research-2026-10-intent.md) ──
@@ -674,6 +699,7 @@ export function riverHubPage(h) {
 <div class="wrap"><div class="crumbs"><a href="${HOME}">Home</a> › <a href="/rivers/">Rivers</a> › ${esc(h.name)}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
   <h1>${esc(h.name)} fishing: spots, water level and conditions</h1>
+  ${nowBlock(secs.map((x) => x.id), h.name)}
   <div class="meta">${esc(secs[0].region)} · ${secs.length} sections${zones.length ? ` · ${zones.map((z) => `<a href="/regulations/zone-${z}/">FMZ ${z}</a>`).join(", ")}` : ""}</div>
   <p><b>The ${esc(h.name)} holds ${esc(listJoin(spNames))}${towns.length ? ` from ${esc(listJoin(towns.slice(0, 4)))}` : ""}.</b> This page has today's water level and flow, the season on each section, where you can fish, and the flies that work.</p>
   ${secs.map((r) => liveStatus(r).replace('<span class="ls-note">', `<span class="ls-note"><b>${esc(r.section)}</b>: `)).join("\n")}
@@ -778,7 +804,7 @@ export function flyFishingHub() {
   <h2>Frequently asked</h2>
   ${faqHtml(faqs)}
 </article></div></section>`;
-  return { title: "Fly Fishing in Ontario: Best Rivers, Spots & Seasons",
+  return { title: "Fly Fishing in Ontario: Best Rivers, Seasons & Flies",
     description: "Where to fly fish in Southern Ontario: trout tailwaters, cold creeks and steelhead rivers, what's open today, the best months and the flies that work.",
     body, schema: [faqSchema(faqs)] };
 }
@@ -846,7 +872,7 @@ export function nearMePage() {
   <h2>Frequently asked</h2>
   ${faqHtml(faqs)}
 </article></div></section>`;
-  return { title: "Trout & Fly Fishing Spots Near Me: Southern Ontario",
+  return { title: "Fishing Spots Near Me: Trout & Salmon Rivers in Ontario",
     description: "The nearest trout, steelhead and salmon rivers to you in Southern Ontario, sorted by distance, with what they hold and whether they're open today.",
     body, stickyCta: "See today's conditions", schema: [faqSchema(faqs)] };
 }

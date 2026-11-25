@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import { getStripe } from "../billing/stripe.js";
 import { getCurrentUser } from "../auth/current-user.js";
 import { emailProblem } from "../../../lib/email-validate.js";
+import { clientIdFromCookie } from "../analytics/ga4.js";
 
 const TERMS_URL = "https://muddyyorkfishing.ca/terms/#refunds";
 
@@ -73,6 +74,10 @@ export default async function billingRoutes(app) {
     // instead of a failed checkout (affects accounts made before validation).
     if (emailProblem(user.email))
       return reply.code(400).send({ error: "invalid email", message: "Your account email looks invalid. Contact info@muddyyorkfishing.ca and we'll fix it." });
+    // The visitor's Google Analytics id, so the trial and later payments can be
+    // joined to the visit that brought them (src/analytics/ga4.js).
+    const gaClientId = clientIdFromCookie(req.body?.gaCookie);
+    if (gaClientId && gaClientId !== user.gaClientId) await prisma.user.update({ where: { id: user.id }, data: { gaClientId } }).catch(() => {});
     try {
       const customerId = await ensureCustomer(user);
       const params = {

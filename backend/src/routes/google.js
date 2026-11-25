@@ -37,6 +37,7 @@ export default async function googleRoutes(app) {
     const claims = decodeIdToken(tokens.idToken());
     const googleId = claims.sub, email = claims.email;
     let user = await prisma.user.findFirst({ where: { OR: [{ googleId }, { email }] } });
+    const created = !user;
     if (!user) {
       user = await prisma.user.create({ data: { email, googleId, emailVerified: true, displayName: await placeholderUsername(), usernameChosen: false, emailConsentAt: new Date() } });
       syncUser(user.id).catch(() => {});
@@ -46,6 +47,7 @@ export default async function googleRoutes(app) {
     reply.setCookie(config.cookieName, token, { httpOnly: true, sameSite: config.isProd ? "none" : "lax", secure: config.isProd, path: "/", expires: expiresAt });
     // Flag the return so the app offers the subscription/trial once, same as an
     // email sign-in — sessionStorage doesn't reliably survive the OAuth round-trip.
-    return reply.redirect(`${config.frontendOrigin}/?signedin=1`);
+    // "joined" tells the app a new account was made, for the sign_up event.
+    return reply.redirect(`${config.frontendOrigin}/?signedin=1${created ? "&joined=google" : ""}`);
   });
 }

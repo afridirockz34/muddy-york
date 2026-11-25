@@ -97,6 +97,16 @@ function errorLabel(ref,m){ m=m||{};
   if(!m.src) return `${ref||"Error"} (outside the app's code: a browser add-on or in-app browser, no details given)`;
   return `${ref} (${m.src}${m.line?`:${m.line}`:""})`; }
 
+/* ---- Google Analytics (through Google Tag Manager): conversions go on the
+   dataLayer with the page that first brought the visitor in, so GA4 can say
+   which pages earn sign-ups. Trials and payments are sent by the server. ---- */
+function gaEvent(name,params){ try{
+  let a=null; try{ a=JSON.parse(localStorage.getItem("mkAttr")||"null"); }catch{}
+  window.dataLayer=window.dataLayer||[];
+  window.dataLayer.push({event:name,landing_page:a&&a.landing?String(a.landing).slice(0,100):undefined,referrer_source:a&&a.source?String(a.source).slice(0,60):undefined,...params});
+}catch{} }
+const gaCookie=()=>{ try{ const m=document.cookie.match(/(?:^|;\s*)_ga=([^;]+)/); return m?decodeURIComponent(m[1]):undefined; }catch{ return undefined; } };
+
 /* ---- Acquisition: record where a visitor came from and the first page they hit,
    once per session (a matching beacon on the marketing pages shares this flag, so
    whichever page is the true entry point is the one recorded). ---- */
@@ -1779,6 +1789,7 @@ export default function App(){
     try{ if(sessionStorage.getItem("mkGate")==="1"){ armed=true; sessionStorage.removeItem("mkGate"); } }catch{}
     // OAuth returns with ?signedin=1 (sessionStorage doesn't survive the round-trip).
     try{ const sp=new URLSearchParams(window.location.search);
+      if(sp.get("joined")){ gaEvent("sign_up",{method:sp.get("joined")==="apple"?"apple":"google"}); sp.delete("joined"); }
       if(sp.get("signedin")==="1"){ armed=true; sp.delete("signedin"); const q=sp.toString();
         window.history.replaceState({},"",window.location.pathname+(q?"?"+q:"")); } }catch{}
     gateArmedRef.current=false;
@@ -2691,6 +2702,12 @@ function IceView({userLoc,radiusM,premium,onUpgrade,distOf}){
     <div style={{fontSize:11.5,color:C.textFaint,lineHeight:1.5,margin:"6px 2px 16px"}}>Species and depth from Ontario's lake records. Seasons from the Ontario Fishing Regulations Summary. Freezing degree-days add up how far below 0°C each day's average temperature was this winter. The outlook rates the fishing weather and what's open, never the ice.</div>
   </div>);
 }
+function CspAdmin(){
+  const [d,setD]=useState(null);
+  useEffect(()=>{ proxyJSON("/api/admin/csp").then(setD).catch(()=>setD({total:0,top:[]})); },[]);
+  if(!d) return <div style={{fontSize:12,color:C.textFaint}}>Loading…</div>;
+  return (<div style={adminCard}><div style={{fontSize:12,color:C.textDim,marginBottom:7}}>{d.total} reports</div><AdminBars rows={d.top} empty="No reports yet."/></div>);
+}
 function SeasonAdmin(){
   const [ice,setIce]=useState(null);
   useEffect(()=>{ proxyJSON("/api/season").then(d=>setIce(!!d.ice)).catch(()=>setIce(false)); },[]);
@@ -2943,6 +2960,7 @@ function AdminSheet({onClose}){
         {adminHead("Run tracker notes")}<RunNotesAdmin/>
         {adminHead("Ontario regulations sync")}<RegsAdmin/>
         {adminHead("Billing tools (Stripe)")}<BillingToolsAdmin/>
+        {adminHead("Security policy reports","Report-only: nothing is blocked. This is what an enforced policy would have blocked in the last 7 days. Enforce it once this list is only noise.")}<CspAdmin/>
       </div>}
 
       {tab==="blog" && <div>{adminHead("Blog")}<BlogAdmin/></div>}
@@ -3634,6 +3652,7 @@ function SignInGate({onAuth,providers={}}){
     setBusy(true);
     try{ await proxyJSON(mode==="signup"?"/auth/signup":"/auth/login",
         {method:"POST",body:mode==="signup"?{email:email.trim(),password:pw,displayName:username.trim()}:{email:email.trim(),password:pw}});
+      if(mode==="signup") gaEvent("sign_up",{method:"email"});
       await onAuth(); }
     catch(e){ const m=e&&e.info&&e.info.error;
       if(mode==="signup"){
@@ -3757,7 +3776,7 @@ function CheckoutModal({plan:initialPlan,onClose}){
       if(!publishableKey) throw new Error("no key");
       const stripe=Stripe(publishableKey);
       const ec=await stripe.initEmbeddedCheckout({ fetchClientSecret: async()=>{
-        const {clientSecret}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan:planRef.current,termsVersion:TERMS_VERSION}});
+        const {clientSecret}=await proxyJSON("/billing/checkout",{method:"POST",body:{plan:planRef.current,termsVersion:TERMS_VERSION,gaCookie:gaCookie()}});
         return clientSecret;
       }});
       ecRef.current=ec;

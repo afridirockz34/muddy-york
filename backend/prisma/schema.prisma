@@ -29,6 +29,7 @@ model User {
   welcomeStage     Int           @default(0)      // free welcome emails sent: 0, 1 (day 1) or 2 (day 4)
   welcomeEmailAt   DateTime?                      // when the last welcome email went out
   emailConsentAt   DateTime?                      // signed up under terms that include our emails and newsletter
+  gaClientId       String?                        // Google Analytics browser id, from checkout, to join server-side conversions to the visit
   appLinkSentAt    DateTime?
   giftUntil        DateTime?                      // membership from a redeemed gift
   createdAt        DateTime      @default(now())

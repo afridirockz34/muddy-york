@@ -43,6 +43,12 @@
   force = true
 
 [[redirects]]
+  from = "/regs-sitemap.xml"
+  to = "https://muddy-york.onrender.com/regs-sitemap.xml"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/blog-sitemap.xml"
   to = "https://muddy-york.onrender.com/blog-sitemap.xml"
   status = 200
@@ -110,3 +116,14 @@
   to = "/404"
   status = 404
   force = true
+
+# Security headers for every page. The Content Security Policy is report-only
+# for now: it blocks nothing, and browsers report what it would have blocked to
+# /bk/api/csp-report (Admin › Integrations). Enforce it once the reports are clean.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://js.stripe.com https://accounts.google.com https://appleid.cdn-apple.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://api.open-meteo.com https://overpass-api.de https://overpass.kumi.systems https://router.project-osrm.org https://api.stripe.com https://api.cloudinary.com https://res.cloudinary.com https://server.arcgisonline.com https://muddy-york.onrender.com; frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://www.googletagmanager.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'self'; form-action 'self' https://accounts.google.com https://appleid.apple.com; frame-ancestors 'self'; report-uri /bk/api/csp-report"

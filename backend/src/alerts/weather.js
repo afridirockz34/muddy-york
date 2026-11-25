@@ -14,5 +14,5 @@ export async function fetchWeather(lat, lon) {
   if (days == null) days = n + 1;
   const p48 = (dm.precipitation_sum[n - 1] || 0) + (dm.precipitation_sum[n - 2] || 0);
   const flow = p48 >= 35 ? "Blown out" : p48 >= 12 ? "High / stained" : days >= 6 ? "Low / clear" : "Normal";
-  return { airMean, days, flow, wind: d.current?.wind_speed_10m, cloud: d.current?.cloud_cover, pressureTrend: null };
+  return { airMean, days, flow, p48, wind: d.current?.wind_speed_10m, cloud: d.current?.cloud_cover, pressureTrend: null };
 }

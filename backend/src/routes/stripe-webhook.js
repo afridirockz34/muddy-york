@@ -4,6 +4,7 @@ import { getStripe } from "../billing/stripe.js";
 import { sendMail } from "../alerts/mailer.js";
 import { welcomeEmail, receiptEmail, trialEndingEmail, renewalReminderEmail } from "../billing/customer-email.js";
 import { fulfillGift, cancelGiftForPayment } from "./gifts.js";
+import { sendGa4, planOfPrice } from "../analytics/ga4.js";
 
 // Notify the business owner about membership lifecycle events.
 function notifyBilling(subject, text) {
@@ -107,12 +108,23 @@ export default async function stripeWebhookRoutes(app) {
         const u = await prisma.user.findUnique({ where: { id: userId } });
         notifyBilling("New free trial started", `${u?.email || userId} started a 7-day free trial (card on file).`);
         if (u) welcomeEmail(u).catch(() => {});
+        if (u) sendGa4(u, "start_trial", { value: 0, currency: String(obj.currency || "cad").toUpperCase() }).catch(() => {});
       }
     } else if (event.type === "invoice.payment_succeeded") {
       // A paid invoice = send the customer a receipt. Skip $0 trial invoices.
       if (obj.amount_paid > 0 && obj.customer) {
         const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });
         if (user) receiptEmail(user, obj).catch(() => {});
+        // The paid conversion: "subscribe" for a member's first real charge
+        // (usually when the trial ends), "renewal" after that. Stripe labels
+        // both "subscription_cycle", so our own record tells them apart.
+        const line = obj.lines?.data?.[0];
+        const paidBefore = user ? await prisma.event.findFirst({ where: { userId: user.id, type: "paid_charge" } }).catch(() => null) : null;
+        if (user) await prisma.event.create({ data: { userId: user.id, type: "paid_charge", ref: obj.id || null, meta: { cents: obj.amount_paid } } }).catch(() => {});
+        if (user) sendGa4(user, paidBefore ? "renewal" : "subscribe", {
+          value: obj.amount_paid / 100, currency: String(obj.currency || "cad").toUpperCase(),
+          plan: planOfPrice(line?.price?.id || line?.pricing?.price_details?.price) || "unknown", transaction_id: obj.id,
+        }).catch(() => {});
       }
     } else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const user = await prisma.user.findFirst({ where: { stripeCustomerId: obj.customer } });

@@ -11,3 +11,4 @@ Disallow: /build.mjs
 Disallow: /package.json
 Sitemap: https://muddyyorkfishing.ca/sitemap.xml
 Sitemap: https://muddyyorkfishing.ca/blog-sitemap.xml
+Sitemap: https://muddyyorkfishing.ca/regs-sitemap.xml

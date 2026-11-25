@@ -25,7 +25,10 @@ const RIVERS = (() => {
 })();
 const riversInZone = (z) => RIVERS.filter((r) => REACH_REGS[r.id] && REACH_REGS[r.id].zone === z);
 const riverHref = (r) => `/rivers/${slug(r.river + " " + r.section)}/`;
-const YEAR = () => new Date().getFullYear();
+// Which rules are in force, stated by date rather than by year: the sync
+// can't read which year's summary ontario.ca is showing, and a calendar year
+// would say "2027" on January 1 before the 2027 summary exists.
+const inForce = (changedAt, checkedAt) => `These are the rules ontario.ca shows today. They last changed on ${esc(fmtDate(changedAt))} and were last checked on ${esc(fmtDate(checkedAt))}. When a new year's summary is published, this page updates within about 12 hours.`;
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric", timeZone: "America/Toronto" });
 
 const CSS = `<style>
@@ -54,7 +57,7 @@ function stateOf(season, now) {
   return inWindows(now, w) ? { cls: "open", label: "Open today" } : { cls: "closed", label: "Closed today" };
 }
 
-function zonePage(z, p, checkedAt, now) {
+function zonePage(z, p, checkedAt, now, changedAt = checkedAt) {
   const corpus = zoneCorpus(p);
   const species = p.zoneWide.filter((x) => x.season || x.limits);
   const rows = species.map((x) => {
@@ -91,7 +94,7 @@ ${p.sanctuaries.map((s) => `<details><summary>${esc(s.period)} (${s.waters.lengt
 <div class="wrap"><div class="crumbs"><a href="/fishing/">Home</a> › <a href="/regulations/">Regulations</a> › Zone ${z}</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
 <h1>Zone ${z} fishing regulations (FMZ ${z})</h1>
-<p class="meta">Seasons, limits, exceptions and sanctuaries for Ontario Fisheries Management Zone ${z}, from the official Ontario Fishing Regulations Summary. Last checked ${esc(fmtDate(checkedAt))}.</p>
+<p class="meta">Seasons, limits, exceptions and sanctuaries for Ontario Fisheries Management Zone ${z}, from the official Ontario Fishing Regulations Summary on ontario.ca. ${inForce(changedAt, checkedAt)}</p>
 ${p.general.filter((g) => !/^refer to\b/i.test(g) && g.length > 40).slice(0, 3).map((g) => `<p>${esc(g)}</p>`).join("")}
 <h2>Zone-wide seasons and limits in FMZ ${z}</h2>
 <p>These apply to every water in the zone unless a species exception, waterbody exception or sanctuary below says otherwise. "S" is the sport fishing licence limit and "C" the conservation licence limit.</p>
@@ -106,22 +109,22 @@ ${faqs.map((f) => `<details><summary>${esc(f.q)}</summary><p>${esc(f.a)}</p></de
 <p style="margin-top:18px;"><a href="/regulations/">All Ontario fishing zones →</a> · <a href="/rivers/">Southern Ontario river guides →</a> · <a href="/salmon-run/">Ontario salmon run →</a></p>
 </article></div></section>`;
   return page({
-    title: `Zone ${z} Fishing Regulations ${YEAR()} Ontario (FMZ ${z})`,
-    description: `Official FMZ ${z} fishing seasons, limits, exceptions and sanctuaries for ${YEAR()}, with which species are open today. Checked against ontario.ca daily.`,
+    title: `Zone ${z} Fishing Regulations, Ontario (FMZ ${z})`,
+    description: `Official FMZ ${z} fishing seasons, limits, exceptions and sanctuaries, with which species are open today. Checked against ontario.ca twice a day.`,
     canonical: `${SITE_URL}/regulations/zone-${z}/`, body, extraHead: CSS,
-    schema: { "@context": "https://schema.org", "@type": "Article", headline: `Zone ${z} fishing regulations (FMZ ${z})`, dateModified: new Date(checkedAt).toISOString(),
+    schema: { "@context": "https://schema.org", "@type": "Article", headline: `Zone ${z} fishing regulations (FMZ ${z})`, dateModified: new Date(changedAt).toISOString(),
       mainEntityOfPage: `${SITE_URL}/regulations/zone-${z}/`, publisher: { "@type": "Organization", name: BRAND, url: SITE_URL } },
   });
 }
 
-function indexPage(zones, checkedAt) {
+function indexPage(zones, checkedAt, changedAt = checkedAt) {
   const featured = [16, 17, 20, 13, 14, 19, 15];
   const card = (z) => { const n = riversInZone(z).length; return `<a href="/regulations/zone-${z}/">Zone ${z}<span>${n ? `${n} river guide${n > 1 ? "s" : ""}` : "Seasons and limits"}</span></a>`; };
   const body = `
 <div class="wrap"><div class="crumbs"><a href="/fishing/">Home</a> › Regulations</div></div>
 <section class="section" style="padding-top:14px;"><div class="wrap"><article class="prose">
-<h1>Ontario fishing regulations ${YEAR()} by zone</h1>
-<p class="meta">Every Fisheries Management Zone, from the official Ontario Fishing Regulations Summary. Last checked ${esc(fmtDate(checkedAt))}.</p>
+<h1>Ontario fishing regulations by zone</h1>
+<p class="meta">Every Fisheries Management Zone, from the official Ontario Fishing Regulations Summary on ontario.ca. ${inForce(changedAt, checkedAt)}</p>
 <p>Ontario sets fishing seasons and limits by Fisheries Management Zone (FMZ). Each zone has zone-wide rules, then exceptions for particular species and waters, and fish sanctuaries where no fishing is allowed at certain times. Pick your zone to see what's open today.</p>
 <h2>Southern Ontario zones</h2>
 <p>Most Southern Ontario river fishing is in Zone 16 (inland waters from Lake Huron and Georgian Bay to Lake Erie and the western GTA) and Zone 17 (east of Toronto, including Durham Region and Port Hope). Lake Ontario and the Niagara River below the falls are in Zone 20; Lake Huron is Zone 13 and Georgian Bay is Zone 14.</p>
@@ -136,8 +139,8 @@ ${cta("Season status for every stretch", `${BRAND} checks the official summary t
 <p style="margin-top:18px;"><a href="/rivers/">River guides →</a> · <a href="/salmon-run/">Salmon run guide →</a> · <a href="${REGS_BASE}" rel="nofollow">Official summary on ontario.ca →</a></p>
 </article></div></section>`;
   return page({
-    title: `Ontario Fishing Regulations ${YEAR()} by Zone (FMZ 1 to 20)`,
-    description: `Ontario fishing seasons and limits for every zone, with what's open today. From the official regulations summary, checked twice a day. Start free.`,
+    title: "Ontario Fishing Regulations by Zone (FMZ 1-20)",
+    description: "Season dates, limits and sanctuaries for every Ontario fishing zone, FMZ 1 to 20, from the official regulations summary, checked twice a day for changes.",
     canonical: `${SITE_URL}/regulations/`, body, extraHead: CSS,
   });
 }
@@ -150,7 +153,9 @@ export default async function regsPagesRoutes(app) {
     const checked = rows.length ? new Date(Math.min(...rows.map((r) => +new Date(r.checkedAt)))) : new Date();
     return { zones, rows, checked };
   };
-  const index = async (req, reply) => { const { zones, checked } = await load(); return send(reply, indexPage(zones, checked)); };
+  const index = async (req, reply) => { const { zones, rows, checked } = await load();
+    const changed = rows.length ? new Date(Math.max(...rows.map((r) => +new Date(r.fetchedAt)))) : checked;
+    return send(reply, indexPage(zones, checked, changed)); };
   app.get("/regulations", noLimit, index);
   app.get("/regulations/", noLimit, index);
   const zone = async (req, reply) => {
@@ -158,8 +163,21 @@ export default async function regsPagesRoutes(app) {
     const { zones, rows } = await load();
     if (!zones[z]) return reply.redirect("/regulations/", 302);
     const row = rows.find((r) => r.zone === z);
-    return send(reply, zonePage(z, zones[z], row ? row.checkedAt : new Date(), new Date()));
+    return send(reply, zonePage(z, zones[z], row ? row.checkedAt : new Date(), new Date(), row ? row.fetchedAt : new Date()));
   };
   app.get("/regulations/:z", noLimit, zone);
   app.get("/regulations/:z/", noLimit, zone);
+
+  // Their own sitemap: each zone page is dated by when its official content
+  // last changed (fetchedAt), not by the twice-daily check.
+  app.get("/regs-sitemap.xml", noLimit, async (req, reply) => {
+    const { zones, rows } = await load();
+    const day = (d) => new Date(d).toISOString().slice(0, 10);
+    const zoneRows = rows.filter((r) => zones[r.zone]);
+    const latest = zoneRows.length ? day(Math.max(...zoneRows.map((r) => +new Date(r.fetchedAt)))) : null;
+    const urls = [`<url><loc>${SITE_URL}/regulations/</loc>${latest ? `<lastmod>${latest}</lastmod>` : ""}</url>`,
+      ...zoneRows.sort((a, b) => a.zone - b.zone).map((r) => `<url><loc>${SITE_URL}/regulations/zone-${r.zone}/</loc><lastmod>${day(r.fetchedAt)}</lastmod></url>`)];
+    return reply.header("Content-Type", "application/xml; charset=utf-8").header("Cache-Control", "public, max-age=1800")
+      .send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`);
+  });
 }
