@@ -57,3 +57,9 @@ Status of every change: committed in `e926a8c`, **not deployed yet**. The JSON s
 4. **Bowmanville:** `/fishing-spots/bowmanville/` now exists. The old shared page was refocused on Oshawa so the two don't compete.
 
 The JSON has 5 more records for this round (44 in all).
+
+## Fix (27 Nov): sign_up wasn't reaching GA4
+
+Two Tag Manager containers (GTM-WTM4V65P and GTM-NMKQRJDM) both set up the Google tag for G-RK5LKDTG6X. With both loaded, the `sign_up` tag in GTM-NMKQRJDM never sent its event once the page had loaded, which is when real sign-ups happen. With only GTM-NMKQRJDM loaded it sends correctly.
+
+GTM-WTM4V65P contained nothing but that same Google tag, so it was removed from the site. GTM-NMKQRJDM now handles page views and `sign_up`.
