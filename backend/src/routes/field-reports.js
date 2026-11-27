@@ -184,7 +184,8 @@ export default async function fieldReportRoutes(app, opts = {}) {
       prisma.runNote.findUnique({ where: { spot } }),
       prisma.runCheckin.findMany({ where: { spot, createdAt: { gte: new Date(now - 7 * DAY) } }, select: { status: true, createdAt: true } }),
     ]);
-    return { spot, note: note?.note || null, noteUpdatedAt: note?.updatedAt || null, ...runSummary(rows, now) };
+    // checkedAt: when this answer was worked out, so a page can date it.
+    return { spot, note: note?.note || null, noteUpdatedAt: note?.updatedAt || null, ...runSummary(rows, now), checkedAt: new Date(now).toISOString() };
   };
   app.get("/api/run-status", async (req, reply) => {
     const spot = str(req.query?.spot, 80);

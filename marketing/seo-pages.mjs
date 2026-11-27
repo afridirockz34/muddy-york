@@ -86,18 +86,24 @@ export const LIVE_STATUS_SCRIPT = `<script>
 // tracker (an admin note plus members' sightings). The static text is what
 // shows if the tracker can't be reached.
 export const runStatus = (s) => `<div class="run-status" data-spot="${esc(s.slug)}">
-  <b>Run status this week</b> <span class="rs-text">Updated weekly from August to November by ${BRAND} and member sightings.</span>
+  <b>Run status</b> <span class="rs-text">Checking the latest sightings…</span>
   <a class="rs-cta" href="${APP_URL}">Members see daily sightings</a></div>`;
+// Every status line carries a real date: the note's or the last sighting's,
+// else when the server checked. No "this week" without sightings behind it.
 export const RUN_STATUS_SCRIPT = `<script>
 (function(){var L={none:"No fish seen",staging:"Fish staging at the mouth",moving:"Fish moving upstream",stacked:"Fish stacked below barriers",spawning:"Fish spawning",spent:"Run winding down"};
+var day=function(x){return new Date(x).toLocaleDateString("en-CA",{month:"long",day:"numeric",year:"numeric",timeZone:"America/Toronto"});};
 document.querySelectorAll(".run-status").forEach(function(el){
-  fetch("/bk/api/run-status?spot="+encodeURIComponent(el.dataset.spot)).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) return;
-    var t=el.querySelector(".rs-text"), bits=[];
-    if(d.note) bits.push(d.note);
-    if(d.state) bits.push(L[d.state]+(d.reports7?" ("+d.reports7+" member sighting"+(d.reports7>1?"s":"")+" this week)":""));
-    var when=d.noteUpdatedAt||d.lastReportAt; if(when) bits.push("Updated "+new Date(when).toLocaleDateString("en-CA",{month:"short",day:"numeric"}));
-    if(bits.length) t.textContent=bits.join(". ")+".";
-  }).catch(function(){});
+  var t=el.querySelector(".rs-text");
+  fetch("/bk/api/run-status?spot="+encodeURIComponent(el.dataset.spot)).then(function(r){return r.ok?r.json():null}).then(function(d){ if(!d) throw 0;
+    var bits=[];
+    if(d.note) bits.push(d.note+" (updated "+day(d.noteUpdatedAt)+")");
+    if(d.state&&d.reports7) bits.push(L[d.state]+": "+d.reports7+" member sighting"+(d.reports7>1?"s":"")+" in the last 7 days, the latest on "+day(d.lastReportAt));
+    if(!bits.length){ var m=new Date().getMonth();
+      bits.push("No sightings reported in the 7 days to "+day(d.checkedAt||Date.now()));
+      if(m<7||m>9) bits.push("The run usually starts in late August and is mostly over by mid October"); }
+    t.textContent=bits.join(". ")+".";
+  }).catch(function(){ t.textContent="Sightings aren’t available right now."; });
 });})();
 </script>`;
 

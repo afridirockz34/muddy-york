@@ -860,8 +860,16 @@ fs.writeFileSync(path.join(ROOT, "backend", "src", "data", "rivers.json"), JSON.
 // sitemap + robots
 const LASTMOD_FILE = path.join(ROOT, "marketing", "seo-data", "lastmod.json");
 const lastmods = readStore(LASTMOD_FILE);
+// The same date goes into the page's Article schema as dateModified, in the
+// HTML itself (the river and salmon pages update it again in the browser
+// once today's data loads). Scripts aren't part of a page's content key, so
+// writing it doesn't change the date.
 const lastmodOf = (u) => { const f = path.join(OUT, new URL(u).pathname, "index.html");
-  return fs.existsSync(f) ? lastmodFor(lastmods, u, fs.readFileSync(f, "utf8")) : null; };
+  if (!fs.existsSync(f)) return null;
+  const html = fs.readFileSync(f, "utf8"), d = lastmodFor(lastmods, u, html);
+  if (html.includes('"@type":"Article"') && !html.includes('"dateModified"'))
+    fs.writeFileSync(f, html.replace('"@type":"Article",', `"@type":"Article","dateModified":"${d}",`));
+  return d; };
 fs.writeFileSync(path.join(OUT, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map((u) => { const d = lastmodOf(u); return `  <url><loc>${u}</loc>${d ? `<lastmod>${d}</lastmod>` : ""}</url>`; }).join("\n") + `\n</urlset>\n`);

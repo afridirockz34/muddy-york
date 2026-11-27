@@ -45,3 +45,15 @@ Status of every change: committed in `e926a8c`, **not deployed yet**. The JSON s
 5. **Re-submit sitemaps in Search Console:** `sitemap.xml` and the new `regs-sitemap.xml`.
 6. **Run PageSpeed Insights on `/fishing/`** and record the new mobile LCP.
 7. **Check the security reports after a week** (Admin › Integrations) before enforcing the policy.
+
+## Round 2 (27 Nov), after the strategy review
+
+1. **LCP.** On the live page I measured 1.3 to 1.7 s with throttled Chrome (3 runs) and 1.8 to 2.8 s with Lighthouse 12 mobile (4 runs). Before the first fix the same throttled test gave 6.6 to 6.8 s. I couldn't reproduce 5.8 s.
+   - **Where 5.8 s may come from:** if it's from PageSpeed's "Discover what your real users are experiencing" section, that's a 28-day average that mostly predates the 25 Nov fix. A screenshot of the lab section would settle it.
+   - **The LCP element** is still the hero (`SECTION.mh`, now `elora-gorge-720.avif`, 47 KB).
+   - **Total blocking time was a fair catch.** It rose when a second Tag Manager container was added. Both containers now start after the page has loaded.
+2. **Run status:** each status line now carries a real date from the data. Without sightings it says "No sightings reported in the 7 days to <date>", never "this week".
+3. **`dateModified`:** it's now in the HTML as served, on every page with an Article schema, and set to the page's own last content change. The browser then updates it to the live data time.
+4. **Bowmanville:** `/fishing-spots/bowmanville/` now exists. The old shared page was refocused on Oshawa so the two don't compete.
+
+The JSON has 5 more records for this round (44 in all).
